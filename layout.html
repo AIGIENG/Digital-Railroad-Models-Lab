@@ -1,0 +1,390 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Railway Layout Editor v0.50</title>
+    <style>
+        body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
+        #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
+        #canvas-container { flex-grow: 1; overflow: auto; background: #444; position: relative; }
+        canvas { background: white; display: block; cursor: crosshair; }
+        
+        /* パーツリストのデザイン */
+        .maker-title { background: #444; padding: 10px; margin-top: 15px; font-weight: bold; border-left: 4px solid #007bff; cursor: pointer; }
+        .cat-title { background: #333; padding: 8px 15px; font-size: 0.9em; color: #ccc; cursor: pointer; border-bottom: 1px solid #444; }
+        .part-item { padding: 8px 20px; font-size: 0.85em; cursor: grab; border-bottom: 1px solid #333; transition: 0.2s; }
+        .part-item:hover { background: #333; color: #fff; }
+        .part-item:active { cursor: grabbing; }
+        .hidden { display: none; }
+
+        /* ガイド表示 */
+        #drop-guide {
+            position: fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.7);
+            padding: 10px 20px; border-radius: 5px; font-size: 0.8em; pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h3 style="margin:5px;">Parts List</h3>
+    <p style="font-size:0.7em; color: #888;">ドラッグしてキャンバスへ配置</p>
+    <div id="parts-tree"></div>
+</div>
+
+<div id="canvas-container">
+    <canvas id="mainCanvas"></canvas>
+</div>
+
+<div id="drop-guide">
+    ドラッグ：配置 / 右クリック：回転 / 左右ドラッグ：移動
+</div>
+
+<script src="rails.js"></script>
+<script>
+const canvas = document.getElementById('mainCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = 2400; 
+canvas.height = 2400;
+
+let layers = { rail: [] };
+let selectedPart = null;
+let isDragging = false;
+let dragOffset = { x: 0, y: 0 };
+let draggedTemplate = null; // 現在ドラッグ中のテンプレート
+
+// 1. サイドバーの構築 (Drag startイベントを追加)
+function initSidebar() {
+    const tree = document.getElementById('parts-tree');
+    tree.innerHTML = ""; 
+
+    for (const maker in railData) {
+        const mDiv = document.createElement('div');
+        mDiv.className = 'maker-title';
+        mDiv.textContent = "[+] " + maker;
+        tree.appendChild(mDiv);
+
+        const mCont = document.createElement('div');
+        mCont.className = 'hidden';
+        tree.appendChild(mCont);
+
+        mDiv.onclick = () => {
+            mCont.classList.toggle('hidden');
+            mDiv.textContent = (mCont.classList.contains('hidden') ? "[+] " : "[-] ") + maker;
+        };
+
+        for (const cat in railData[maker]) {
+            const cDiv = document.createElement('div');
+            cDiv.className = 'cat-title';
+            cDiv.textContent = "> " + cat;
+            mCont.appendChild(cDiv);
+
+            const cCont = document.createElement('div');
+            cCont.className = 'hidden';
+            mCont.appendChild(cCont);
+
+            cDiv.onclick = (e) => {
+                e.stopPropagation();
+                cCont.classList.toggle('hidden');
+            };
+
+            railData[maker][cat].forEach(part => {
+                const pDiv = document.createElement('div');
+                pDiv.className = 'part-item';
+                pDiv.draggable = true; // ドラッグ可能にする
+                pDiv.textContent = part.name + (part.desc ? ` (${part.desc})` : "");
+
+                // ドラッグ開始時にデータを保持
+                pDiv.ondragstart = (e) => {
+                    draggedTemplate = part;
+                    e.dataTransfer.setData("text/plain", part.name);
+                };
+
+                cCont.appendChild(pDiv);
+            });
+        }
+    }
+}
+
+// 2. 配置処理 (任意の座標に配置)
+function addPartAt(template, x, y) {
+    if (!template) return;
+    const newPart = JSON.parse(JSON.stringify(template));
+    if (newPart.joints === undefined) {
+        newPart.joints = 2;
+    }
+    newPart.x = x;
+    newPart.y = y;
+    newPart.rotation = 0;
+    if (!newPart.std) newPart.std = "KATO_N";
+
+    layers.rail.push(newPart);
+    selectedPart = newPart;
+    render();
+}
+
+// 3. キャンバスのドラッグ＆ドロップ受け入れ
+canvas.ondragover = (e) => e.preventDefault();
+canvas.ondrop = (e) => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    if (draggedTemplate) {
+        addPartAt(draggedTemplate, x, y);
+        draggedTemplate = null;
+    }
+};
+
+// 4. 描画
+function drawArc(ctx, r, a, w, fill, off = 0) {
+    const rad = a * Math.PI / 180;
+    const centerX = 0;
+    const centerY = r; 
+    const currentR = r + off;
+
+    ctx.beginPath();
+    if (fill) {
+        ctx.arc(centerX, centerY, currentR + w/2, -Math.PI/2, -Math.PI/2 + rad);
+        ctx.arc(centerX, centerY, currentR - w/2, -Math.PI/2 + rad, -Math.PI/2, true);
+        ctx.closePath();
+        ctx.fill();
+    } else {
+        ctx.arc(centerX, centerY, currentR, -Math.PI/2, -Math.PI/2 + rad);
+    }
+    ctx.stroke();
+}
+
+function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    layers.rail.forEach(part => {
+        const std = STANDARDS[part.std] || { gauge: 9, space: 33, defWidth: 25, color: "#aaa", edge: "#888" };
+        const w = part.width || std.defWidth;
+        const g = std.gauge;
+        
+        const fillColor = part.color || std.color || "#aaa";
+        const edgeColor = part.edge || std.edge || "#888";
+
+        ctx.save();
+        ctx.translate(part.x, part.y);
+        ctx.rotate(part.rotation * Math.PI / 180);
+
+        if (part.type === "curve") {
+            ctx.fillStyle = fillColor;
+            ctx.strokeStyle = edgeColor;
+            ctx.lineWidth = 1;
+            drawArc(ctx, part.radius, part.angle, w, true, 0);
+
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 1;
+            const baseOffsets = part.isDouble ? [std.space/2, -std.space/2] : [0];
+            baseOffsets.forEach(bOff => {
+                drawArc(ctx, part.radius, part.angle, 1.5, false, bOff - g/2);
+                drawArc(ctx, part.radius, part.angle, 1.5, false, bOff + g/2);
+            });
+        } else {
+            const len = part.length || 50;
+            ctx.fillStyle = fillColor;
+            ctx.strokeStyle = edgeColor;
+            ctx.lineWidth = 1;
+            ctx.fillRect(0, -w/2, len, w);
+            ctx.strokeRect(0, -w/2, len, w);
+
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 1;
+            const baseOffsets = part.isDouble ? [std.space/2, -std.space/2] : [0];
+            baseOffsets.forEach(bOff => {
+                ctx.beginPath();
+                ctx.moveTo(0, bOff - g/2);
+                ctx.lineTo(len, bOff - g/2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, bOff + g/2);
+                ctx.lineTo(len, bOff + g/2);
+                ctx.stroke();
+            });
+        }
+
+        if (selectedPart === part) {
+            ctx.strokeStyle = "orange";
+            ctx.lineWidth = 3;
+            if (part.type === "curve") {
+                drawArc(ctx, part.radius, part.angle, w + 4, false, 0);
+            } else {
+                const len = part.length || 50;
+                ctx.strokeRect(-2, -w/2 - 2, len + 4, w + 4);
+            }
+        }
+
+        if (selectedPart === part) {
+            ctx.strokeStyle = "orange";
+            ctx.lineWidth = 3;
+            if (part.type === "curve") {
+                drawArc(ctx, part.radius, part.angle, w + 4, false, 0);
+            } else {
+                const len = part.length || 50;
+                ctx.strokeRect(-2, -w/2 - 2, len + 4, w + 4);
+            }
+        }
+        ctx.restore();
+    });
+}
+
+function drawArc(ctx, r, a, w, fill, off = 0) {
+    const rad = a * Math.PI / 180;
+    const centerX = 0;
+    const centerY = r; // 中心を y 方向に半径分オフセット
+    const currentR = r + off;
+    ctx.beginPath();
+    if (fill) {
+        ctx.arc(centerX, centerY, currentR + w/2, -Math.PI/2, -Math.PI/2 + rad);
+        ctx.arc(centerX, centerY, currentR - w/2, -Math.PI/2 + rad, -Math.PI/2, true);
+        ctx.closePath();
+        ctx.fill();
+    } else {
+        ctx.arc(centerX, centerY, currentR, -Math.PI/2, -Math.PI/2 + rad);
+    }
+    ctx.stroke();
+}
+
+function getJoints(p) {
+    const joints = [{ x: p.x, y: p.y, angle: p.rotation }]; // 起点
+    const rad = p.rotation * Math.PI / 180;
+    let ex, ey, ea;
+
+    if (p.type === "curve") {
+        const arad = p.angle * Math.PI / 180;
+        const cx = p.x - (0 * Math.cos(rad) - p.radius * Math.sin(rad));
+        const cy = p.y - (0 * Math.sin(rad) + p.radius * Math.cos(rad));
+        ex = cx + (0 * Math.cos(rad + arad) - p.radius * Math.sin(rad + arad));
+        ey = cy + (0 * Math.sin(rad + arad) + p.radius * Math.cos(rad + arad));
+        ea = (p.rotation + p.angle) % 360;
+    } else {
+        const len = p.length || 50;
+        ex = p.x + len * Math.cos(rad);
+        ey = p.y + len * Math.sin(rad);
+        ea = p.rotation;
+    }
+    joints.push({ x: ex, y: ey, angle: (ea + 180) % 360 }); // 終端（180度反転で結合）
+    return joints;
+}
+
+// 5. マウス操作
+canvas.onmousedown = (e) => {
+    if (e.button === 2) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    selectedPart = null;
+    for (let i = layers.rail.length - 1; i >= 0; i--) {
+        const p = layers.rail[i];
+        const dx = mx - p.x;
+        const dy = my - p.y;
+        const rad = -p.rotation * Math.PI / 180;
+        const rx = dx * Math.cos(rad) - dy * Math.sin(rad);
+        const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
+
+        const std = STANDARDS[p.std] || { defWidth: 25 };
+        const w = p.width || std.defWidth;
+        let hit = false;
+
+        if (p.type === "curve") {
+            const centerX = 0;
+            const centerY = p.radius;
+            const dist = Math.hypot(rx - centerX, ry - centerY);
+            const angle = Math.atan2(ry - centerY, rx - centerX);
+            const normAngle = (angle + Math.PI * 2.5) % (Math.PI * 2);
+            const targetAngle = (p.angle * Math.PI / 180);
+            
+            if (dist >= p.radius - w / 2 && dist <= p.radius + w / 2 &&
+                normAngle >= 0 && normAngle <= targetAngle) {
+                hit = true;
+            }
+        } else {
+            const len = p.length || 50;
+            if (rx >= 0 && rx <= len && ry >= -w / 2 && ry <= w / 2) {
+                hit = true;
+            }
+        }
+
+        if (hit) {
+            selectedPart = p;
+            isDragging = true;
+            dragOffset = { x: rx, y: ry };
+            break;
+        }
+    }
+    render();
+};
+
+canvas.onmousemove = (e) => {
+    if (!isDragging || !selectedPart) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const rad = selectedPart.rotation * Math.PI / 180;
+    selectedPart.x = mx - (dragOffset.x * Math.cos(rad) - dragOffset.y * Math.sin(rad));
+    selectedPart.y = my - (dragOffset.x * Math.sin(rad) + dragOffset.y * Math.cos(rad));
+    render();
+};
+
+canvas.onmouseup = () => {
+    if (isDragging && selectedPart) {
+        const myJoints = getJoints(selectedPart);
+        let snapped = false;
+
+        for (const target of layers.rail) {
+            if (target === selectedPart) continue;
+            const targetJoints = getJoints(target);
+
+            for (const mj of myJoints) {
+                for (const tj of targetJoints) {
+                    const dist = Math.hypot(mj.x - tj.x, mj.y - tj.y);
+                    if (dist < 15) { // 15px以内ならスナップ
+                        // 角度差を補正して吸着
+                        const angleDiff = (tj.angle - mj.angle);
+                        selectedPart.rotation = (selectedPart.rotation + angleDiff) % 360;
+                        
+                        // 回転後の再計算が必要なため、一度座標を合わせてから再度ずらす
+                        const newMj = getJoints(selectedPart).find(j => j.angle === (mj.angle + angleDiff) % 360 || j.angle === (mj.angle + angleDiff + 360) % 360);
+                        selectedPart.x += (tj.x - newMj.x);
+                        selectedPart.y += (tj.y - newMj.y);
+                        
+                        snapped = true;
+                        break;
+                    }
+                }
+                if (snapped) break;
+            }
+            if (snapped) break;
+        }
+    }
+    isDragging = false;
+    render();
+};
+
+window.onload = () => { initSidebar(); render(); };
+
+// キーボード操作の追加
+window.addEventListener('keydown', (e) => {
+    // Rキー（小文字・大文字両方）が押され、かつパーツが選択されている場合
+    if ((e.key === 'r' || e.key === 'R') && selectedPart) {
+        // 現在の角度に 22.5度を加算し、360度でループさせる
+        selectedPart.rotation = (selectedPart.rotation + 22.5) % 360;
+        render();
+    }
+    
+    // DeleteキーまたはBackspaceキーでパーツ削除（利便性のための追加）
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selectedPart) {
+        layers.rail = layers.rail.filter(p => p !== selectedPart);
+        selectedPart = null;
+        render();
+    }
+});
+</script>
+</body>
+</html>

@@ -242,12 +242,6 @@ function drawArc(ctx, r, a, w, fill, off = 0) {
 
 function getJoints(p) {
     const rad = p.rotation * Math.PI / 180;
-    // 起点は常に (p.x, p.y)
-    const joints = [{ x: p.x, y: p.y, angle: (p.rotation + 360) % 360, type: "start" }];
-    let ex, ey, ea;
-
-function getJoints(p) {
-    const rad = p.rotation * Math.PI / 180;
     // Start側の角度はそのパーツの rotation そのもの
     const joints = [{ x: p.x, y: p.y, angle: (p.rotation + 360) % 360, type: "start" }];
     let ex, ey, ea;

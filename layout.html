@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railway Layout Editor v0.55</title>
+    <title>Railway Layout Editor v0.56</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -247,8 +247,10 @@ function getJoints(p) {
 
     if (p.type === "curve") {
         const arad = p.angle * Math.PI / 180;
+        // カーブの中心点を算出
         const cx = p.x - (0 * Math.cos(rad) - p.radius * Math.sin(rad));
         const cy = p.y - (0 * Math.sin(rad) + p.radius * Math.cos(rad));
+        // 中心点から終点角度分を再回転させて終点座標を算出
         ex = cx + (0 * Math.cos(rad + arad) - p.radius * Math.sin(rad + arad));
         ey = cy + (0 * Math.sin(rad + arad) + p.radius * Math.cos(rad + arad));
         ea = (p.rotation + p.angle + 360) % 360;
@@ -325,10 +327,11 @@ canvas.onmousemove = (e) => {
 canvas.onmouseup = () => {
     if (isDragging && selectedPart) {
         let bestSnap = null;
-        let minDist = 20; // スナップ感度(px)
+        let minDist = 25; // スナップ感度
 
         const myJoints = getJoints(selectedPart);
 
+        // 全パーツの全ジョイントに対して距離をチェック
         for (const target of layers.rail) {
             if (target === selectedPart) continue;
             const targetJoints = getJoints(target);
@@ -346,11 +349,11 @@ canvas.onmouseup = () => {
 
         if (bestSnap) {
             const { mj, tj } = bestSnap;
-            // 片方がStart、もう片方がEndなら角度は一致。同じタイプ同士なら180度反転。
+            // 接続ルール：Start-Endなら角度一致、Start-StartやEnd-Endなら180度反転
             const isSameType = (mj.type === tj.type);
             selectedPart.rotation = (tj.angle + (isSameType ? 180 : 0)) % 360;
 
-            // 回転後の状態で、再度自分のジョイント座標を計算して位置を合わせる
+            // 回転確定後、位置を再計算して「吸着させたい自分の端点」を相手に重ねる
             const updatedJoints = getJoints(selectedPart);
             const updatedMj = (mj.type === "start") ? updatedJoints[0] : updatedJoints[1];
 

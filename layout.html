@@ -355,14 +355,11 @@ canvas.onmouseup = () => {
         if (bestSnap) {
             const { mj, tj } = bestSnap;
             
-            // 接続の物理法則: 
-            // 相手がStartなら、こちらはEndで対面(tj.angle + 180)
-            // 相手がEndなら、こちらはStartで対面(tj.angle + 180)
-            // ただし、自分がEnd側のジョイントを繋ごうとしているなら、パーツ自体の向きはそこから角度(part.angle)分戻す必要がある
-            
+            // 接続相手の角度の反対（+180度）を向く
             let targetRotation = (tj.angle + 180) % 360;
+            
+            // 自分がEnd側を接続しようとしている場合、パーツ自体の向き(rotation)はangle分戻る
             if (mj.type === "end") {
-                // 自分がEndを刺そうとしているなら、進行方向の差分を引く
                 const angleOffset = (selectedPart.type === "curve") ? selectedPart.angle : 0;
                 targetRotation = (targetRotation - angleOffset + 360) % 360;
             }

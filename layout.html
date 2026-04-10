@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railway Layout Editor v0.57</title>
+    <title>Railroad Model Layout Designer v0.58</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -246,18 +246,19 @@ function getJoints(p) {
     const joints = [{ x: p.x, y: p.y, angle: (p.rotation + 360) % 360, type: "start" }];
     let ex, ey, ea;
 
+function getJoints(p) {
+    const rad = p.rotation * Math.PI / 180;
+    // Start側の角度はそのパーツの rotation そのもの
+    const joints = [{ x: p.x, y: p.y, angle: (p.rotation + 360) % 360, type: "start" }];
+    let ex, ey, ea;
+
     if (p.type === "curve") {
         const arad = p.angle * Math.PI / 180;
-        
-        // drawArc(ctx, r, a, w, fill, off) のロジックに合わせた中心点計算
-        // 起点(0,0)から見て、中心は常に y方向に +radius の位置にある
         const centerX = p.x - Math.sin(rad) * p.radius;
         const centerY = p.y + Math.cos(rad) * p.radius;
-
-        // 中心から、終点(arad分回転した位置)の座標を算出
-        // 起点は -90度(Math.PI/2)の位置なので、そこから角度を加算
         ex = centerX + Math.sin(rad + arad) * p.radius;
         ey = centerY - Math.cos(rad + arad) * p.radius;
+        // End側の角度は、進行方向（rotation + angle）
         ea = (p.rotation + p.angle + 360) % 360;
     } else {
         const len = p.length || 50;
@@ -353,16 +354,24 @@ canvas.onmouseup = () => {
 
         if (bestSnap) {
             const { mj, tj } = bestSnap;
-            const isSameType = (mj.type === tj.type);
             
-            // 1. まず角度を確定させる
-            selectedPart.rotation = (tj.angle + (isSameType ? 180 : 0)) % 360;
+            // 接続の物理法則: 
+            // 相手がStartなら、こちらはEndで対面(tj.angle + 180)
+            // 相手がEndなら、こちらはStartで対面(tj.angle + 180)
+            // ただし、自分がEnd側のジョイントを繋ごうとしているなら、パーツ自体の向きはそこから角度(part.angle)分戻す必要がある
+            
+            let targetRotation = (tj.angle + 180) % 360;
+            if (mj.type === "end") {
+                // 自分がEndを刺そうとしているなら、進行方向の差分を引く
+                const angleOffset = (selectedPart.type === "curve") ? selectedPart.angle : 0;
+                targetRotation = (targetRotation - angleOffset + 360) % 360;
+            }
 
-            // 2. 回転後の状態で自分の端点座標を再計算
+            selectedPart.rotation = targetRotation;
+
             const updatedJoints = getJoints(selectedPart);
             const updatedMj = (mj.type === "start") ? updatedJoints[0] : updatedJoints[1];
 
-            // 3. 相手の接点(tj)と、自分の回転後の接点(updatedMj)の差分だけ本体を移動
             selectedPart.x += (tj.x - updatedMj.x);
             selectedPart.y += (tj.y - updatedMj.y);
         }

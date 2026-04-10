@@ -161,10 +161,9 @@ function render() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     layers.rail.forEach(part => {
-        const std = STANDARDS[part.std] || { gauge: 9, space: 33, defWidth: 25, color: "#aaa", edge: "#888" };
+        const std = STANDARDS[part.std] || { gauge: 9, space: 33, defWidth: 25 };
         const w = part.width || std.defWidth;
         const g = std.gauge;
-        
         const fillColor = part.color || std.color || "#aaa";
         const edgeColor = part.edge || std.edge || "#888";
 
@@ -179,7 +178,7 @@ function render() {
             drawArc(ctx, part.radius, part.angle, w, true, 0);
 
             ctx.strokeStyle = "#333";
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 1.5;
             const baseOffsets = part.isDouble ? [std.space/2, -std.space/2] : [0];
             baseOffsets.forEach(bOff => {
                 drawArc(ctx, part.radius, part.angle, 1.5, false, bOff - g/2);
@@ -194,16 +193,14 @@ function render() {
             ctx.strokeRect(0, -w/2, len, w);
 
             ctx.strokeStyle = "#333";
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 1.5;
             const baseOffsets = part.isDouble ? [std.space/2, -std.space/2] : [0];
             baseOffsets.forEach(bOff => {
                 ctx.beginPath();
-                ctx.moveTo(0, bOff - g/2);
-                ctx.lineTo(len, bOff - g/2);
+                ctx.moveTo(0, bOff - g/2); ctx.lineTo(len, bOff - g/2);
                 ctx.stroke();
                 ctx.beginPath();
-                ctx.moveTo(0, bOff + g/2);
-                ctx.lineTo(len, bOff + g/2);
+                ctx.moveTo(0, bOff + g/2); ctx.lineTo(len, bOff + g/2);
                 ctx.stroke();
             });
         }
@@ -212,17 +209,7 @@ function render() {
             ctx.strokeStyle = "orange";
             ctx.lineWidth = 3;
             if (part.type === "curve") {
-                drawArc(ctx, part.radius, part.angle, w + 4, false, 0);
-            } else {
-                const len = part.length || 50;
-                ctx.strokeRect(-2, -w/2 - 2, len + 4, w + 4);
-            }
-        }
-
-        if (selectedPart === part) {
-            ctx.strokeStyle = "orange";
-            ctx.lineWidth = 3;
-            if (part.type === "curve") {
+                // 外枠として描画するため、fillをfalseにし、幅をw+4に設定
                 drawArc(ctx, part.radius, part.angle, w + 4, false, 0);
             } else {
                 const len = part.length || 50;
@@ -252,7 +239,7 @@ function drawArc(ctx, r, a, w, fill, off = 0) {
 
 function getJoints(p) {
     const rad = p.rotation * Math.PI / 180;
-    const joints = [{ x: p.x, y: p.y, angle: p.rotation, type: "start" }];
+    const joints = [{ x: p.x, y: p.y, angle: (p.rotation + 360) % 360, type: "start" }];
     let ex, ey, ea;
 
     if (p.type === "curve") {
@@ -261,12 +248,12 @@ function getJoints(p) {
         const cy = p.y - (0 * Math.sin(rad) + p.radius * Math.cos(rad));
         ex = cx + (0 * Math.cos(rad + arad) - p.radius * Math.sin(rad + arad));
         ey = cy + (0 * Math.sin(rad + arad) + p.radius * Math.cos(rad + arad));
-        ea = (p.rotation + p.angle) % 360;
+        ea = (p.rotation + p.angle + 360) % 360;
     } else {
         const len = p.length || 50;
         ex = p.x + len * Math.cos(rad);
         ey = p.y + len * Math.sin(rad);
-        ea = p.rotation;
+        ea = (p.rotation + 360) % 360;
     }
     joints.push({ x: ex, y: ey, angle: ea, type: "end" });
     return joints;
@@ -335,7 +322,6 @@ canvas.onmousemove = (e) => {
 canvas.onmouseup = () => {
     if (isDragging && selectedPart) {
         let snapped = false;
-        // 判定前に最新の自分のジョイントを取得
         const myJoints = getJoints(selectedPart);
 
         for (const target of layers.rail) {
@@ -345,15 +331,15 @@ canvas.onmouseup = () => {
             for (const mj of myJoints) {
                 for (const tj of targetJoints) {
                     const dist = Math.hypot(mj.x - tj.x, mj.y - tj.y);
-                    if (dist < 20) { // 判定距離を少し広めに20px
-                        // 接続ルール: 
-                        // Start同士/End同士を繋ぐなら 180度反転 + 相手の角度
-                        // StartとEndを繋ぐなら 相手の角度そのまま
+                    if (dist < 20) {
                         const isSameType = (mj.type === tj.type);
+                        // 接続相手の角度に基づき、順方向ならそのまま、逆方向なら180度反転
                         selectedPart.rotation = (tj.angle + (isSameType ? 180 : 0)) % 360;
                         
-                        // 回転後の位置で再計算して吸着
-                        const updatedMj = getJoints(selectedPart)[mj.type === "start" ? 0 : 1];
+                        // 回転反映後の新しい自分のジョイント位置を取得して座標を最終補正
+                        const updatedJoints = getJoints(selectedPart);
+                        const updatedMj = (mj.type === "start") ? updatedJoints[0] : updatedJoints[1];
+                        
                         selectedPart.x += (tj.x - updatedMj.x);
                         selectedPart.y += (tj.y - updatedMj.y);
                         

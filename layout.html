@@ -251,8 +251,8 @@ function drawArc(ctx, r, a, w, fill, off = 0) {
 }
 
 function getJoints(p) {
-    const joints = [{ x: p.x, y: p.y, angle: p.rotation, type: "start" }];
     const rad = p.rotation * Math.PI / 180;
+    const joints = [{ x: p.x, y: p.y, angle: p.rotation, type: "start" }];
     let ex, ey, ea;
 
     if (p.type === "curve") {
@@ -268,7 +268,6 @@ function getJoints(p) {
         ey = p.y + len * Math.sin(rad);
         ea = p.rotation;
     }
-    // 180度加算を削除し、そのままの向きを登録
     joints.push({ x: ex, y: ey, angle: ea, type: "end" });
     return joints;
 }
@@ -335,8 +334,9 @@ canvas.onmousemove = (e) => {
 
 canvas.onmouseup = () => {
     if (isDragging && selectedPart) {
-        const myJoints = getJoints(selectedPart);
         let snapped = false;
+        // 判定前に最新の自分のジョイントを取得
+        const myJoints = getJoints(selectedPart);
 
         for (const target of layers.rail) {
             if (target === selectedPart) continue;
@@ -345,15 +345,17 @@ canvas.onmouseup = () => {
             for (const mj of myJoints) {
                 for (const tj of targetJoints) {
                     const dist = Math.hypot(mj.x - tj.x, mj.y - tj.y);
-                    if (dist < 15) { // 15px以内ならスナップ
-                        // 角度差を補正して吸着
-                        const angleDiff = (tj.angle - mj.angle);
-                        selectedPart.rotation = (selectedPart.rotation + angleDiff) % 360;
+                    if (dist < 20) { // 判定距離を少し広めに20px
+                        // 接続ルール: 
+                        // Start同士/End同士を繋ぐなら 180度反転 + 相手の角度
+                        // StartとEndを繋ぐなら 相手の角度そのまま
+                        const isSameType = (mj.type === tj.type);
+                        selectedPart.rotation = (tj.angle + (isSameType ? 180 : 0)) % 360;
                         
-                        // 回転後の再計算が必要なため、一度座標を合わせてから再度ずらす
-                        const newMj = getJoints(selectedPart).find(j => j.angle === (mj.angle + angleDiff) % 360 || j.angle === (mj.angle + angleDiff + 360) % 360);
-                        selectedPart.x += (tj.x - newMj.x);
-                        selectedPart.y += (tj.y - newMj.y);
+                        // 回転後の位置で再計算して吸着
+                        const updatedMj = getJoints(selectedPart)[mj.type === "start" ? 0 : 1];
+                        selectedPart.x += (tj.x - updatedMj.x);
+                        selectedPart.y += (tj.y - updatedMj.y);
                         
                         snapped = true;
                         break;

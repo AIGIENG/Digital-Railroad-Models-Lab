@@ -251,7 +251,7 @@ function drawArc(ctx, r, a, w, fill, off = 0) {
 }
 
 function getJoints(p) {
-    const joints = [{ x: p.x, y: p.y, angle: p.rotation }]; // 起点
+    const joints = [{ x: p.x, y: p.y, angle: p.rotation, type: "start" }];
     const rad = p.rotation * Math.PI / 180;
     let ex, ey, ea;
 
@@ -268,7 +268,8 @@ function getJoints(p) {
         ey = p.y + len * Math.sin(rad);
         ea = p.rotation;
     }
-    joints.push({ x: ex, y: ey, angle: (ea + 180) % 360 }); // 終端（180度反転で結合）
+    // 180度加算を削除し、そのままの向きを登録
+    joints.push({ x: ex, y: ey, angle: ea, type: "end" });
     return joints;
 }
 

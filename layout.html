@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.005</title>
+    <title>Railroad Model Layout Designer v0.59.006</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -179,15 +179,13 @@ function render() {
             ctx.fillStyle = part.color || std.color || "#aaa";
             ctx.strokeStyle = part.edge || std.edge || "#888";
             ctx.lineWidth = 1;
-            // 平均半径(avgR)を中心に、指定されたwidth(w)で道床を描画
             drawArc(ctx, avgR, part.angle, w, true, 0);
 
             ctx.strokeStyle = "#333";
             ctx.lineWidth = 1.5;
             radii.forEach(r => {
-                const off = r - avgR;
-                drawArc(ctx, avgR, part.angle, 1.5, false, off - g/2);
-                drawArc(ctx, avgR, part.angle, 1.5, false, off + g/2);
+                drawArc(ctx, avgR, part.angle, 1.5, false, r - avgR - g/2);
+                drawArc(ctx, avgR, part.angle, 1.5, false, r - avgR + g/2);
             });
         } else {
             const len = part.length || 50;
@@ -207,15 +205,26 @@ function render() {
             });
         }
 
+        // 選択中の表示：中央に〇を表示
         if (selectedPart === part) {
+            ctx.fillStyle = "rgba(255, 165, 0, 0.8)"; // 透明度のあるオレンジ
             ctx.strokeStyle = "orange";
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            let centerX, centerY;
             if (part.type === "curve") {
+                const arad = (part.angle / 2) * Math.PI / 180;
                 const avgR = radii.reduce((a, b) => a + b) / radii.length;
-                drawArc(ctx, avgR, part.angle, w, false, 0);
+                centerX = Math.sin(arad) * avgR;
+                centerY = (1 - Math.cos(arad)) * avgR;
             } else {
-                ctx.strokeRect(0, -(part.width || std.defWidth)/2, part.length || 50, part.width || std.defWidth);
+                centerX = (part.length || 50) / 2;
+                centerY = 0;
             }
+            ctx.arc(centerX, centerY, 8, 0, Math.PI * 2); // 半径8pxの丸
+            ctx.fill();
+            ctx.stroke();
         }
         ctx.restore();
     });
@@ -243,37 +252,35 @@ function getJoints(p) {
     const rad = p.rotation * Math.PI / 180;
     const joints = [];
 
-    // 半径を配列（複線）か単一値（単線）で正規化
     const radii = Array.isArray(p.radius) ? p.radius : [p.radius];
     const isDouble = p.isDouble || radii.length > 1;
+    const space = std.space || 33;
 
-    radii.forEach((r, index) => {
-        // Start側: 各レール芯
-        // 複線曲線の描画基準(p.x, p.y)は「2本のレールの中心」とするため、
-        // 各レールの位置をオフセット計算する
-        let off = 0;
-        if (isDouble && p.type === "curve") {
-            const avgR = radii.reduce((a, b) => a + b) / radii.length;
-            off = r - avgR; // 中心半径からの差分
-        } else if (isDouble && p.type !== "curve") {
-            const space = std.space || 33;
-            off = (index === 0) ? -space / 2 : space / 2;
+    // 複線の場合、各レール芯のオフセットを定義
+    let offsets = [0];
+    if (isDouble) {
+        if (p.type === "curve" && Array.isArray(p.radius)) {
+            const avgR = p.radius.reduce((a, b) => a + b) / p.radius.length;
+            offsets = p.radius.map(r => r - avgR);
+        } else {
+            offsets = [-space / 2, space / 2];
         }
+    }
 
+    offsets.forEach(off => {
         const sx = p.x + off * Math.cos(rad + Math.PI / 2);
         const sy = p.y + off * Math.sin(rad + Math.PI / 2);
         joints.push({ x: sx, y: sy, angle: (p.rotation + 180) % 360, type: "start" });
 
-        // End側
         let ex, ey, ea;
         if (p.type === "curve") {
             const arad = p.angle * Math.PI / 180;
             const avgR = Array.isArray(p.radius) ? (p.radius.reduce((a, b) => a + b) / p.radius.length) : p.radius;
+            const r = avgR + off;
             const cx = p.x - Math.sin(rad) * avgR;
             const cy = p.y + Math.cos(rad) * avgR;
-            
             ex = cx + Math.sin(rad + arad) * r;
-            ey = cy - Math.cos(rad + arad) * r;
+            ey = centerY = cy - Math.cos(rad + arad) * r;
             ea = (p.rotation + p.angle) % 360;
         } else {
             const len = p.length || 50;
@@ -289,50 +296,39 @@ function getJoints(p) {
 
 // 5. マウス操作
 canvas.onmousedown = (e) => {
-    if (e.button === 2) return;
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
 
     selectedPart = null;
+    // 逆順にループ（上に重なっているものを優先）
     for (let i = layers.rail.length - 1; i >= 0; i--) {
         const p = layers.rail[i];
         const dx = mx - p.x;
         const dy = my - p.y;
-        const rad = -p.rotation * Math.PI / 180;
-        const rx = dx * Math.cos(rad) - dy * Math.sin(rad);
-        const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
+        const angle = -p.rotation * Math.PI / 180;
+        const rx = dx * Math.cos(angle) - dy * Math.sin(angle);
+        const ry = dx * Math.sin(angle) + dy * Math.cos(angle);
 
-        const std = STANDARDS[p.std] || { defWidth: 25 };
-        const w = p.width || std.defWidth;
-        let hit = false;
-
+        const w = p.width || 25;
         if (p.type === "curve") {
-            const centerX = 0;
-            const centerY = p.radius;
-            const dist = Math.hypot(rx - centerX, ry - centerY);
-            const angle = Math.atan2(ry - centerY, rx - centerX);
-            const normAngle = (angle + Math.PI * 2.5) % (Math.PI * 2);
-            const targetAngle = (p.angle * Math.PI / 180);
-            
-            if (dist >= p.radius - w / 2 && dist <= p.radius + w / 2 &&
-                normAngle >= 0 && normAngle <= targetAngle) {
-                hit = true;
+            const radii = Array.isArray(p.radius) ? p.radius : [p.radius];
+            const avgR = radii.reduce((a, b) => a + b) / radii.length;
+            const dist = Math.hypot(rx, ry - avgR);
+            const a = (Math.atan2(rx, avgR - ry) * 180 / Math.PI);
+            if (dist >= avgR - w/2 && dist <= avgR + w/2 && a >= 0 && a <= p.angle) {
+                selectedPart = p;
+                break;
             }
         } else {
             const len = p.length || 50;
-            if (rx >= 0 && rx <= len && ry >= -w / 2 && ry <= w / 2) {
-                hit = true;
+            if (rx >= 0 && rx <= len && ry >= -w/2 && ry <= w/2) {
+                selectedPart = p;
+                break;
             }
         }
-
-        if (hit) {
-            selectedPart = p;
-            isDragging = true;
-            dragOffset = { x: rx, y: ry };
-            break;
-        }
     }
+    if (selectedPart) isDragging = true;
     render();
 };
 

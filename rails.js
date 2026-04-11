@@ -17,7 +17,8 @@ const railData = {
         ],
         "1.3.高架": [],
         "1.4.ポイント": [
-            { name: "EP718-15L", type: "point", length: 248, joints: 3, angle: 15, std: "KATO_N", desc: "6番ポイント左" }
+            { name: "EP718-15L", type: "point-L", length: 248, joints: 3, angle: 15, std: "KATO_N", desc: "6番ポイント左" },
+            { name: "EP718-15R", type: "point-R", length: 248, joints: 3, angle: 15, std: "KATO_N", desc: "6番ポイント右" }
         ],
         "1.5.その他(一部複線含む)": [
             { name: "S62B", type: "straight", length: 62, std: "KATO_N", joints: 1, desc: "車止め線路" }

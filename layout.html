@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.017f</title>
+    <title>Railroad Model Layout Designer v0.59.017f2</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -290,8 +290,7 @@ function getJoints(p) {
     const joints = [];
     const rad = p.rotation * Math.PI / 180;
 
-    // --- A. ポイントレールの特殊処理 ---
-    // 他のレールロジックに干渉しないよう、ここで処理を完結させます
+    // --- A. ポイントレールの特殊処理（既存ロジックに干渉させない） ---
     if (p.type && p.type.startsWith("point")) {
         const len = p.length || 50;
         const r = p.radius || 481;
@@ -312,14 +311,15 @@ function getJoints(p) {
         const ey = p.y + r * Math.sin(arad) * Math.sin(rad) + s * r * (1 - Math.cos(arad)) * Math.cos(rad);
         joints.push({ x: ex, y: ey, angle: (p.rotation + s * ang + 360) % 360, role: "diverge" });
         
-        return joints; // ポイントレールの場合はここで関数を終了
+        return joints;
     }
 
     // --- B. 0.59.008 互換の安定ロジック（単線・複線・曲線） ---
-    // ポイント以外のレールはすべてこちらのルートを通ります
     const radii = Array.isArray(p.radius) ? p.radius : [p.radius];
     const isDouble = p.isDouble || radii.length > 1;
     const space = std.space || 33;
+
+    // 複線時は「中心」から上下に半分ずつ振り分ける（0.59.008の仕様に戻す）
     const railOffsets = isDouble ? [-space / 2, space / 2] : [0];
 
     railOffsets.forEach((off, i) => {
@@ -330,10 +330,11 @@ function getJoints(p) {
 
         let ex, ey, ea;
         if (p.type === "curve") {
-            const r = radii[i] || radii[0];
+            const r = radii[i] || radii[0]; // 各レール芯ごとの半径
             const arad = p.angle * Math.PI / 180;
             
-            // 0.59.008 で安定していた数学的に正しい回転行列
+            // 0.59.008 で安定していた回転行列の適用
+            // 始点 (sx, sy) から、そのレールの半径 r に基づいて終点を算出
             ex = sx + r * Math.sin(arad) * Math.cos(rad) + r * (1 - Math.cos(arad)) * Math.sin(rad);
             ey = sy + r * Math.sin(arad) * Math.sin(rad) - r * (1 - Math.cos(arad)) * Math.cos(rad);
             ea = (p.rotation + p.angle + 360) % 360;
@@ -343,50 +344,6 @@ function getJoints(p) {
             ey = sy + len * Math.sin(rad);
             ea = p.rotation;
         }
-        joints.push({ x: ex, y: ey, angle: ea });
-    });
-
-    return joints; // 通常レールの結果を返して終了
-}
-
-    // --- B. 既存のレール（単線・複線・曲線）の処理 ---
-    const radii = Array.isArray(p.radius) ? p.radius : [p.radius];
-    const isDouble = p.isDouble || radii.length > 1;
-    const space = std.space || 33;
-    
-    // 基準点(p.x, p.y)からの各レール芯へのオフセット
-    const railOffsets = isDouble ? [-space / 2, space / 2] : [0];
-
-    railOffsets.forEach((off, i) => {
-        // 1. 始点 (Start Joint)
-        // 基準点から垂直方向にオフセットを適用
-        const sx = p.x + off * Math.cos(rad + Math.PI / 2);
-        const sy = p.y + off * Math.sin(rad + Math.PI / 2);
-        joints.push({ x: sx, y: sy, angle: (p.rotation + 180) % 360 });
-
-        // 2. 終点 (End Joint)
-        let ex, ey, ea;
-        if (p.type === "curve") {
-            const r = radii[i] || radii[0];
-            const arad = p.angle * Math.PI / 180;
-            
-            // ★重要：オフセット(off)を含めた「共通の回転中心」を基準に計算する
-            // これにより、sx, sy からの相対位置が幾何学的に正しく維持されます
-            const sCos = Math.sin(arad) * Math.cos(rad);
-            const sSin = Math.sin(arad) * Math.sin(rad);
-            const cCos = (1 - Math.cos(arad)) * Math.cos(rad);
-            const cSin = (1 - Math.cos(arad)) * Math.sin(rad);
-
-            ex = sx + r * sCos + r * cSin;
-            ey = sy + r * sSin - r * cCos;
-            ea = (p.rotation + p.angle + 360) % 360;
-        } else {
-            const len = p.length || 50;
-            ex = sx + len * Math.cos(rad);
-            ey = sy + len * Math.sin(rad);
-            ea = p.rotation;
-        }
-        
         joints.push({ x: ex, y: ey, angle: ea });
     });
 

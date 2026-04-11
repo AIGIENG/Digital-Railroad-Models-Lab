@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.002</title>
+    <title>Railroad Model Layout Designer v0.59.003</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -245,20 +245,33 @@ function getJoints(p) {
     const joints = [{ x: p.x, y: p.y, angle: (p.rotation + 360) % 360, type: "start" }];
     let ex, ey, ea;
 
+function getJoints(p) {
+    const rad = p.rotation * Math.PI / 180;
+    // Start側ジョイント：パーツの原点。角度は「パーツの外側（手前）」を向くので +180
+    const joints = [{ 
+        x: p.x, 
+        y: p.y, 
+        angle: (p.rotation + 180) % 360, 
+        type: "start" 
+    }];
+    
+    let ex, ey, ea;
     if (p.type === "curve") {
         const arad = p.angle * Math.PI / 180;
         const centerX = p.x - Math.sin(rad) * p.radius;
         const centerY = p.y + Math.cos(rad) * p.radius;
         ex = centerX + Math.sin(rad + arad) * p.radius;
         ey = centerY - Math.cos(rad + arad) * p.radius;
-        ea = (p.rotation + p.angle + 360) % 360;
+        // End側ジョイント：進行方向を向く
+        ea = (p.rotation + p.angle) % 360;
     } else {
         const len = p.length || 50;
         ex = p.x + len * Math.cos(rad);
         ey = p.y + len * Math.sin(rad);
-        ea = (p.rotation + 360) % 360;
+        ea = p.rotation;
     }
-    joints.push({ x: ex, y: ey, angle: ea, type: "end" });
+    
+    joints.push({ x: ex, y: ey, angle: (ea + 360) % 360, type: "end" });
     return joints;
 }
 
@@ -346,19 +359,19 @@ canvas.onmouseup = () => {
         if (bestSnap) {
             const { mj, tj } = bestSnap;
 
-            // 接続の物理：自分の端点が相手の端点と「対面（180度差）」になれば接続できる
-            // mj.angle ... 自分のパーツから見たその端点の向き
-            // tj.angle ... 相手のパーツから見たその端点の向き
-            // 角度差を計算し、現在の rotation に加算することで、今の向きを維持したまま吸着させる
-            
-            const currentMjAngle = (mj.type === "start") ? selectedPart.rotation : (selectedPart.rotation + (selectedPart.type === "curve" ? selectedPart.angle : 0));
-            const angleDiff = (tj.angle + 180) - currentMjAngle;
-            
-            // 最も近い「対面角度」を選択（順方向かS字方向かを維持）
-            const normalizedDiff = ((angleDiff + 180) % 360 + 360) % 360 - 180;
-            selectedPart.rotation = (selectedPart.rotation + normalizedDiff + 360) % 360;
+            // 1. 接続の原理：自分の端点の「外向き角度」を、相手の「外向き角度」の正反対に合わせる
+            // tj.angle は相手の接続面が向いている方向。
+            // 自分の接続面の理想の向きは (tj.angle + 180)
+            const targetMJAngle = (tj.angle + 180) % 360;
 
-            // 回転後の状態で位置を再計算して固定
+            // 2. 現在の rotation における自分の端点の向き(mj.angle)との差分を求める
+            let angleDiff = targetMJAngle - mj.angle;
+            
+            // 3. 最短回転（-180〜180度）で吸着させる。これによりS字か順接かが維持される
+            angleDiff = ((angleDiff + 180) % 360 + 360) % 360 - 180;
+            selectedPart.rotation = (selectedPart.rotation + angleDiff + 360) % 360;
+
+            // 4. 回転後の座標で再計算し、端点を一致させる
             const updatedJoints = getJoints(selectedPart);
             const updatedMj = (mj.type === "start") ? updatedJoints[0] : updatedJoints[1];
 

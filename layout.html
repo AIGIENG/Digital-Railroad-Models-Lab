@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.022f</title>
+    <title>Railroad Model Layout Designer v0.59.022f2</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -172,8 +172,11 @@ function render() {
         ctx.translate(part.x, part.y);
         ctx.rotate(part.rotation * Math.PI / 180);
 
-// --- 【修正】ポイントレールの描画ロジック ---
-if (type && type.startsWith("point")) {
+// --- ポイントレールの描画 (ここを完全に差し替え) ---
+        if (type && type.startsWith("point")) {
+            const std = STANDARDS[part.std] || { gauge: 9, space: 33, defWidth: 25, color: "#aaa", edge: "#888" };
+            const w = part.width || std.defWidth;
+            const g = std.gauge;
             const len = part.length || 50;
             const r = part.radius || 481;
             const ang = part.angle || 15;
@@ -181,26 +184,26 @@ if (type && type.startsWith("point")) {
 
             ctx.fillStyle = part.color || std.color || "#aaa";
             ctx.strokeStyle = part.edge || std.edge || "#888";
+            
+            // A. 直線側道床
             ctx.lineWidth = 1;
-
-            // 直線道床
             ctx.fillRect(0, -w / 2, len, w);
             ctx.strokeRect(0, -w / 2, len, w);
             
-            // 分岐道床
+            // B. 分岐側道床
             ctx.save();
             ctx.translate(0, s * r); 
             const startAng = (s === -1) ? Math.PI / 2 : -Math.PI / 2;
             const endAng = startAng + (s * ang) * Math.PI / 180;
 
-            // 先に太い線で「道床の色」を塗る
+            // 道床の塗り
             ctx.beginPath();
             ctx.arc(0, 0, r, startAng, endAng, s === -1);
             ctx.lineWidth = w;
             ctx.strokeStyle = ctx.fillStyle;
             ctx.stroke();
 
-            // 後から細い線で「縁取り」を描く
+            // ★外枠線（縁取り）
             ctx.lineWidth = 1;
             ctx.strokeStyle = part.edge || std.edge || "#888";
             ctx.beginPath();
@@ -211,10 +214,12 @@ if (type && type.startsWith("point")) {
             ctx.stroke();
             ctx.restore();
 
-            // レール（ここは既存のままでOK）
+            // C. レール描画
             ctx.strokeStyle = "#333"; ctx.lineWidth = 1.5;
+            // 直線レール
             ctx.beginPath(); ctx.moveTo(0, -g/2); ctx.lineTo(len, -g/2); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(0, g/2); ctx.lineTo(len, g/2); ctx.stroke();
+            // 分岐レール
             ctx.save();
             ctx.translate(0, s * r);
             [-g/2, g/2].forEach(off => {
@@ -346,35 +351,37 @@ function getPointJoints(p) {
     const s = (p.type === "point-L") ? -1 : 1;
     const arad = ang * Math.PI / 180;
 
-    // 1. 基準点 (base)
-    joints.push({ x: p.x, y: p.y, angle: (p.rotation + 180) % 360, role: "base" });
+    // 1. 基準点
+    joints.push({ x: p.x, y: p.y, angle: (p.rotation + 180) % 360 });
     
-    // 2. 直進終点 (straight)
+    // 2. 直進終点
     joints.push({ 
         x: p.x + len * Math.cos(rad), 
         y: p.y + len * Math.sin(rad), 
-        angle: p.rotation, role: "straight" 
+        angle: p.rotation 
     });
     
-    // 3. 分岐終点 (diverge) - 描画と完全に同期させた新数式
-    const sin_ang = Math.sin(arad);
-    const cos_ang = Math.cos(arad);
-    const sin_rad = Math.sin(rad);
-    const cos_rad = Math.cos(rad);
-
-    const ex = p.x + (r * sin_ang * cos_rad) - (s * r * (1 - cos_ang) * sin_rad);
-    const ey = p.y + (r * sin_ang * sin_rad) + (s * r * (1 - cos_ang) * cos_rad);
+    // 3. 分岐終点 (描画ロジックの arc と完全に一致する幾何学計算)
+    // 基準点 (p.x, p.y) から、回転中心 (cx, cy) を求めてから終点を算出
+    const cx = p.x + s * r * Math.cos(rad + Math.PI / 2);
+    const cy = p.y + s * r * Math.sin(rad + Math.PI / 2);
+    
+    // 回転中心から見た終点角度
+    const startAng = rad + (s === -1 ? Math.PI / 2 : -Math.PI / 2);
+    const endAng = startAng + (s * arad);
+    
+    const ex = cx + r * Math.cos(endAng + Math.PI);
+    const ey = cy + r * Math.sin(endAng + Math.PI);
     const ea = (p.rotation + (s * ang) + 360) % 360;
 
-    joints.push({ x: ex, y: ey, angle: ea, role: "diverge" });
+    joints.push({ x: ex, y: ey, angle: ea });
     
     return joints;
 }
-
+    
 function checkSnapping() {
     if (!selectedPart) return;
     
-    // 動かしているパーツがポイントなら専用、そうでなければ既存(0.59.020r)の getJoints を使用
     const movingJoints = (selectedPart.type && selectedPart.type.startsWith("point"))
         ? getPointJoints(selectedPart)
         : getJoints(selectedPart);
@@ -382,15 +389,14 @@ function checkSnapping() {
     let snapped = false;
 
     layers.rail.forEach(part => {
-        if (part === selectedPart) return;
+        if (part === selectedPart || snapped) return;
 
-        // 対象パーツの種類に合わせて関数を切り替える
         const targetJoints = (part.type && part.type.startsWith("point"))
             ? getPointJoints(part)
             : getJoints(part);
 
         movingJoints.forEach(mj => {
-            if (snapped) return; // 一箇所吸着したらそのパーツの判定は終了
+            if (snapped) return;
             targetJoints.forEach(tj => {
                 if (snapped) return;
 
@@ -399,19 +405,12 @@ function checkSnapping() {
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (dist < SNAP_DISTANCE) {
-                    // 角度差の計算 (0.59.020r の安定ロジックを維持)
                     const angleDiff = (mj.angle - tj.angle + 360) % 180;
                     if (Math.abs(angleDiff) < 10 || Math.abs(angleDiff - 180) < 10) {
-                        
-                        // 座標の補正
                         selectedPart.x += (tj.x - mj.x);
                         selectedPart.y += (tj.y - mj.y);
-                        
-                        // 角度の補正
-                        // 相手のジョイント角度に180度足したものを基準に、自パーツの角度を算出
                         const targetAngle = (tj.angle + 180) % 360;
                         selectedPart.rotation = (targetAngle - (mj.angle - selectedPart.rotation) + 360) % 360;
-                        
                         snapped = true;
                     }
                 }

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.011</title>
+    <title>Railroad Model Layout Designer v0.59.012</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -172,66 +172,64 @@ function render() {
         ctx.translate(part.x, part.y);
         ctx.rotate(part.rotation * Math.PI / 180);
 
-        // --- 1. ポイントレールの描画 (修正点) ---
+        // --- 1. ポイントレールの描画 ---
         if (type.startsWith("point")) {
             const len = part.length || 50;
             const r = part.radius || 481;
             const ang = part.angle || 15;
-
-            // 分岐方向 (Left=-1, Right=1)
             const s = (type === "point-L") ? -1 : 1;
 
-            // 1-1. 道床（分岐形状に合わせて描画）
-            ctx.fillStyle = part.color || std.color || "rgba(100, 255, 100, 0.5)"; // 緑色
-            
-            // 直線側の道床
+            ctx.fillStyle = part.color || std.color || "#aaa";
+            ctx.strokeStyle = part.edge || std.edge || "#888";
+            ctx.lineWidth = 1;
+
+            // 直線側の道床と縁取り
             ctx.fillRect(0, -w/2, len, w);
+            ctx.strokeRect(0, -w/2, len, w);
             
-            // 分岐側の道床（曲線を描画）
+            // 分岐側の道床と縁取り
             ctx.save();
-            // ★重要：分岐レールの中心を計算してtranslateする
             ctx.translate(0, s * r); 
+            const startAng = (s === -1) ? Math.PI/2 : -PI_2 = -Math.PI/2;
             
-            ctx.strokeStyle = ctx.fillStyle;
-            ctx.lineWidth = w;
+            // 塗りつぶし用（太い線で道床を描画）
             ctx.beginPath();
-            // ★重要：drawArcの代わりにctx.arcを直接使用し、正しい角度で描画
-            // 基準(0度)は真上または真下になるので、-90度からang分描画する
-            const startAng = (s === -1) ? Math.PI/2 : -Math.PI/2;
             ctx.arc(0, 0, r, startAng, startAng + (s * ang) * Math.PI/180, s === -1);
+            ctx.lineWidth = w;
+            ctx.strokeStyle = ctx.fillStyle;
             ctx.stroke();
-            ctx.restore();
 
-            // 1-2. レール（直線側）
-            ctx.strokeStyle = "#333";
-            ctx.lineWidth = 1.5;
-            ctx.beginPath(); ctx.moveTo(0, -g/2); ctx.lineTo(len, -g/2); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(0, g/2); ctx.lineTo(len, g/2); ctx.stroke();
-
-            // 1-3. レール（分岐側）
-            ctx.strokeStyle = "#333";
-            ctx.lineWidth = 1.5;
-            
-            ctx.save();
-            ctx.translate(0, s * r); // 分岐レールの中心へ
-            [-g/2, g/2].forEach(off => {
+            // 縁取り用（両端に細い線を描画）
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = part.edge || std.edge || "#888";
+            [-w/2, w/2].forEach(off => {
                 ctx.beginPath();
-                // startAngなどは道床と同じ
-                const startAng = (s === -1) ? Math.PI/2 : -Math.PI/2;
                 ctx.arc(0, 0, r + off, startAng, startAng + (s * ang) * Math.PI/180, s === -1);
                 ctx.stroke();
             });
             ctx.restore();
 
+            // レール
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 1.5;
+            // 直線側レール
+            ctx.beginPath(); ctx.moveTo(0, -g/2); ctx.lineTo(len, -g/2); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, g/2); ctx.lineTo(len, g/2); ctx.stroke();
+            // 分岐側レール
+            ctx.save();
+            ctx.translate(0, s * r);
+            [-g/2, g/2].forEach(off => {
+                ctx.beginPath();
+                ctx.arc(0, 0, r + off, startAng, startAng + (s * ang) * Math.PI/180, s === -1);
+                ctx.stroke();
+            });
+            ctx.restore();
         } 
-        // --- 2. 曲線レールの描画 (既存機能) ---
+        // --- 2. 曲線レールの描画 ---
         else if (type === "curve") {
             const radii = Array.isArray(part.radius) ? part.radius : [part.radius];
             const avgR = radii.reduce((a, b) => a + b) / radii.length;
-            
-            // drawArcへの依存を減らすため、ここも直接arcで描く方が安全だが、一旦既存維持
             drawArc(ctx, avgR, part.angle, w, true, 0);
-
             ctx.strokeStyle = "#333";
             ctx.lineWidth = 1.5;
             radii.forEach(r => {
@@ -239,34 +237,53 @@ function render() {
                 drawArc(ctx, avgR, part.angle, 1.5, false, r - avgR + g/2);
             });
         } 
-        // --- 3. 直線レールの描画 (既存機能) ---
+        // --- 3. 直線レールの描画 ---
         else {
             const len = part.length || 50;
             const space = std.space || 33;
-            const isDouble = part.isDouble;
-
             ctx.fillStyle = part.color || std.color || "#aaa";
+            ctx.strokeStyle = part.edge || std.edge || "#888";
+            ctx.lineWidth = 1;
             ctx.fillRect(0, -w/2, len, w);
             ctx.strokeRect(0, -w/2, len, w);
-
             ctx.strokeStyle = "#333";
             ctx.lineWidth = 1.5;
-            const railOffsets = isDouble ? [-space/2, space/2] : [0];
+            const railOffsets = part.isDouble ? [-space/2, space/2] : [0];
             railOffsets.forEach(off => {
                 ctx.beginPath(); ctx.moveTo(0, off - g/2); ctx.lineTo(len, off - g/2); ctx.stroke();
                 ctx.beginPath(); ctx.moveTo(0, off + g/2); ctx.lineTo(len, off + g/2); ctx.stroke();
             });
         }
 
-        // --- 選択中の表示 (基準点に〇) ---
+        // --- 選択マーカー (〇) の中央配置修正 ---
         if (selectedPart === part) {
             ctx.fillStyle = "rgba(255, 165, 0, 0.8)";
-            ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = "orange";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            let centerX, centerY;
+            if (type.startsWith("point")) {
+                // ポイントの中央付近（直線側の中間点）
+                centerX = (part.length || 50) / 2;
+                centerY = 0;
+            } else if (type === "curve") {
+                const radii = Array.isArray(part.radius) ? part.radius : [part.radius];
+                const avgR = radii.reduce((a, b) => a + b) / radii.length;
+                const arad = (part.angle / 2) * Math.PI / 180;
+                centerX = Math.sin(arad) * avgR;
+                centerY = (1 - Math.cos(arad)) * avgR;
+            } else {
+                centerX = (part.length || 50) / 2;
+                centerY = 0;
+            }
+            ctx.arc(centerX, centerY, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
         }
         ctx.restore();
     });
 }
-
 function drawArc(ctx, r, a, w, fill, off = 0) {
     const rad = a * Math.PI / 180;
     const centerX = 0;

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.022</title>
+    <title>Railroad Model Layout Designer v0.59.022f</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -173,54 +173,45 @@ function render() {
         ctx.rotate(part.rotation * Math.PI / 180);
 
 // --- 【修正】ポイントレールの描画ロジック ---
-        if (type && type.startsWith("point")) {
+if (type && type.startsWith("point")) {
             const len = part.length || 50;
             const r = part.radius || 481;
             const ang = part.angle || 15;
             const s = (type === "point-L") ? -1 : 1;
 
-            const stdColor = std.color || "#aaa";
-            const stdEdge = std.edge || "#888";
-
-            ctx.fillStyle = part.color || stdColor;
-            ctx.strokeStyle = part.edge || stdEdge;
+            ctx.fillStyle = part.color || std.color || "#aaa";
+            ctx.strokeStyle = part.edge || std.edge || "#888";
             ctx.lineWidth = 1;
 
-            // 1. 直線側道床（塗りつぶしと縁取り）
+            // 直線道床
             ctx.fillRect(0, -w / 2, len, w);
             ctx.strokeRect(0, -w / 2, len, w);
             
-            // 2. 分岐側道床
+            // 分岐道床
             ctx.save();
             ctx.translate(0, s * r); 
             const startAng = (s === -1) ? Math.PI / 2 : -Math.PI / 2;
             const endAng = startAng + (s * ang) * Math.PI / 180;
 
-            // ★修正：道床の塗りつぶし（太い線で描画）
+            // 先に太い線で「道床の色」を塗る
             ctx.beginPath();
             ctx.arc(0, 0, r, startAng, endAng, s === -1);
             ctx.lineWidth = w;
-            ctx.strokeStyle = ctx.fillStyle; // 道床の色で塗る
+            ctx.strokeStyle = ctx.fillStyle;
             ctx.stroke();
 
-            // ★修正：外枠線（縁取り）の描画
-            // 塗りつぶしの後に、細い線で両脇を描画する
+            // 後から細い線で「縁取り」を描く
             ctx.lineWidth = 1;
-            ctx.strokeStyle = part.edge || stdEdge; // 縁取りの色
-            
-            // 内側の縁
+            ctx.strokeStyle = part.edge || std.edge || "#888";
             ctx.beginPath();
             ctx.arc(0, 0, r - w / 2, startAng, endAng, s === -1);
             ctx.stroke();
-            
-            // 外側の縁
             ctx.beginPath();
             ctx.arc(0, 0, r + w / 2, startAng, endAng, s === -1);
             ctx.stroke();
-            
             ctx.restore();
 
-            // 3. レール描画（変更なし）
+            // レール（ここは既存のままでOK）
             ctx.strokeStyle = "#333"; ctx.lineWidth = 1.5;
             ctx.beginPath(); ctx.moveTo(0, -g/2); ctx.lineTo(len, -g/2); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(0, g/2); ctx.lineTo(len, g/2); ctx.stroke();
@@ -232,7 +223,7 @@ function render() {
                 ctx.stroke();
             });
             ctx.restore();
-        } 
+        }
         // --- 【以下、既存の描画ロジック (0.59.020r) は維持】 ---
         else if (type === "curve") {
             const radii = Array.isArray(part.radius) ? part.radius : [part.radius];
@@ -346,14 +337,13 @@ function getJoints(p) {
     return joints;
 }
 
-// ポイント専用のジョイント取得関数（描画ロジックと座標を完全同期）
 function getPointJoints(p) {
     const joints = [];
     const rad = p.rotation * Math.PI / 180;
     const len = p.length || 50;
     const r = p.radius || 481;
     const ang = p.angle || 15;
-    const s = (p.type === "point-L") ? -1 : 1; // Leftなら-1, Rightなら1
+    const s = (p.type === "point-L") ? -1 : 1;
     const arad = ang * Math.PI / 180;
 
     // 1. 基準点 (base)
@@ -366,19 +356,14 @@ function getPointJoints(p) {
         angle: p.rotation, role: "straight" 
     });
     
-    // 3. 分岐終点 (diverge)
-    // ★修正：描画時の ctx.translate(0, s * r) および ctx.arc() の計算と同期させる
-    // 幾何学的に正確な円弧の終点を算出
+    // 3. 分岐終点 (diverge) - 描画と完全に同期させた新数式
     const sin_ang = Math.sin(arad);
     const cos_ang = Math.cos(arad);
     const sin_rad = Math.sin(rad);
     const cos_rad = Math.cos(rad);
 
-    // 回転行列を正確に適用
     const ex = p.x + (r * sin_ang * cos_rad) - (s * r * (1 - cos_ang) * sin_rad);
     const ey = p.y + (r * sin_ang * sin_rad) + (s * r * (1 - cos_ang) * cos_rad);
-    
-    // 角度も正確に算出
     const ea = (p.rotation + (s * ang) + 360) % 360;
 
     joints.push({ x: ex, y: ey, angle: ea, role: "diverge" });

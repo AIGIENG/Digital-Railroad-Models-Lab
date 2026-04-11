@@ -12,8 +12,8 @@ const railData = {
             { name: "R282-45", type: "curve", radius: 282, angle: 45, std: "KATO_N", desc: "単線曲線 R282-45" }
         ],
         "1.2.複線・複線カント付レール": [
-            { name: "WS248", type: "straight", length: 248, std: "KATO_N", isDouble: true, width: 33, desc: "複線直線 248mm" },
-            { name: "WR315/282-45", type: "curve", radius: 282, angle: 45, std: "KATO_N", isDouble: true, width: 33, desc: "複線カント曲線" }
+            { name: "WS248", type: "straight", length: 248, std: "KATO_N", isDouble: true, width: 57.5, desc: "複線直線 248mm" },
+            { name: "WR315/282-45", type: "curve",    radius: 282, angle: 45, std: "KATO_N", isDouble: true, width: 57.5, desc: "複線カント曲線" }
         ],
         "1.3.高架": [],
         "1.4.ポイント": [

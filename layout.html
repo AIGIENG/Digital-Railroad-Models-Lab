@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.016</title>
+    <title>Railroad Model Layout Designer v0.59.017</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -290,31 +290,65 @@ function getJoints(p) {
     const joints = [];
     const rad = p.rotation * Math.PI / 180;
 
-    // --- A. ポイントレールの特殊処理 ---
-    if (p.jointRoles && p.type && p.type.startsWith("point")) {
+    // --- A. ポイントレールの特殊処理（既存ロジックに干渉させない） ---
+    if (p.type && p.type.startsWith("point")) {
         const len = p.length || 50;
         const r = p.radius || 481;
         const ang = p.angle || 15;
         const s = (p.type === "point-L") ? -1 : 1;
+        const arad = ang * Math.PI / 180;
 
-        p.jointRoles.forEach(role => {
-            if (role === "base") {
-                joints.push({ x: p.x, y: p.y, angle: (p.rotation + 180) % 360, role: "base" });
-            } else if (role === "straight") {
-                joints.push({ 
-                    x: p.x + len * Math.cos(rad), 
-                    y: p.y + len * Math.sin(rad), 
-                    angle: p.rotation, role: "straight" 
-                });
-            } else if (role === "diverge") {
-                const arad = ang * Math.PI / 180;
-                const ex = p.x + r * Math.sin(arad) * Math.cos(rad) - s * r * (1 - Math.cos(arad)) * Math.sin(rad);
-                const ey = p.y + r * Math.sin(arad) * Math.sin(rad) + s * r * (1 - Math.cos(arad)) * Math.cos(rad);
-                joints.push({ x: ex, y: ey, angle: (p.rotation + s * ang + 360) % 360, role: "diverge" });
-            }
+        // 1. 基準点 (base)
+        joints.push({ x: p.x, y: p.y, angle: (p.rotation + 180) % 360, role: "base" });
+        // 2. 直進終点 (straight)
+        joints.push({ 
+            x: p.x + len * Math.cos(rad), 
+            y: p.y + len * Math.sin(rad), 
+            angle: p.rotation, role: "straight" 
         });
+        // 3. 分岐終点 (diverge)
+        const ex = p.x + r * Math.sin(arad) * Math.cos(rad) - s * r * (1 - Math.cos(arad)) * Math.sin(rad);
+        const ey = p.y + r * Math.sin(arad) * Math.sin(rad) + s * r * (1 - Math.cos(arad)) * Math.cos(rad);
+        joints.push({ x: ex, y: ey, angle: (p.rotation + s * ang + 360) % 360, role: "diverge" });
+        
         return joints;
     }
+
+    // --- B. 0.59.008 互換の安定ロジック（単線・複線・曲線） ---
+    const radii = Array.isArray(p.radius) ? p.radius : [p.radius];
+    const isDouble = p.isDouble || radii.length > 1;
+    const space = std.space || 33;
+
+    // 複線時は「中心」から上下に半分ずつ振り分ける（0.59.008の仕様に戻す）
+    const railOffsets = isDouble ? [-space / 2, space / 2] : [0];
+
+    railOffsets.forEach((off, i) => {
+        // 始点の算出
+        const sx = p.x + off * Math.cos(rad + Math.PI / 2);
+        const sy = p.y + off * Math.sin(rad + Math.PI / 2);
+        joints.push({ x: sx, y: sy, angle: (p.rotation + 180) % 360 });
+
+        let ex, ey, ea;
+        if (p.type === "curve") {
+            const r = radii[i] || radii[0]; // 各レール芯ごとの半径
+            const arad = p.angle * Math.PI / 180;
+            
+            // 0.59.008 で安定していた回転行列の適用
+            // 始点 (sx, sy) から、そのレールの半径 r に基づいて終点を算出
+            ex = sx + r * Math.sin(arad) * Math.cos(rad) + r * (1 - Math.cos(arad)) * Math.sin(rad);
+            ey = sy + r * Math.sin(arad) * Math.sin(rad) - r * (1 - Math.cos(arad)) * Math.cos(rad);
+            ea = (p.rotation + p.angle + 360) % 360;
+        } else {
+            const len = p.length || 50;
+            ex = sx + len * Math.cos(rad);
+            ey = sy + len * Math.sin(rad);
+            ea = p.rotation;
+        }
+        joints.push({ x: ex, y: ey, angle: ea });
+    });
+
+    return joints;
+}
 
     // --- B. 既存のレール（単線・複線・曲線）の処理 ---
     const radii = Array.isArray(p.radius) ? p.radius : [p.radius];

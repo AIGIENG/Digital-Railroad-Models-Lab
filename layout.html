@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.007f</title>
+    <title>Railroad Model Layout Designer v0.59.007f2</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -305,8 +305,6 @@ canvas.onmousedown = (e) => {
     selectedPart = null;
     for (let i = layers.rail.length - 1; i >= 0; i--) {
         const p = layers.rail[i];
-        
-        // 当たり判定用のローカル座標計算（既存ロジック）
         const dx = mx - p.x;
         const dy = my - p.y;
         const angle = -p.rotation * Math.PI / 180;
@@ -324,11 +322,9 @@ canvas.onmousedown = (e) => {
             const a = (Math.atan2(rx, avgR - ry) * 180 / Math.PI);
             if (dist >= avgR - w/2 && dist <= avgR + w/2 && a >= 0 && a <= p.angle) {
                 isHit = true;
-                // 曲線の中心（円弧の中央）を計算
                 const arad = (p.angle / 2) * Math.PI / 180;
                 const localCX = Math.sin(arad) * avgR;
                 const localCY = (1 - Math.cos(arad)) * avgR;
-                // グローバル座標に変換
                 centerX = p.x + localCX * Math.cos(p.rotation * Math.PI / 180) - localCY * Math.sin(p.rotation * Math.PI / 180);
                 centerY = p.y + localCX * Math.sin(p.rotation * Math.PI / 180) + localCY * Math.cos(p.rotation * Math.PI / 180);
             }
@@ -336,9 +332,7 @@ canvas.onmousedown = (e) => {
             const len = p.length || 50;
             if (rx >= 0 && rx <= len && ry >= -w/2 && ry <= w/2) {
                 isHit = true;
-                // 直線の中心
                 const localCX = len / 2;
-                const localCY = 0;
                 centerX = p.x + localCX * Math.cos(p.rotation * Math.PI / 180);
                 centerY = p.y + localCX * Math.sin(p.rotation * Math.PI / 180);
             }
@@ -347,7 +341,6 @@ canvas.onmousedown = (e) => {
         if (isHit) {
             selectedPart = p;
             isDragging = true;
-            // マウス位置と「レールの中心」のズレを記録
             dragOffset.x = mx - centerX;
             dragOffset.y = my - centerY;
             break;
@@ -355,15 +348,34 @@ canvas.onmousedown = (e) => {
     }
     render();
 };
+
 canvas.onmousemove = (e) => {
-    if (!isDragging || !selectedPart) return;
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-    const rad = selectedPart.rotation * Math.PI / 180;
-    selectedPart.x = mx - (dragOffset.x * Math.cos(rad) - dragOffset.y * Math.sin(rad));
-    selectedPart.y = my - (dragOffset.x * Math.sin(rad) + dragOffset.y * Math.cos(rad));
-    render();
+    if (isDragging && selectedPart) {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        const targetCX = mx - dragOffset.x;
+        const targetCY = my - dragOffset.y;
+
+        let localCX, localCY;
+        if (selectedPart.type === "curve") {
+            const radii = Array.isArray(selectedPart.radius) ? selectedPart.radius : [selectedPart.radius];
+            const avgR = radii.reduce((a, b) => a + b) / radii.length;
+            const arad = (selectedPart.angle / 2) * Math.PI / 180;
+            localCX = Math.sin(arad) * avgR;
+            localCY = (1 - Math.cos(arad)) * avgR;
+        } else {
+            localCX = (selectedPart.length || 50) / 2;
+            localCY = 0;
+        }
+
+        const rad = selectedPart.rotation * Math.PI / 180;
+        selectedPart.x = targetCX - (localCX * Math.cos(rad) - localCY * Math.sin(rad));
+        selectedPart.y = targetCY - (localCX * Math.sin(rad) + localCY * Math.cos(rad));
+
+        render();
+    }
 };
 
 canvas.onmousemove = (e) => {

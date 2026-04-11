@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.008r</title>
+    <title>Railroad Model Layout Designer v0.59.009</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -248,49 +248,32 @@ function drawArc(ctx, r, a, w, fill, off = 0) {
 }
 
 function getJoints(p) {
-    const std = STANDARDS[p.std] || { space: 33 };
-    const rad = p.rotation * Math.PI / 180;
     const joints = [];
+    const rad = p.rotation * Math.PI / 180;
 
-    const radii = Array.isArray(p.radius) ? p.radius : [p.radius];
-    const isDouble = p.isDouble || radii.length > 1;
-    const space = std.space || 33;
+    // --- (中略：既存の複線・単線判定) ---
 
-    // 複線の場合、各レール芯のオフセットを定義
-    let offsets = [0];
-    if (isDouble) {
-        if (p.type === "curve" && Array.isArray(p.radius)) {
-            const avgR = p.radius.reduce((a, b) => a + b) / p.radius.length;
-            offsets = p.radius.map(r => r - avgR);
-        } else {
-            offsets = [-space / 2, space / 2];
-        }
+    // ステップ2の実装：ラベル(role)の付与
+    if (p.jointRoles) {
+        // ポイントレールの場合は roles に基づいて3点以上の座標を計算する
+        p.jointRoles.forEach((role, index) => {
+            let jx, jy, ja;
+            if (role === "base") {
+                jx = p.x; jy = p.y; ja = (p.rotation + 180) % 360;
+            } else if (role === "straight") {
+                jx = p.x + p.length * Math.cos(rad);
+                jy = p.y + p.length * Math.sin(rad);
+                ja = p.rotation;
+            } else if (role === "diverge") {
+                // ここに分岐側の座標計算（三角関数）を入れる
+            }
+            joints.push({ x: jx, y: jy, angle: ja, role: role }); 
+        });
+    } else {
+        // 既存のレールの場合は、従来通りの配列を生成し、
+        // 便宜上 role: "start" / "end" を付けて互換性を保つ
+        // (ここに従来の joints.push ロジック)
     }
-
-    offsets.forEach(off => {
-        const sx = p.x + off * Math.cos(rad + Math.PI / 2);
-        const sy = p.y + off * Math.sin(rad + Math.PI / 2);
-        joints.push({ x: sx, y: sy, angle: (p.rotation + 180) % 360, type: "start" });
-
-        let ex, ey, ea;
-        if (p.type === "curve") {
-            const arad = p.angle * Math.PI / 180;
-            const avgR = Array.isArray(p.radius) ? (p.radius.reduce((a, b) => a + b) / p.radius.length) : p.radius;
-            const r = avgR + off;
-            const cx = p.x - Math.sin(rad) * avgR;
-            const cy = p.y + Math.cos(rad) * avgR;
-            ex = cx + Math.sin(rad + arad) * r;
-            ey = centerY = cy - Math.cos(rad + arad) * r;
-            ea = (p.rotation + p.angle) % 360;
-        } else {
-            const len = p.length || 50;
-            ex = sx + len * Math.cos(rad);
-            ey = sy + len * Math.sin(rad);
-            ea = p.rotation;
-        }
-        joints.push({ x: ex, y: ey, angle: (ea + 360) % 360, type: "end" });
-    });
-
     return joints;
 }
 

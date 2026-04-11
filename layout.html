@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.006</title>
+    <title>Railroad Model Layout Designer v0.59.007</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -295,15 +295,19 @@ function getJoints(p) {
 }
 
 // 5. マウス操作
+// グローバル変数または適切なスコープに定義
+let dragOffset = { x: 0, y: 0 };
+
 canvas.onmousedown = (e) => {
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
 
     selectedPart = null;
-    // 逆順にループ（上に重なっているものを優先）
     for (let i = layers.rail.length - 1; i >= 0; i--) {
         const p = layers.rail[i];
+        
+        // 当たり判定用のローカル座標計算（既存ロジック）
         const dx = mx - p.x;
         const dy = my - p.y;
         const angle = -p.rotation * Math.PI / 180;
@@ -311,27 +315,47 @@ canvas.onmousedown = (e) => {
         const ry = dx * Math.sin(angle) + dy * Math.cos(angle);
 
         const w = p.width || 25;
+        let isHit = false;
+        let centerX, centerY;
+
         if (p.type === "curve") {
             const radii = Array.isArray(p.radius) ? p.radius : [p.radius];
             const avgR = radii.reduce((a, b) => a + b) / radii.length;
             const dist = Math.hypot(rx, ry - avgR);
             const a = (Math.atan2(rx, avgR - ry) * 180 / Math.PI);
             if (dist >= avgR - w/2 && dist <= avgR + w/2 && a >= 0 && a <= p.angle) {
-                selectedPart = p;
-                break;
+                isHit = true;
+                // 曲線の中心（円弧の中央）を計算
+                const arad = (p.angle / 2) * Math.PI / 180;
+                const localCX = Math.sin(arad) * avgR;
+                const localCY = (1 - Math.cos(arad)) * avgR;
+                // グローバル座標に変換
+                centerX = p.x + localCX * Math.cos(p.rotation * Math.PI / 180) - localCY * Math.sin(p.rotation * Math.PI / 180);
+                centerY = p.y + localCX * Math.sin(p.rotation * Math.PI / 180) + localCY * Math.cos(p.rotation * Math.PI / 180);
             }
         } else {
             const len = p.length || 50;
             if (rx >= 0 && rx <= len && ry >= -w/2 && ry <= w/2) {
-                selectedPart = p;
-                break;
+                isHit = true;
+                // 直線の中心
+                const localCX = len / 2;
+                const localCY = 0;
+                centerX = p.x + localCX * Math.cos(p.rotation * Math.PI / 180);
+                centerY = p.y + localCX * Math.sin(p.rotation * Math.PI / 180);
             }
         }
+
+        if (isHit) {
+            selectedPart = p;
+            isDragging = true;
+            // マウス位置と「レールの中心」のズレを記録
+            dragOffset.x = mx - centerX;
+            dragOffset.y = my - centerY;
+            break;
+        }
     }
-    if (selectedPart) isDragging = true;
     render();
 };
-
 canvas.onmousemove = (e) => {
     if (!isDragging || !selectedPart) return;
     const rect = canvas.getBoundingClientRect();
@@ -343,44 +367,36 @@ canvas.onmousemove = (e) => {
     render();
 };
 
-canvas.onmouseup = () => {
+canvas.onmousemove = (e) => {
     if (isDragging && selectedPart) {
-        let bestSnap = null;
-        let minDist = 25; 
-        const myJoints = getJoints(selectedPart);
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
 
-        for (const target of layers.rail) {
-            if (target === selectedPart) continue;
-            const targetJoints = getJoints(target);
-            for (const mj of myJoints) {
-                for (const tj of targetJoints) {
-                    const d = Math.hypot(mj.x - tj.x, mj.y - tj.y);
-                    if (d < minDist) {
-                        minDist = d;
-                        bestSnap = { mj, tj };
-                    }
-                }
-            }
+        // 1. マウスが指すべき理想の「中心点」を計算
+        const targetCX = mx - dragOffset.x;
+        const targetCY = my - dragOffset.y;
+
+        // 2. 「中心点」から「基準点（左端）」への相対位置を計算
+        let localCX, localCY;
+        if (selectedPart.type === "curve") {
+            const radii = Array.isArray(selectedPart.radius) ? selectedPart.radius : [selectedPart.radius];
+            const avgR = radii.reduce((a, b) => a + b) / radii.length;
+            const arad = (selectedPart.angle / 2) * Math.PI / 180;
+            localCX = Math.sin(arad) * avgR;
+            localCY = (1 - Math.cos(arad)) * avgR;
+        } else {
+            localCX = (selectedPart.length || 50) / 2;
+            localCY = 0;
         }
 
-        if (bestSnap) {
-            const { mj, tj } = bestSnap;
-            const targetMJAngle = (tj.angle + 180) % 360;
-            let angleDiff = targetMJAngle - mj.angle;
-            angleDiff = ((angleDiff + 180) % 360 + 360) % 360 - 180;
-            selectedPart.rotation = (selectedPart.rotation + angleDiff + 360) % 360;
+        // 3. 中心点から基準点(x, y)を逆算して代入
+        const rad = selectedPart.rotation * Math.PI / 180;
+        selectedPart.x = targetCX - (localCX * Math.cos(rad) - localCY * Math.sin(rad));
+        selectedPart.y = targetCY - (localCX * Math.sin(rad) + localCY * Math.cos(rad));
 
-            const updatedJoints = getJoints(selectedPart);
-            // mjのインデックスを特定して、更新後の自分の位置を合わせる
-            const mjIndex = myJoints.indexOf(mj);
-            const updatedMj = getJoints(selectedPart)[mjIndex];
-
-            selectedPart.x += (tj.x - updatedMj.x);
-            selectedPart.y += (tj.y - updatedMj.y);
-        }
+        render();
     }
-    isDragging = false;
-    render();
 };
 
 window.onload = () => { initSidebar(); render(); };

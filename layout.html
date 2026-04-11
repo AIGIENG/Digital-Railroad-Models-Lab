@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.003</title>
+    <title>Railroad Model Layout Designer v0.59.004</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -165,45 +165,45 @@ function render() {
     layers.rail.forEach(part => {
         const std = STANDARDS[part.std] || { gauge: 9, space: 33, defWidth: 25, color: "#aaa", edge: "#888" };
         const w = part.width || std.defWidth;
+        const space = std.space;
         const g = std.gauge;
-        const fillColor = part.color || std.color || "#aaa";
-        const edgeColor = part.edge || std.edge || "#888";
-
+        
         ctx.save();
         ctx.translate(part.x, part.y);
         ctx.rotate(part.rotation * Math.PI / 180);
 
+        // 道床の描画幅（複線の場合は2線分をカバー）
+        const bedWidth = part.isDouble ? (space + w) : w;
+
         if (part.type === "curve") {
-            ctx.fillStyle = fillColor;
-            ctx.strokeStyle = edgeColor;
+            ctx.fillStyle = part.color || std.color || "#aaa";
+            ctx.strokeStyle = part.edge || std.edge || "#888";
             ctx.lineWidth = 1;
-            drawArc(ctx, part.radius, part.angle, w, true, 0);
+            drawArc(ctx, part.radius, part.angle, bedWidth, true, 0);
 
             ctx.strokeStyle = "#333";
             ctx.lineWidth = 1.5;
-            const baseOffsets = part.isDouble ? [std.space/2, -std.space/2] : [0];
-            baseOffsets.forEach(bOff => {
-                drawArc(ctx, part.radius, part.angle, 1.5, false, bOff - g/2);
-                drawArc(ctx, part.radius, part.angle, 1.5, false, bOff + g/2);
+            const railOffsets = part.isDouble ? [-space/2, space/2] : [0];
+            railOffsets.forEach(off => {
+                drawArc(ctx, part.radius, part.angle, 1.5, false, off - g/2);
+                drawArc(ctx, part.radius, part.angle, 1.5, false, off + g/2);
             });
         } else {
             const len = part.length || 50;
-            ctx.fillStyle = fillColor;
-            ctx.strokeStyle = edgeColor;
+            ctx.fillStyle = part.color || std.color || "#aaa";
+            ctx.strokeStyle = part.edge || std.edge || "#888";
             ctx.lineWidth = 1;
-            ctx.fillRect(0, -w/2, len, w);
-            ctx.strokeRect(0, -w/2, len, w);
+            ctx.fillRect(0, -bedWidth/2, len, bedWidth);
+            ctx.strokeRect(0, -bedWidth/2, len, bedWidth);
 
             ctx.strokeStyle = "#333";
             ctx.lineWidth = 1.5;
-            const baseOffsets = part.isDouble ? [std.space/2, -std.space/2] : [0];
-            baseOffsets.forEach(bOff => {
+            const railOffsets = part.isDouble ? [-space/2, space/2] : [0];
+            railOffsets.forEach(off => {
                 ctx.beginPath();
-                ctx.moveTo(0, bOff - g/2); ctx.lineTo(len, bOff - g/2);
-                ctx.stroke();
+                ctx.moveTo(0, off - g/2); ctx.lineTo(len, off - g/2); ctx.stroke();
                 ctx.beginPath();
-                ctx.moveTo(0, bOff + g/2); ctx.lineTo(len, bOff + g/2);
-                ctx.stroke();
+                ctx.moveTo(0, off + g/2); ctx.lineTo(len, off + g/2); ctx.stroke();
             });
         }
 
@@ -211,12 +211,10 @@ function render() {
             ctx.strokeStyle = "orange";
             ctx.lineWidth = 3;
             if (part.type === "curve") {
-                // 道床の外縁(w/2)と内縁(-w/2)にハイライトを描画
-                drawArc(ctx, part.radius, part.angle, 0, false, w/2);
-                drawArc(ctx, part.radius, part.angle, 0, false, -w/2);
+                drawArc(ctx, part.radius, part.angle, bedWidth + 4, false, 0);
             } else {
                 const len = part.length || 50;
-                ctx.strokeRect(0, -w/2, len, w);
+                ctx.strokeRect(0, -bedWidth/2, len, bedWidth);
             }
         }
         ctx.restore();
@@ -241,32 +239,50 @@ function drawArc(ctx, r, a, w, fill, off = 0) {
 }
 
 function getJoints(p) {
+    const std = STANDARDS[p.std] || { space: 33 };
+    const space = std.space;
     const rad = p.rotation * Math.PI / 180;
-    // Start側ジョイント：パーツの原点。角度は「パーツの外側（手前）」を向くので +180
-    const joints = [{ 
-        x: p.x, 
-        y: p.y, 
-        angle: (p.rotation + 180) % 360, 
-        type: "start" 
-    }];
-    
-    let ex, ey, ea;
-    if (p.type === "curve") {
-        const arad = p.angle * Math.PI / 180;
-        const centerX = p.x - Math.sin(rad) * p.radius;
-        const centerY = p.y + Math.cos(rad) * p.radius;
-        ex = centerX + Math.sin(rad + arad) * p.radius;
-        ey = centerY - Math.cos(rad + arad) * p.radius;
-        // End側ジョイント：進行方向を向く
-        ea = (p.rotation + p.angle) % 360;
-    } else {
-        const len = p.length || 50;
-        ex = p.x + len * Math.cos(rad);
-        ey = p.y + len * Math.sin(rad);
-        ea = p.rotation;
+    const joints = [];
+
+    // オフセット（単線なら0、複線なら左右にspace/2）
+    const offsets = p.isDouble ? [-space / 2, space / 2] : [0];
+
+    offsets.forEach(off => {
+        // Start側: 各レールの芯に合わせる
+        // 起点(p.x, p.y)から、レールの垂直方向(rad + 90度)にオフセット
+        const sx = p.x + off * Math.cos(rad + Math.PI / 2);
+        const sy = p.y + off * Math.sin(rad + Math.PI / 2);
+        joints.push({ x: sx, y: sy, angle: (p.rotation + 180) % 360, type: "start" });
+
+        // End側
+        let ex, ey, ea;
+        if (p.type === "curve") {
+            const arad = p.angle * Math.PI / 180;
+            // 曲線用中心点（各レール芯ごとの半径を考慮）
+            const currentR = p.radius + off;
+            const cx = p.x - Math.sin(rad) * p.radius;
+            const cy = p.y + Math.cos(rad) * p.radius;
+            
+            ex = cx + Math.sin(rad + arad) * currentR;
+            ey = cy - Math.cos(rad + arad) * currentR;
+            ea = (p.rotation + p.angle) % 360;
+        } else {
+            const len = p.length || 50;
+            ex = sx + len * Math.cos(rad);
+            ey = sy + len * Math.sin(rad);
+            ea = p.rotation;
+        }
+        joints.push({ x: ex, y: ey, angle: (ea + 360) % 360, type: "end" });
+    });
+
+    // カスタムジョイント（ポイントレールの分岐側など）がある場合
+    if (p.joints && Array.isArray(p.joints)) {
+        p.joints.forEach(j => {
+            // パーツの回転と座標に合わせた相対座標計算（必要に応じて実装）
+            // 現状は基本の接続点を優先
+        });
     }
-    
-    joints.push({ x: ex, y: ey, angle: (ea + 360) % 360, type: "end" });
+
     return joints;
 }
 

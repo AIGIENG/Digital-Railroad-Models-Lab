@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59</title>
+    <title>Railroad Model Layout Designer v0.59.001</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -242,7 +242,6 @@ function drawArc(ctx, r, a, w, fill, off = 0) {
 
 function getJoints(p) {
     const rad = p.rotation * Math.PI / 180;
-    // Start側の角度はそのパーツの rotation そのもの
     const joints = [{ x: p.x, y: p.y, angle: (p.rotation + 360) % 360, type: "start" }];
     let ex, ey, ea;
 
@@ -250,9 +249,10 @@ function getJoints(p) {
         const arad = p.angle * Math.PI / 180;
         const centerX = p.x - Math.sin(rad) * p.radius;
         const centerY = p.y + Math.cos(rad) * p.radius;
+
         ex = centerX + Math.sin(rad + arad) * p.radius;
         ey = centerY - Math.cos(rad + arad) * p.radius;
-        // End側の角度は、進行方向（rotation + angle）
+        // End側の角度を「そのジョイントが外に伸びる方向」として定義
         ea = (p.rotation + p.angle + 360) % 360;
     } else {
         const len = p.length || 50;
@@ -328,7 +328,6 @@ canvas.onmouseup = () => {
     if (isDragging && selectedPart) {
         let bestSnap = null;
         let minDist = 25; 
-
         const myJoints = getJoints(selectedPart);
 
         for (const target of layers.rail) {
@@ -349,13 +348,11 @@ canvas.onmouseup = () => {
         if (bestSnap) {
             const { mj, tj } = bestSnap;
             
-            // 接続の物理法則：
-            // 相手の端点角度（tj.angle）は「そこからレールが伸びる方向」
-            // 自分の接続したい端点の角度を、単純に相手と同じ向きに揃える
+            // 角度の決定：相手のジョイント角度に合わせる
             let targetRotation = tj.angle;
             
-            // 自分がEnd側を接続しようとしている場合、パーツ自体の向き(rotation)は
-            // 起点から終点までの角度分（p.angle）だけ戻った位置になる
+            // 自分のEnd側が吸着した場合、パーツ全体の向き(rotation)は
+            // 終端角度から自身の曲がり角度分だけ差し引いた値になる
             if (mj.type === "end") {
                 const angleOffset = (selectedPart.type === "curve") ? selectedPart.angle : 0;
                 targetRotation = (targetRotation - angleOffset + 360) % 360;
@@ -363,6 +360,7 @@ canvas.onmouseup = () => {
 
             selectedPart.rotation = targetRotation;
 
+            // 回転反映後、吸着した「その端点」がズレないように座標を再設定
             const updatedJoints = getJoints(selectedPart);
             const updatedMj = (mj.type === "start") ? updatedJoints[0] : updatedJoints[1];
 

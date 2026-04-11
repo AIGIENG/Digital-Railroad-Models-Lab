@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.004</title>
+    <title>Railroad Model Layout Designer v0.59.005</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -165,45 +165,45 @@ function render() {
     layers.rail.forEach(part => {
         const std = STANDARDS[part.std] || { gauge: 9, space: 33, defWidth: 25, color: "#aaa", edge: "#888" };
         const w = part.width || std.defWidth;
-        const space = std.space;
         const g = std.gauge;
         
         ctx.save();
         ctx.translate(part.x, part.y);
         ctx.rotate(part.rotation * Math.PI / 180);
 
-        // 道床の描画幅（複線の場合は2線分をカバー）
-        const bedWidth = part.isDouble ? (space + w) : w;
+        const radii = Array.isArray(part.radius) ? part.radius : [part.radius];
+        const isDouble = part.isDouble || radii.length > 1;
 
         if (part.type === "curve") {
+            const avgR = radii.reduce((a, b) => a + b) / radii.length;
             ctx.fillStyle = part.color || std.color || "#aaa";
             ctx.strokeStyle = part.edge || std.edge || "#888";
             ctx.lineWidth = 1;
-            drawArc(ctx, part.radius, part.angle, bedWidth, true, 0);
+            // 平均半径(avgR)を中心に、指定されたwidth(w)で道床を描画
+            drawArc(ctx, avgR, part.angle, w, true, 0);
 
             ctx.strokeStyle = "#333";
             ctx.lineWidth = 1.5;
-            const railOffsets = part.isDouble ? [-space/2, space/2] : [0];
-            railOffsets.forEach(off => {
-                drawArc(ctx, part.radius, part.angle, 1.5, false, off - g/2);
-                drawArc(ctx, part.radius, part.angle, 1.5, false, off + g/2);
+            radii.forEach(r => {
+                const off = r - avgR;
+                drawArc(ctx, avgR, part.angle, 1.5, false, off - g/2);
+                drawArc(ctx, avgR, part.angle, 1.5, false, off + g/2);
             });
         } else {
             const len = part.length || 50;
+            const space = std.space || 33;
             ctx.fillStyle = part.color || std.color || "#aaa";
             ctx.strokeStyle = part.edge || std.edge || "#888";
             ctx.lineWidth = 1;
-            ctx.fillRect(0, -bedWidth/2, len, bedWidth);
-            ctx.strokeRect(0, -bedWidth/2, len, bedWidth);
+            ctx.fillRect(0, -w/2, len, w);
+            ctx.strokeRect(0, -w/2, len, w);
 
             ctx.strokeStyle = "#333";
             ctx.lineWidth = 1.5;
-            const railOffsets = part.isDouble ? [-space/2, space/2] : [0];
+            const railOffsets = isDouble ? [-space/2, space/2] : [0];
             railOffsets.forEach(off => {
-                ctx.beginPath();
-                ctx.moveTo(0, off - g/2); ctx.lineTo(len, off - g/2); ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(0, off + g/2); ctx.lineTo(len, off + g/2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, off - g/2); ctx.lineTo(len, off - g/2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, off + g/2); ctx.lineTo(len, off + g/2); ctx.stroke();
             });
         }
 
@@ -211,10 +211,10 @@ function render() {
             ctx.strokeStyle = "orange";
             ctx.lineWidth = 3;
             if (part.type === "curve") {
-                drawArc(ctx, part.radius, part.angle, bedWidth + 4, false, 0);
+                const avgR = radii.reduce((a, b) => a + b) / radii.length;
+                drawArc(ctx, avgR, part.angle, w, false, 0);
             } else {
-                const len = part.length || 50;
-                ctx.strokeRect(0, -bedWidth/2, len, bedWidth);
+                ctx.strokeRect(0, -(part.width || std.defWidth)/2, part.length || 50, part.width || std.defWidth);
             }
         }
         ctx.restore();
@@ -240,16 +240,26 @@ function drawArc(ctx, r, a, w, fill, off = 0) {
 
 function getJoints(p) {
     const std = STANDARDS[p.std] || { space: 33 };
-    const space = std.space;
     const rad = p.rotation * Math.PI / 180;
     const joints = [];
 
-    // オフセット（単線なら0、複線なら左右にspace/2）
-    const offsets = p.isDouble ? [-space / 2, space / 2] : [0];
+    // 半径を配列（複線）か単一値（単線）で正規化
+    const radii = Array.isArray(p.radius) ? p.radius : [p.radius];
+    const isDouble = p.isDouble || radii.length > 1;
 
-    offsets.forEach(off => {
-        // Start側: 各レールの芯に合わせる
-        // 起点(p.x, p.y)から、レールの垂直方向(rad + 90度)にオフセット
+    radii.forEach((r, index) => {
+        // Start側: 各レール芯
+        // 複線曲線の描画基準(p.x, p.y)は「2本のレールの中心」とするため、
+        // 各レールの位置をオフセット計算する
+        let off = 0;
+        if (isDouble && p.type === "curve") {
+            const avgR = radii.reduce((a, b) => a + b) / radii.length;
+            off = r - avgR; // 中心半径からの差分
+        } else if (isDouble && p.type !== "curve") {
+            const space = std.space || 33;
+            off = (index === 0) ? -space / 2 : space / 2;
+        }
+
         const sx = p.x + off * Math.cos(rad + Math.PI / 2);
         const sy = p.y + off * Math.sin(rad + Math.PI / 2);
         joints.push({ x: sx, y: sy, angle: (p.rotation + 180) % 360, type: "start" });
@@ -258,13 +268,12 @@ function getJoints(p) {
         let ex, ey, ea;
         if (p.type === "curve") {
             const arad = p.angle * Math.PI / 180;
-            // 曲線用中心点（各レール芯ごとの半径を考慮）
-            const currentR = p.radius + off;
-            const cx = p.x - Math.sin(rad) * p.radius;
-            const cy = p.y + Math.cos(rad) * p.radius;
+            const avgR = Array.isArray(p.radius) ? (p.radius.reduce((a, b) => a + b) / p.radius.length) : p.radius;
+            const cx = p.x - Math.sin(rad) * avgR;
+            const cy = p.y + Math.cos(rad) * avgR;
             
-            ex = cx + Math.sin(rad + arad) * currentR;
-            ey = cy - Math.cos(rad + arad) * currentR;
+            ex = cx + Math.sin(rad + arad) * r;
+            ey = cy - Math.cos(rad + arad) * r;
             ea = (p.rotation + p.angle) % 360;
         } else {
             const len = p.length || 50;
@@ -274,14 +283,6 @@ function getJoints(p) {
         }
         joints.push({ x: ex, y: ey, angle: (ea + 360) % 360, type: "end" });
     });
-
-    // カスタムジョイント（ポイントレールの分岐側など）がある場合
-    if (p.joints && Array.isArray(p.joints)) {
-        p.joints.forEach(j => {
-            // パーツの回転と座標に合わせた相対座標計算（必要に応じて実装）
-            // 現状は基本の接続点を優先
-        });
-    }
 
     return joints;
 }
@@ -355,7 +356,6 @@ canvas.onmouseup = () => {
         for (const target of layers.rail) {
             if (target === selectedPart) continue;
             const targetJoints = getJoints(target);
-
             for (const mj of myJoints) {
                 for (const tj of targetJoints) {
                     const d = Math.hypot(mj.x - tj.x, mj.y - tj.y);
@@ -369,22 +369,15 @@ canvas.onmouseup = () => {
 
         if (bestSnap) {
             const { mj, tj } = bestSnap;
-
-            // 1. 接続の原理：自分の端点の「外向き角度」を、相手の「外向き角度」の正反対に合わせる
-            // tj.angle は相手の接続面が向いている方向。
-            // 自分の接続面の理想の向きは (tj.angle + 180)
             const targetMJAngle = (tj.angle + 180) % 360;
-
-            // 2. 現在の rotation における自分の端点の向き(mj.angle)との差分を求める
             let angleDiff = targetMJAngle - mj.angle;
-            
-            // 3. 最短回転（-180〜180度）で吸着させる。これによりS字か順接かが維持される
             angleDiff = ((angleDiff + 180) % 360 + 360) % 360 - 180;
             selectedPart.rotation = (selectedPart.rotation + angleDiff + 360) % 360;
 
-            // 4. 回転後の座標で再計算し、端点を一致させる
             const updatedJoints = getJoints(selectedPart);
-            const updatedMj = (mj.type === "start") ? updatedJoints[0] : updatedJoints[1];
+            // mjのインデックスを特定して、更新後の自分の位置を合わせる
+            const mjIndex = myJoints.indexOf(mj);
+            const updatedMj = getJoints(selectedPart)[mjIndex];
 
             selectedPart.x += (tj.x - updatedMj.x);
             selectedPart.y += (tj.y - updatedMj.y);

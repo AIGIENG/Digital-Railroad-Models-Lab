@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.022f2</title>
+    <title>Railroad Model Layout Designer v0.59.022f3</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -163,8 +163,8 @@ function render() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     layers.rail.forEach(part => {
+        // 共通設定の取得
         const std = STANDARDS[part.std] || { gauge: 9, space: 33, defWidth: 25, color: "#aaa", edge: "#888" };
-        const w = part.width || std.defWidth;
         const g = std.gauge;
         const type = part.type;
         
@@ -172,11 +172,9 @@ function render() {
         ctx.translate(part.x, part.y);
         ctx.rotate(part.rotation * Math.PI / 180);
 
-// --- ポイントレールの描画 (ここを完全に差し替え) ---
+        // --- A. ポイントレールの描画 ---
         if (type && type.startsWith("point")) {
-            const std = STANDARDS[part.std] || { gauge: 9, space: 33, defWidth: 25, color: "#aaa", edge: "#888" };
             const w = part.width || std.defWidth;
-            const g = std.gauge;
             const len = part.length || 50;
             const r = part.radius || 481;
             const ang = part.angle || 15;
@@ -184,53 +182,43 @@ function render() {
 
             ctx.fillStyle = part.color || std.color || "#aaa";
             ctx.strokeStyle = part.edge || std.edge || "#888";
-            
-            // A. 直線側道床
+
+            // 直線側
             ctx.lineWidth = 1;
             ctx.fillRect(0, -w / 2, len, w);
             ctx.strokeRect(0, -w / 2, len, w);
             
-            // B. 分岐側道床
+            // 分岐側
             ctx.save();
             ctx.translate(0, s * r); 
             const startAng = (s === -1) ? Math.PI / 2 : -Math.PI / 2;
             const endAng = startAng + (s * ang) * Math.PI / 180;
-
-            // 道床の塗り
             ctx.beginPath();
             ctx.arc(0, 0, r, startAng, endAng, s === -1);
             ctx.lineWidth = w;
             ctx.strokeStyle = ctx.fillStyle;
             ctx.stroke();
-
-            // ★外枠線（縁取り）
+            // 縁取り
             ctx.lineWidth = 1;
             ctx.strokeStyle = part.edge || std.edge || "#888";
-            ctx.beginPath();
-            ctx.arc(0, 0, r - w / 2, startAng, endAng, s === -1);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.arc(0, 0, r + w / 2, startAng, endAng, s === -1);
-            ctx.stroke();
+            ctx.beginPath(); ctx.arc(0, 0, r - w / 2, startAng, endAng, s === -1); ctx.stroke();
+            ctx.beginPath(); ctx.arc(0, 0, r + w / 2, startAng, endAng, s === -1); ctx.stroke();
             ctx.restore();
 
-            // C. レール描画
+            // レール
             ctx.strokeStyle = "#333"; ctx.lineWidth = 1.5;
-            // 直線レール
             ctx.beginPath(); ctx.moveTo(0, -g/2); ctx.lineTo(len, -g/2); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(0, g/2); ctx.lineTo(len, g/2); ctx.stroke();
-            // 分岐レール
             ctx.save();
             ctx.translate(0, s * r);
             [-g/2, g/2].forEach(off => {
-                ctx.beginPath();
-                ctx.arc(0, 0, r + off, startAng, endAng, s === -1);
-                ctx.stroke();
+                ctx.beginPath(); ctx.arc(0, 0, r + off, startAng, endAng, s === -1); ctx.stroke();
             });
             ctx.restore();
-        }
-        // --- 【以下、既存の描画ロジック (0.59.020r) は維持】 ---
+        } 
+        // --- B. カーブレールの描画（0.59.020r 維持） ---
         else if (type === "curve") {
+            const w = part.width || std.defWidth;
             const radii = Array.isArray(part.radius) ? part.radius : [part.radius];
             const avgR = radii.reduce((a, b) => a + b) / radii.length;
             ctx.fillStyle = part.color || std.color || "#aaa";
@@ -241,8 +229,10 @@ function render() {
                 drawArc(ctx, avgR, part.angle, 1.5, false, r - avgR - g / 2);
                 drawArc(ctx, avgR, part.angle, 1.5, false, r - avgR + g / 2);
             });
-        } else {
-            // 直線等の描画 (省略せず既存のまま維持)
+        } 
+        // --- C. その他のレールの描画（0.59.020r 維持） ---
+        else {
+            const w = part.width || std.defWidth;
             const len = part.length || 50;
             const space = std.space || 33;
             ctx.fillStyle = part.color || std.color || "#aaa";
@@ -258,8 +248,8 @@ function render() {
                 ctx.beginPath(); ctx.moveTo(0, off + g / 2); ctx.lineTo(len, off + g / 2); ctx.stroke();
             });
         }
-        
-        // 選択マーカー (省略せず既存のまま維持)
+
+        // --- 共通の選択マーカー ---
         if (selectedPart === part) {
             ctx.fillStyle = "rgba(255, 165, 0, 0.8)";
             ctx.strokeStyle = "orange"; ctx.lineWidth = 2;
@@ -361,17 +351,19 @@ function getPointJoints(p) {
         angle: p.rotation 
     });
     
-    // 3. 分岐終点 (描画ロジックの arc と完全に一致する幾何学計算)
-    // 基準点 (p.x, p.y) から、回転中心 (cx, cy) を求めてから終点を算出
-    const cx = p.x + s * r * Math.cos(rad + Math.PI / 2);
-    const cy = p.y + s * r * Math.sin(rad + Math.PI / 2);
+    // 3. 分岐終点 (描画の ctx.translate(0, s * r) と完全に合わせる)
+    // 回転中心(cx, cy)を計算
+    const cx = p.x + (s * r) * Math.cos(rad + Math.PI / 2);
+    const cy = p.y + (s * r) * Math.sin(rad + Math.PI / 2);
     
-    // 回転中心から見た終点角度
-    const startAng = rad + (s === -1 ? Math.PI / 2 : -Math.PI / 2);
-    const endAng = startAng + (s * arad);
+    // 回転中心から見た終点への角度
+    // 描画の startAng = rad + (s===-1 ? PI/2 : -PI/2) に角度分を加算
+    const offsetAng = (s === -1) ? Math.PI / 2 : -Math.PI / 2;
+    const finalAng = rad + offsetAng + (s * arad);
     
-    const ex = cx + r * Math.cos(endAng + Math.PI);
-    const ey = cy + r * Math.sin(endAng + Math.PI);
+    // 終点座標（円の基本公式）
+    const ex = cx + r * Math.cos(finalAng + Math.PI);
+    const ey = cy + r * Math.sin(finalAng + Math.PI);
     const ea = (p.rotation + (s * ang) + 360) % 360;
 
     joints.push({ x: ex, y: ey, angle: ea });

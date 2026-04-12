@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0037</title>
+    <title>Railroad Models Layout Designer v.0038</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -313,51 +313,63 @@
             }
 
 /**
- * 描画位置と完全に同期させ、nTrackGap に基づき接続点を算出
+ * 接続点の座標と「向き（角度）」を算出
+ * 基準点付近での意図しない180度反転を防ぐため、各点に方向ベクトルを持たせる
  */
 function getConnectorPoints(p, x, y, rotation) {
     const points = [];
     const rad = (rotation * Math.PI) / 180;
     const count = p.junctionCount || 2;
-    const gap = p.nTrackGap || 33; // nTrackGap（複線間隔）を基準にする
+    const gap = p.nTrackGap || 33;
 
-    const transform = (rx, ry) => {
+    // 補助関数：座標変換 + 角度の継承
+    const transform = (rx, ry, isEnd) => {
         const tx = rx * Math.cos(rad) - ry * Math.sin(rad);
         const ty = rx * Math.sin(rad) + ry * Math.cos(rad);
-        return { x: x + tx, y: y + ty };
+        // 起点ならパーツの回転角そのまま、終点なら+180度（向き合う形）を基本とする
+        const pointAngle = isEnd ? (rotation + 180) % 360 : rotation;
+        return { x: x + tx, y: y + ty, angle: pointAngle };
     };
 
     if (p.bIsDouble && count === 4) {
-        // --- 複線：一方を基準(0)とし、もう一方を nTrackGap 分オフセット ---
-        // 起点側
-        points.push(transform(0, 0));   // 基準レール（単線と同一線上の接点）
-        points.push(transform(0, gap)); // 複線側の併設レール
+        // --- 複線 ---
+        // 起点側 (isEnd: false)
+        points.push(transform(0, 0, false));
+        points.push(transform(0, gap, false));
 
-        // 終点側
+        // 終点側 (isEnd: true)
         if (p.sRole === "straight") {
-            points.push(transform(p.nLength, 0));
-            points.push(transform(p.nLength, gap));
+            points.push(transform(p.nLength, 0, true));
+            points.push(transform(p.nLength, gap, true));
         } else if (p.sRole === "curve" || p.sRole === "approach") {
             const a = (p.nAngle * Math.PI) / 180;
             const rOut = p.nRadius;
-            const rIn = p.nRadius - gap; // 内線側の半径
-            
-            // 外線（基準レール）の終点
-            points.push(transform(Math.sin(a) * rOut, rOut - Math.cos(a) * rOut));
-            // 内線（併設レール）の終点
-            points.push(transform(Math.sin(a) * rIn, rOut - Math.cos(a) * rIn));
+            const rIn = p.nRadius - gap;
+            // 終点座標計算に合わせ、角度もパーツの回転 + レール自体の曲がり角を考慮
+            const endAngle = (rotation + p.nAngle + 180) % 360;
+            points.push({
+                ...transform(Math.sin(a) * rOut, rOut - Math.cos(a) * rOut, true),
+                angle: endAngle
+            });
+            points.push({
+                ...transform(Math.sin(a) * rIn, rOut - Math.cos(a) * rIn, true),
+                angle: endAngle
+            });
         }
     } else {
-        // --- 単線：既存の 0 基準の仕様を維持 ---
-        points.push(transform(0, 0)); 
-
+        // --- 単線 ---
+        points.push(transform(0, 0, false));
         if (count >= 2) {
             if (p.sRole === "straight") {
-                points.push(transform(p.nLength, 0));
+                points.push(transform(p.nLength, 0, true));
             } else if (p.sRole === "curve" || p.sRole === "approach") {
                 const a = (p.nAngle * Math.PI) / 180;
                 const r = p.nRadius;
-                points.push(transform(Math.sin(a) * r, r - Math.cos(a) * r));
+                const endAngle = (rotation + p.nAngle + 180) % 360;
+                points.push({
+                    ...transform(Math.sin(a) * r, r - Math.cos(a) * r, true),
+                    angle: endAngle
+                });
             }
         }
     }

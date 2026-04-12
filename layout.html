@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0030</title>
+    <title>Railroad Models Layout Designer v.0031</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -425,7 +425,7 @@ canvas.onmousemove = function(e) {
     if (!isDragging || !draggedPart) return;
 
     const pos = getMousePos(canvas, e);
-    const snapDistance = 25;
+    const snapDistance = 15;
 
     // 1. 現在のオフセットを元に暫定座標を決定
     let newX = pos.x - dragOffset.x;

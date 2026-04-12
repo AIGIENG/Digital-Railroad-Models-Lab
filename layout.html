@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0015</title>
+    <title>Railroad Models Layout Designer v.0016</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -206,7 +206,7 @@
                 const halfGauge = (p.nGauge && p.nGauge > 0) ? p.nGauge / 2 : 0;
                 const centerOffset = p.bIsDouble ? (p.nTrackGap / 2) : 0;
             
-                // --- 1. 外形描画 ---
+                // --- 1. 外形描画 (既存ロジック維持) ---
                 ctx.strokeStyle = p.sColor;
                 ctx.lineWidth = 1;
                 ctx.fillStyle = p.sColor + "33"; 
@@ -226,7 +226,7 @@
                     ctx.stroke();
                 }
             
-                // --- 2. レール描画 ---
+                // --- 2. レール描画 (既存ロジック維持) ---
                 if (halfGauge > 0) {
                     ctx.strokeStyle = "#555555";
                     ctx.lineWidth = 1;
@@ -237,22 +237,27 @@
                 }
             
                 // --- 3. 選択・移動中の中心印（〇） ---
-                // draggedPart が存在し、かつ現在のパーツと一致する場合（＝クリック継続中）のみ描画
-                if (typeof draggedPart !== 'undefined' && draggedPart && draggedPart.id === p.id) {
-                    ctx.restore(); // 一旦座標系をグローバルに戻すか、translate分を計算
-                    ctx.save();
-                    
-                    // マウスで掴んでいるグローバル座標（p.x + dragOffset.x）に〇を描画
+                // ドラッグ中のみ、パーツ中央に固定して表示
+                if (isDragging && draggedPart && draggedPart.id === p.id) {
+                    let cX, cY;
+                    if (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") {
+                        cX = p.nLength / 2;
+                        cY = centerOffset;
+                    } else if (p.sRole === "curve" || p.sRole === "approach") {
+                        const midAngle = ((-90 + (p.nAngle / 2)) * Math.PI / 180);
+                        const midR = p.nRadius - centerOffset;
+                        cX = midR * Math.cos(midAngle);
+                        cY = p.nRadius + midR * Math.sin(midAngle);
+                    }
+            
                     ctx.beginPath();
                     ctx.strokeStyle = "#ff0000";
                     ctx.lineWidth = 2;
-                    ctx.arc(p.x + dragOffset.x, p.y + dragOffset.y, 8, 0, Math.PI * 2);
+                    ctx.arc(cX, cY, 8, 0, Math.PI * 2);
                     ctx.stroke();
-                    
-                    // 中心点
                     ctx.fillStyle = "#ff0000";
                     ctx.beginPath();
-                    ctx.arc(p.x + dragOffset.x, p.y + dragOffset.y, 2, 0, Math.PI * 2);
+                    ctx.arc(cX, cY, 2, 0, Math.PI * 2);
                     ctx.fill();
                 }
             
@@ -312,33 +317,40 @@
             }
             
             // --- マウスイベント ---
-            /**
-             * マウスダウンイベントの修正
-             * 掴んだ瞬間の座標を dragOffset に記録し、基準点として確定させます
-             */
             canvas.onmousedown = function(e) {
                 const pos = getMousePos(canvas, e);
-                // 描画順の逆（最前面）から判定
                 for (let i = layers.rail.length - 1; i >= 0; i--) {
                     const p = layers.rail[i];
                     
-                    // 当たり判定（簡易矩形判定。回転を考慮する場合は後ほど拡張可能）
+                    // 当たり判定用の各数値算出
                     const halfView = p.nViewWidth / 2;
-                    const totalHeight = p.bIsDouble ? (p.nTrackGap + p.nViewWidth) : p.nViewWidth;
-                    const yStart = p.bIsDouble ? -halfView : -halfView; 
+                    const centerOffset = p.bIsDouble ? (p.nTrackGap / 2) : 0;
+                    
+                    // パーツの中心座標(centerX, centerY)を算出
+                    let centerX, centerY;
+                    if (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") {
+                        centerX = p.nLength / 2;
+                        centerY = centerOffset;
+                    } else if (p.sRole === "curve" || p.sRole === "approach") {
+                        const midAngle = ((-90 + (p.nAngle / 2)) * Math.PI / 180);
+                        const midR = p.nRadius - centerOffset;
+                        centerX = midR * Math.cos(midAngle);
+                        centerY = p.nRadius + midR * Math.sin(midAngle);
+                    }
             
-                    // パーツのローカル座標系での判定
+                    // 当たり判定（簡易的にパーツの起点p.x, p.yからの範囲で判定）
+                    // ※厳密な回転判定が必要な場合は今後拡張
                     if (pos.x >= p.x && pos.x <= p.x + p.nLength &&
-                        pos.y >= p.y + yStart && pos.y <= p.y + yStart + totalHeight) {
+                        pos.y >= p.y - halfView + centerOffset && pos.y <= p.y + halfView + centerOffset) {
                         
                         isDragging = true;
                         draggedPart = p;
                         
-                        // 〇印の中央にするためのオフセットを記録
-                        dragOffset.x = pos.x - p.x;
-                        dragOffset.y = pos.y - p.y;
+                        // 【重要】基準点を「パーツの中心」に固定
+                        // これにより移動中、マウス位置が常にパーツ中央（〇印）と重なります
+                        dragOffset.x = centerX;
+                        dragOffset.y = centerY;
                         
-                        // 最前面へ移動
                         layers.rail.push(layers.rail.splice(i, 1)[0]);
                         render();
                         break;

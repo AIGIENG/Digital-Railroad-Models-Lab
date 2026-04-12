@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0009</title>
+    <title>Railroad Models Layout Designer v.0010</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -194,7 +194,7 @@
             }
         
             /**
-             * 個別パーツ描画（複線カーブの道床位置をレール基準に修正）
+             * 個別パーツ描画（複線時の道床幅をレール位置基準で正確に修正）
              */
             function drawPart(ctx, p) {
                 ctx.save();
@@ -211,21 +211,18 @@
             
                 ctx.beginPath();
                 if (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") {
-                    // 直線側の道床（複線時は2本分をカバー）
-                    const totalWidth = p.bIsDouble ? (p.nTrackGap + p.nViewWidth) : p.nViewWidth;
-                    ctx.rect(0, -halfView, p.nLength, totalWidth);
+                    // 直線：基準線+半分 から 複線間隔+半分 までを覆う
+                    const yStart = -halfView;
+                    const yEnd = p.bIsDouble ? (p.nTrackGap + halfView) : halfView;
+                    ctx.rect(0, yStart, p.nLength, yEnd - yStart);
                 } else if (p.sRole === "curve" || p.sRole === "approach") {
-                    // 曲線側の道床
-                    // 外側の縁：基準半径 + 道床半幅
+                    // 曲線：外側の端（R + halfView）
                     ctx.arc(0, p.nRadius, p.nRadius + halfView, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
                     
-                    if (p.bIsDouble && p.nTrackGap > 0) {
-                        // 複線時：内側レールのさらに内側まで道床を広げる
-                        ctx.arc(0, p.nRadius, p.nRadius - p.nTrackGap - halfView, (-90 + p.nAngle) * Math.PI / 180, -Math.PI / 2, true);
-                    } else {
-                        // 単線時：基準レールの内側
-                        ctx.arc(0, p.nRadius, p.nRadius - halfView, (-90 + p.nAngle) * Math.PI / 180, -Math.PI / 2, true);
-                    }
+                    // 内側の端（複線なら R - Gap - halfView、単線なら R - halfView）
+                    const innerEdgeR = p.bIsDouble ? (p.nRadius - p.nTrackGap - halfView) : (p.nRadius - halfView);
+                    ctx.arc(0, p.nRadius, innerEdgeR, (-90 + p.nAngle) * Math.PI / 180, -Math.PI / 2, true);
+                    
                     ctx.closePath();
                 }
                 ctx.fill();
@@ -236,7 +233,7 @@
                     ctx.strokeStyle = "#555555";
                     ctx.lineWidth = 1;
             
-                    // 1本目（基準レール）
+                    // 第1線（基準線）
                     if (p.sRole === "straight") {
                         ctx.beginPath();
                         ctx.moveTo(0, -halfGauge); ctx.lineTo(p.nLength, -halfGauge);
@@ -251,20 +248,21 @@
                         ctx.stroke();
                     }
                     
-                    // 2本目（複線レール：内側に nTrackGap オフセット）
+                    // 第2線（複線：nTrackGapオフセット）
                     if (p.bIsDouble && p.nTrackGap > 0) {
-                        const innerR = p.nRadius - p.nTrackGap;
+                        const gap = p.nTrackGap;
                         if (p.sRole === "straight") {
                             ctx.beginPath();
-                            ctx.moveTo(0, p.nTrackGap - halfGauge); ctx.lineTo(p.nLength, p.nTrackGap - halfGauge);
-                            ctx.moveTo(0, p.nTrackGap + halfGauge); ctx.lineTo(p.nLength, p.nTrackGap + halfGauge);
+                            ctx.moveTo(0, gap - halfGauge); ctx.lineTo(p.nLength, gap - halfGauge);
+                            ctx.moveTo(0, gap + halfGauge); ctx.lineTo(p.nLength, gap + halfGauge);
                             ctx.stroke();
                         } else if (p.sRole === "curve" || p.sRole === "approach") {
+                            const innerRailR = p.nRadius - gap;
                             ctx.beginPath();
-                            ctx.arc(0, p.nRadius, innerR - halfGauge, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
+                            ctx.arc(0, p.nRadius, innerRailR - halfGauge, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
                             ctx.stroke();
                             ctx.beginPath();
-                            ctx.arc(0, p.nRadius, innerR + halfGauge, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
+                            ctx.arc(0, p.nRadius, innerRailR + halfGauge, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
                             ctx.stroke();
                         }
                     }

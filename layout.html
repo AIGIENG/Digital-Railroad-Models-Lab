@@ -446,7 +446,7 @@ canvas.onmousemove = function(e) {
     if (!isDragging || !draggedPart) return;
 
     const pos = getMousePos(canvas, e);
-    const snapDistance = 10;
+    const snapDistance = 25;
 
     // 1. 現在のオフセットを元に暫定座標を決定
     let newX = pos.x - dragOffset.x;

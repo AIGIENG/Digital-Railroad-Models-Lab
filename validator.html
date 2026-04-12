@@ -62,52 +62,49 @@
             const items = Object.entries(railData);
             totalEl.textContent = items.length;
 
-            // 期待されるプロパティ (sIdは自動付与なのでここでのチェック対象)
-            const requiredProps = [
-                "sName", "sProductCode", "sMaker", "sSeries", "sRole",
-                "nLength", "nRadius", "nAngle", "bIsDouble", "nTrackGap",
-                "sDirection", "nViewWidth", "nHeight", "sColor", "sComment", "sExtra"
-            ];
-
-            let errors = 0;
-            let warnings = 0;
-            let logs = "";
-
-            items.forEach(([key, rail]) => {
-                let itemLogs = "";
-                
-                // 1. プロパティ不足チェック
-                requiredProps.forEach(prop => {
-                    if (!(prop in rail)) {
-                        itemLogs += `<div class="log-item ERROR">[不足] プロパティ "${prop}" がありません。</div>`;
-                        errors++;
+            // 期待されるプロパティ (nGauge を追加した全17項目 ※sIdは自動付与のため除く)
+                const requiredProps = [
+                    "sName", "sProductCode", "sMaker", "sSeries", "sRole",
+                    "nLength", "nRadius", "nAngle", "bIsDouble", "nTrackGap",
+                    "sDirection", "nViewWidth", "nHeight", "nGauge", // nGauge を追加
+                    "sColor", "sComment", "sExtra"
+                ];
+            
+                let errors = 0;
+                let warnings = 0;
+                let logs = "";
+            
+                items.forEach(([key, rail]) => {
+                    let itemLogs = "";
+                    
+                    // 1. プロパティ不足チェック
+                    requiredProps.forEach(prop => {
+                        if (!(prop in rail)) {
+                            itemLogs += `<div class="log-item ERROR">[不足] プロパティ "${prop}" がありません。</div>`;
+                            errors++;
+                        }
+                    });
+            
+                    // 2. 型チェック (接頭辞 s, n, b に基づく)
+                    Object.entries(rail).forEach(([prop, value]) => {
+                        const prefix = prop.charAt(0);
+                        if (prefix === 's' && typeof value !== 'string') {
+                            itemLogs += `<div class="log-item ERROR">[型違い] ${prop}: 文字列(s)であるべきですが ${typeof value} です。</div>`;
+                            errors++;
+                        } else if (prefix === 'n' && typeof value !== 'number') {
+                            itemLogs += `<div class="log-item ERROR">[型違い] ${prop}: 数値(n)であるべきですが ${typeof value} です。</div>`;
+                            errors++;
+                        } else if (prefix === 'b' && typeof value !== 'boolean') {
+                            itemLogs += `<div class="log-item ERROR">[型違い] ${prop}: 真偽値(b)であるべきですが ${typeof value} です。</div>`;
+                            errors++;
+                        }
+                    });
+            
+                    // 3. nGauge 固有の論理チェック（警告）
+                    if (rail.nGauge === 0 && (rail.sRole === "straight" || rail.sRole === "curve")) {
+                        itemLogs += `<div class="log-item WARNING">[警告] レールパーツですが nGauge が 0 です。</div>`;
+                        warnings++;
                     }
-                });
-
-                // 2. 型チェック
-                Object.entries(rail).forEach(([prop, value]) => {
-                    const prefix = prop.charAt(0);
-                    if (prefix === 's' && typeof value !== 'string') {
-                        itemLogs += `<div class="log-item ERROR">[型違い] ${prop}: 文字列(s)であるべきですが ${typeof value} です。</div>`;
-                        errors++;
-                    } else if (prefix === 'n' && typeof value !== 'number') {
-                        itemLogs += `<div class="log-item ERROR">[型違い] ${prop}: 数値(n)であるべきですが ${typeof value} です。</div>`;
-                        errors++;
-                    } else if (prefix === 'b' && typeof value !== 'boolean') {
-                        itemLogs += `<div class="log-item ERROR">[型違い] ${prop}: 真偽値(b)であるべきですが ${typeof value} です。</div>`;
-                        errors++;
-                    }
-                });
-
-                // 3. 運用上の警告
-                if (rail.sName === "") {
-                    itemLogs += `<div class="log-item WARNING">[警告] 表示名(sName)が空です。</div>`;
-                    warnings++;
-                }
-                if (rail.sRole === "none" || rail.sRole === "") {
-                    itemLogs += `<div class="log-item WARNING">[警告] 役割(sRole)が未設定です。</div>`;
-                    warnings++;
-                }
 
                 if (itemLogs !== "") {
                     logs += `<span class="log-header">ID: ${key}</span>` + itemLogs + "<br>";

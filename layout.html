@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0028</title>
+    <title>Railroad Models Layout Designer v.0029/title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -419,7 +419,7 @@
             };
 
 /**
- * マウス移動イベント（曲線レールの終点角度を考慮した精密スナップ）
+ * マウス移動イベント（重なり防止・180度反転吸着の実装）
  */
 canvas.onmousemove = function(e) {
     if (!isDragging || !draggedPart) return;
@@ -427,9 +427,11 @@ canvas.onmousemove = function(e) {
     const pos = getMousePos(canvas, e);
     const snapDistance = 25;
 
+    // 1. マウス位置から暫定座標を計算
     let newX = pos.x - dragOffset.x;
     let newY = pos.y - dragOffset.y;
 
+    // 2. スナップ判定（Shiftキー押下時はスキップ）
     if (!e.shiftKey) {
         let snapped = false;
         const selfPoints = getConnectorPoints(draggedPart, newX, newY, draggedPart.rotation);
@@ -445,28 +447,21 @@ canvas.onmousemove = function(e) {
                     const dist = Math.sqrt((sp.x - tp.x) ** 2 + (sp.y - tp.y) ** 2);
 
                     if (dist < snapDistance) {
-                        // --- 角度同期の精密補正 ---
-                        // otherEndAngle: 接続相手の端点における接線角度
-                        let otherEndAngle = other.rotation;
-                        if (j === 1 && (other.sRole === "curve" || other.sRole === "approach")) {
-                            otherEndAngle += other.nAngle;
-                        }
+                        // --- 重なり防止の角度同期ロジック ---
+                        
+                        // 相手側ジョイナーの「外向き」角度を算出
+                        // 起点(j=0)なら反対側(+180)、終点(j=1)なら進行方向(+nAngle)
+                        const otherOutwardAngle = other.rotation + (j === 0 ? 180 : (other.nAngle || 0));
+                        
+                        // 自分側ジョイナーの「起点から見た相対角度（内向き）」を算出
+                        // 起点(i=0)ならそのまま(0)、終点(i=1)なら進行方向の逆(+nAngle+180)
+                        const selfInwardAngle = (i === 0 ? 0 : ((draggedPart.nAngle || 0) + 180));
 
-                        // selfRelativeAngle: 自身の端点が「起点(0)」から見て何度傾いているか
-                        let selfRelativeAngle = 0;
-                        if (i === 1 && (draggedPart.sRole === "curve" || draggedPart.sRole === "approach")) {
-                            selfRelativeAngle = draggedPart.nAngle;
-                        }
+                        // 角度を同期：相手の外向き角度に、自分の内向き角度を一致させる
+                        // これにより、レール同士が重ならず、必ず「伸びる方向」に繋がります
+                        draggedPart.rotation = (otherOutwardAngle - selfInwardAngle + 360) % 360;
 
-                        // 新しい角度の決定：
-                        // 1. 相手の端点角度(otherEndAngle)に合わせる
-                        // 2. 進行方向を逆転させる (+180)
-                        // 3. 自身の端点の相対角度(selfRelativeAngle)を差し引いて、起点のrotationを逆算
-                        let newRotation = otherEndAngle + 180 - selfRelativeAngle;
-
-                        draggedPart.rotation = (newRotation + 3600) % 360;
-
-                        // 角度確定後に位置を再計算して吸着
+                        // 3. 角度確定後に位置を再計算して正確に吸着
                         const updatedSelf = getConnectorPoints(draggedPart, newX, newY, draggedPart.rotation);
                         newX -= (updatedSelf[i].x - tp.x);
                         newY -= (updatedSelf[i].y - tp.y);
@@ -481,10 +476,11 @@ canvas.onmousemove = function(e) {
         }
     }
 
+    // 最終座標の更新
     draggedPart.x = newX;
     draggedPart.y = newY;
     render();
-};;
+};
         
             window.onmouseup = function() {
                 isDragging = false;

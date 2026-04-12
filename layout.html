@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0044</title>
+    <title>Railroad Models Layout Designer v.0045</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -313,13 +313,12 @@
             }
 
 /**
- * 役割を junctionCount から動的に判定し、
- * rails.js の定義（1番が左か右か）に忠実に座標を返す
+ * rails.js の定義を直接、4つの角（左上・左下・右上・右下）の座標に変換する
  */
 function getConnectorPoints(p, x, y, rotation) {
     const points = [];
     const rad = (rotation * Math.PI) / 180;
-    const gap = p.nTrackGap || 33;
+    const gap = p.nTrackGap || 0;
 
     const transform = (rx, ry) => {
         const tx = rx * Math.cos(rad) - ry * Math.sin(rad);
@@ -327,30 +326,48 @@ function getConnectorPoints(p, x, y, rotation) {
         return { x: x + tx, y: y + ty };
     };
 
-    for (let i = 0; i < p.junctionCount; i++) {
-        // 1. そのインデックスが「右側（終点）」かどうかを判定
-        // 単線(2)なら i=1 が終点、3点以上なら i>=2 が終点 (1点は常に終点扱い)
-        const isEnd = (p.junctionCount === 2) ? (i === 1) : (p.junctionCount === 1 || i >= 2);
+    // --- 1. 全てのレールの「起点側」を定義 ---
+    // 0: 基準線・起点（左上）
+    points.push(transform(0, 0)); 
+    
+    // 複線(junctionCount:4)の場合のみ、2つ目の起点を追加
+    if (p.junctionCount === 4) {
+        // 1: 併設線・起点（左下） -> ここを 0 固定にすることで右下への飛びを防止
+        points.push(transform(0, gap));
+    }
 
-        // 2. そのインデックスが「下のライン（gap側）」かどうかを判定
-        // 複線の 1番(左下) と 3番(右下) が gap を持つ
-        const isOffset = (p.junctionCount === 4 && (i === 1 || i === 3));
+    // --- 2. 全てのレールの「終点側」を定義 ---
+    // junctionCount が 1（車止め）以上の場合は終点計算が必要
+    if (p.junctionCount >= 1) {
+        // 終点1（右上 / 単線の右）の計算
+        let rx1, ry1;
+        if (p.sRole === "straight") {
+            rx1 = p.nLength;
+            ry1 = 0;
+        } else {
+            const a = (p.nAngle * Math.PI) / 180;
+            rx1 = Math.sin(a) * p.nRadius;
+            ry1 = p.nRadius - Math.cos(a) * p.nRadius;
+        }
+        
+        // junctionCount が 1, 2 の場合はこれが最後の点、3, 4 の場合は「右上」
+        points.push(transform(rx1, ry1));
 
-        let rx = 0;
-        let ry = isOffset ? gap : 0;
-
-        if (isEnd) {
+        // 複線(junctionCount:4)または分岐(junctionCount:3)の追加終点
+        if (p.junctionCount >= 3) {
+            let rx2, ry2;
             if (p.sRole === "straight") {
-                rx = p.nLength;
+                rx2 = p.nLength;
+                ry2 = (p.junctionCount === 4) ? gap : 0; // 複線なら下側、分岐なら定義に準ずる
             } else {
                 const a = (p.nAngle * Math.PI) / 180;
-                const r = isOffset ? (p.nRadius - gap) : p.nRadius;
-                rx = Math.sin(a) * r;
-                ry = r - Math.cos(a) * r + (isOffset ? gap : 0);
+                // 複線(4)の場合は内線(nRadius - gap)、分岐(3)の場合は外線と同じ半径
+                const r2 = (p.junctionCount === 4) ? (p.nRadius - gap) : p.nRadius;
+                rx2 = Math.sin(a) * r2;
+                ry2 = r2 - Math.cos(a) * r2 + ((p.junctionCount === 4) ? gap : 0);
             }
+            points.push(transform(rx2, ry2));
         }
-
-        points.push(transform(rx, ry));
     }
 
     return points;

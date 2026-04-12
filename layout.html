@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0002</title>
+    <title>Railroad Models Layout Designer v.0003</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -15,8 +15,20 @@
         .rail-item-sub { font-size: 11px; color: #bdc3c7; display: block; margin-top: 4px; }
         
         /* メインエリア */
-        #main { flex: 1; background: #ecf0f1; position: relative; }
-        #canvas { background: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); display: block; margin: 20px auto; }
+        /* メインエリアをスクロール可能にし、キャンバスを中央配置するための設定 */
+        #main { 
+            flex: 1; 
+            background: #ecf0f1; 
+            position: relative; 
+            overflow: auto; /* 上下左右スクロールバーを表示 */
+        }
+        
+        #canvas { 
+            background: white; 
+            box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+            display: block; 
+            margin: 50px; /* キャンバス端の操作性を高めるための余白 */
+        }
     </style>
 </head>
 <body>
@@ -41,10 +53,27 @@
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
 
-        // キャンバスサイズの初期化
-        canvas.width = 1200;
-        canvas.height = 800;
+        /**
+         * キャンバス設定（将来的な変更を見据えた定数管理）
+         */
+        const CANVAS_CONFIG = {
+            width: 5000,
+            height: 5000
+        };
 
+        /**
+         * キャンバスの初期化
+         * 既存のサイズ指定処理をこの関数に集約します
+         */
+        function initCanvas() {
+            const canvas = document.getElementById('canvas');
+            if (!canvas) return;
+        
+            // 定数からサイズを設定
+            canvas.width = CANVAS_CONFIG.width;
+            canvas.height = CANVAS_CONFIG.height;
+        }
+        
         // --- 初期化処理 ---
         function init() {
             initSidebar();
@@ -194,7 +223,10 @@
         }
 
         // 起動
-        window.onload = init;
+        window.onload = () => {
+            init();       // 既存の初期化関数
+            initCanvas(); // キャンバスサイズの適用
+        };
 
     </script>
 </body>

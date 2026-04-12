@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.034</title>
+    <title>Railroad Model Layout Designer v0.59.035</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -140,53 +140,41 @@ canvas.ondrop = (e) => {
 function getPointJoints(p) {
     const joints = [];
     const rad = p.rotation * Math.PI / 180;
-    // .33fのデータ構造に合わせ、全ての可能性を考慮して値を取得
     const L = p.length || p.len || 140;
-    const R = (Array.isArray(p.radius) ? p.radius[0] : p.radius) || 481;
-    const A = p.angle || 15;
-    const s = (p.type === "point-L") ? -1 : 1;
-    const arad = A * Math.PI / 180;
 
-    // 1. 基準点
+    // 1. 基準点（根元）
     joints.push({ x: p.x, y: p.y, angle: (p.rotation + 180) % 360 });
     
-    // 2. 直進側
+    // 2. 直進終点
     joints.push({ 
         x: p.x + L * Math.cos(rad), 
         y: p.y + L * Math.sin(rad), 
         angle: p.rotation 
     });
-    
-    // 3. 分岐側（arcの幾何学計算）
-    const cx = p.x + (s * R) * Math.cos(rad + Math.PI / 2);
-    const cy = p.y + (s * R) * Math.sin(rad + Math.PI / 2);
-    const offsetAng = (s === -1) ? Math.PI / 2 : -Math.PI / 2;
-    const finalAng = rad + offsetAng + (s * arad);
-    
-    const ex = cx + R * Math.cos(finalAng + Math.PI);
-    const ey = cy + R * Math.sin(finalAng + Math.PI);
-    const ea = (p.rotation + (s * A) + 360) % 360;
 
-    joints.push({ x: ex, y: ey, angle: ea });
+    // 3. 分岐終点（接続は保留ですが、データ構造として定義のみ維持）
+    joints.push({ x: p.x, y: p.y, angle: p.rotation }); 
+
     return joints;
 }
 
 function checkSnapping() {
     if (!selectedPart) return;
 
-    // 分岐：ポイントなら専用関数、そうでなければ既存の getJoints
-    const movingJoints = (selectedPart.type && selectedPart.type.startsWith("point"))
-        ? getPointJoints(selectedPart)
-        : getJoints(selectedPart);
+    // 自パーツのジョイント取得（ポイント判定を厳格化）
+    const isPoint = selectedPart.type && selectedPart.type.startsWith("point");
+    const movingJoints = isPoint ? getPointJoints(selectedPart) : getJoints(selectedPart);
 
     let snapped = false;
 
     layers.rail.forEach(part => {
         if (part === selectedPart || snapped) return;
 
-        const targetJoints = (part.type && part.type.startsWith("point"))
-            ? getPointJoints(part)
-            : getJoints(part);
+        // 相手パーツのジョイント取得
+        const isTargetPoint = part.type && part.type.startsWith("point");
+        const targetJoints = isTargetPoint ? getPointJoints(part) : getJoints(part);
+
+        if (!movingJoints || !targetJoints) return;
 
         movingJoints.forEach(mj => {
             if (snapped) return;
@@ -195,7 +183,9 @@ function checkSnapping() {
 
                 const dx = mj.x - tj.x;
                 const dy = mj.y - tj.y;
-                if (Math.sqrt(dx * dx + dy * dy) < SNAP_DISTANCE) {
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < SNAP_DISTANCE) {
                     const angleDiff = (mj.angle - tj.angle + 360) % 180;
                     if (Math.abs(angleDiff) < 10 || Math.abs(angleDiff - 180) < 10) {
                         selectedPart.x += (tj.x - mj.x);
@@ -218,14 +208,14 @@ function render() {
     layers.rail.forEach(part => {
         const std = STANDARDS[part.std] || { gauge: 9, space: 33, defWidth: 25, color: "#aaa", edge: "#888" };
         const g = std.gauge;
-        const type = part.type;
+        const type = part.type || "";
         
         ctx.save();
         ctx.translate(part.x, part.y);
         ctx.rotate(part.rotation * Math.PI / 180);
 
-        if (type && type.startsWith("point")) {
-            // --- ポイント専用：独立描画ロジック ---
+        // --- A. ポイントレールの描画 (独立ブロック) ---
+        if (type.startsWith("point")) {
             const pW = part.width || std.defWidth;
             const pL = part.length || part.len || 140;
             const pR = (Array.isArray(part.radius) ? part.radius[0] : part.radius) || 481;
@@ -236,11 +226,11 @@ function render() {
             ctx.strokeStyle = part.edge || std.edge;
             ctx.lineWidth = 1;
             
-            // 1. 直線側道床
+            // 道床（直線側）
             ctx.fillRect(0, -pW/2, pL, pW);
             ctx.strokeRect(0, -pW/2, pL, pW);
             
-            // 2. 分岐側道床
+            // 道床（分岐側）
             ctx.save();
             ctx.translate(0, s * pR);
             const sa = (s === -1) ? Math.PI/2 : -Math.PI/2;
@@ -252,7 +242,7 @@ function render() {
             ctx.beginPath(); ctx.arc(0, 0, pR+pW/2, sa, ea, s===-1); ctx.stroke();
             ctx.restore();
             
-            // 3. レール
+            // レール
             ctx.strokeStyle = "#333"; ctx.lineWidth = 1.5;
             ctx.beginPath(); ctx.moveTo(0, -g/2); ctx.lineTo(pL, -g/2); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(0, g/2); ctx.lineTo(pL, g/2); ctx.stroke();
@@ -263,8 +253,8 @@ function render() {
             });
             ctx.restore();
         } 
+        // --- B. 曲線レールの描画 (既存機能・変更禁止) ---
         else if (type === "curve") {
-            // --- 既存の曲線描画（変更禁止） ---
             const w = part.width || std.defWidth;
             const radii = Array.isArray(part.radius) ? part.radius : [part.radius];
             const avgR = radii.reduce((a,b)=>a+b)/radii.length;
@@ -276,8 +266,8 @@ function render() {
                 drawArc(ctx, avgR, part.angle, 1.5, false, rv - avgR + g/2);
             });
         } 
+        // --- C. 直線レールの描画 (既存機能・変更禁止) ---
         else {
-            // --- 既存の直線描画（変更禁止） ---
             const w = part.width || std.defWidth;
             const L = part.length || part.len || 140;
             const space = std.space || 33;
@@ -293,6 +283,22 @@ function render() {
                 ctx.beginPath(); ctx.moveTo(0, off + g/2); ctx.lineTo(L, off + g/2); ctx.stroke();
             });
         }
+
+        // --- 選択マーカー ---
+        if (selectedPart === part) {
+            ctx.fillStyle = "rgba(255, 165, 0, 0.8)";
+            let mX = (part.length || part.len || 140) / 2, mY = 0;
+            if (type === "curve") {
+                const radii = Array.isArray(part.radius) ? part.radius : [part.radius];
+                const avgR = radii.reduce((a,b)=>a+b)/radii.length;
+                const arad = (part.angle / 2) * Math.PI / 180;
+                mX = Math.sin(arad) * avgR; mY = (1 - Math.cos(arad)) * avgR;
+            }
+            ctx.beginPath(); ctx.arc(mX, mY, 8, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+    });
+}
 
         // 選択マーカー
         if (selectedPart === part) {

@@ -28,14 +28,14 @@ const railData = {
         sExtra: ""
     },
 
-    "KATO_R317-45": {
-        sName: "曲線レール R317-45",
+    "KATO_R315-45": {
+        sName: "曲線レール R315-45",
         sProductCode: "2x-xxx",
         sMaker: "KATO",
         sSeries: "UNITRACK",
         sRole: "curve",
         nLength: 0,
-        nRadius: 317,
+        nRadius: 315,
         nAngle: 45,
         bIsDouble: false,
         nTrackGap: 33,
@@ -45,6 +45,47 @@ const railData = {
         nGauge: 9,
         sColor: "#cccccc",
         sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。",
+        sExtra: ""
+    },
+
+        "KATO_R282-45": {
+        sName: "曲線レール R282-45",
+        sProductCode: "2x-xxx",
+        sMaker: "KATO",
+        sSeries: "UNITRACK",
+        sRole: "curve",
+        nLength: 0,
+        nRadius: 282,
+        nAngle: 45,
+        bIsDouble: false,
+        nTrackGap: 33,
+        sDirection: "none",
+        nViewWidth: 25,
+        nHeight: 0,
+        nGauge: 9,
+        sColor: "#cccccc",
+        sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。",
+        sExtra: ""
+    },
+
+    // --- 複線曲線レール (代表半径 315mm / 282mm) ---
+    "KATO_R315_282_W": {
+        sName: "複線曲線 R315/282-45",
+        sProductCode: "20-xxx",
+        sMaker: "KATO",
+        sSeries: "UNITRACK",
+        sRole: "curve",
+        nLength: 0,
+        nRadius: 315,        // 外側を代表半径として指定
+        nAngle: 45,
+        bIsDouble: true,      // 複線フラグをON
+        nTrackGap: 33,       // 内側レールは (414 - 33) で自動計算される
+        sDirection: "none",
+        nViewWidth: 50,       // 道床2本分の幅
+        nHeight: 0,
+        nGauge: 9,
+        sColor: "#999999",
+        sComment: "カント付き複線曲線。内側はR381。",
         sExtra: ""
     },
     

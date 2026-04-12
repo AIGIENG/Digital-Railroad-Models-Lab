@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0016</title>
+    <title>Railroad Models Layout Designer v.0017</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -193,10 +193,6 @@
                 layers.rail.forEach(part => drawPart(ctx, part));
             }
 
-            /**
-             * drawPart 内の〇印描画ロジックの修正
-             * dragOffset を利用して、マウスで掴んだ正にその位置に〇を描画します
-             */
             function drawPart(ctx, p) {
                 ctx.save();
                 ctx.translate(p.x, p.y);
@@ -206,7 +202,7 @@
                 const halfGauge = (p.nGauge && p.nGauge > 0) ? p.nGauge / 2 : 0;
                 const centerOffset = p.bIsDouble ? (p.nTrackGap / 2) : 0;
             
-                // --- 1. 外形描画 (既存ロジック維持) ---
+                // --- 1. 外形描画 (既存維持) ---
                 ctx.strokeStyle = p.sColor;
                 ctx.lineWidth = 1;
                 ctx.fillStyle = p.sColor + "33"; 
@@ -226,7 +222,7 @@
                     ctx.stroke();
                 }
             
-                // --- 2. レール描画 (既存ロジック維持) ---
+                // --- 2. レール描画 (既存維持) ---
                 if (halfGauge > 0) {
                     ctx.strokeStyle = "#555555";
                     ctx.lineWidth = 1;
@@ -237,8 +233,8 @@
                 }
             
                 // --- 3. 選択・移動中の中心印（〇） ---
-                // ドラッグ中のみ、パーツ中央に固定して表示
-                if (isDragging && draggedPart && draggedPart.id === p.id) {
+                // isDragging が true かつ、現在ドラッグ中のIDと一致する場合のみ表示
+                if (isDragging === true && draggedPart && draggedPart.id === p.id) {
                     let cX, cY;
                     if (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") {
                         cX = p.nLength / 2;
@@ -369,6 +365,7 @@
             window.onmouseup = function() {
                 isDragging = false;
                 draggedPart = null;
+                render(); // 〇を消すために再描画
             };
                     
             /**

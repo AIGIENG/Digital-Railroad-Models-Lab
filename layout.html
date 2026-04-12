@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0032</title>
+    <title>Railroad Models Layout Designer v.0033</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -312,33 +312,59 @@
                 };
             }
 
-            /**
-             * 指定された座標と回転角における接続点のグローバル座標を算出
-             */
-            function getConnectorPoints(p, x, y, rotation) {
-                const points = [];
-                const centerOffset = p.bIsDouble ? (p.nTrackGap / 2) : 0;
-                const rad = rotation * Math.PI / 180;
-            
-                // 1. パーツ内ローカル座標（起点と終点）
-                const local = [{ x: 0, y: centerOffset }];
-                if (p.sRole === "straight") {
-                    local.push({ x: p.nLength, y: centerOffset });
-                } else if (p.sRole === "curve" || p.sRole === "approach") {
-                    const aRad = p.nAngle * Math.PI / 180;
-                    const r = p.nRadius - centerOffset;
-                    local.push({
-                        x: r * Math.sin(aRad),
-                        y: p.nRadius - r * Math.cos(aRad)
-                    });
-                }
-            
-                // 2. ローカル座標を現在の回転と位置(x, y)でグローバル座標に変換
-                return local.map(pt => ({
-                    x: x + (pt.x * Math.cos(rad) - pt.y * Math.sin(rad)),
-                    y: y + (pt.x * Math.sin(rad) + pt.y * Math.cos(rad))
-                }));
+/**
+ * junctionCount を参照して接続点を算出
+ */
+function getConnectorPoints(p, x, y, rotation) {
+    const points = [];
+    const rad = (rotation * Math.PI) / 180;
+    const count = p.junctionCount || 2;
+
+    // 補助関数：相対座標を回転・平行移動
+    const transform = (rx, ry) => {
+        const tx = rx * Math.cos(rad) - ry * Math.sin(rad);
+        const ty = rx * Math.sin(rad) + ry * Math.cos(rad);
+        return { x: x + tx, y: y + ty };
+    };
+
+    if (p.bIsDouble && count === 4) {
+        // --- 複線（4点接続） ---
+        const halfGap = (p.nTrackGap || 33) / 2;
+
+        // 起点側の2点
+        points.push(transform(0, -halfGap)); // 左（外）
+        points.push(transform(0, halfGap));  // 右（内）
+
+        // 終点側の2点
+        if (p.sRole === "straight") {
+            points.push(transform(p.nLength, -halfGap));
+            points.push(transform(p.nLength, halfGap));
+        } else if (p.sRole === "curve" || p.sRole === "approach") {
+            const a = (p.nAngle * Math.PI) / 180;
+            const rOut = p.nRadius;
+            const rIn = p.nRadius - (p.nTrackGap || 33);
+            // 外線終点
+            points.push(transform(Math.sin(a) * rOut, rOut - Math.cos(a) * rOut - halfGap));
+            // 内線終点
+            points.push(transform(Math.sin(a) * rIn, rOut - Math.cos(a) * rIn - halfGap));
+        }
+    } else {
+        // --- 単線（1〜2点接続） ---
+        points.push(transform(0, 0)); // 起点
+
+        if (count >= 2) {
+            if (p.sRole === "straight") {
+                points.push(transform(p.nLength, 0));
+            } else if (p.sRole === "curve" || p.sRole === "approach") {
+                const a = (p.nAngle * Math.PI) / 180;
+                const r = p.nRadius;
+                points.push(transform(Math.sin(a) * r, r - Math.cos(a) * r));
             }
+        }
+    }
+
+    return points;
+}
 
             /**
              * キーボード入力イベント

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.058</title>
+    <title>Railroad Model Layout Designer v0.59.058f1</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -106,7 +106,7 @@ function initSidebar() {
         div.className = "rail-item";
         div.textContent = rail.name || key;
 
-        // 全属性をdatasetへ退避（undefinedは空文字に変換してエラーを防止）
+        // --- 既存の全属性を dataset に退避（1つも削っていません） ---
         div.dataset.type = rail.type || "";
         div.dataset.color = rail.color || "#ccc";
         div.dataset.length = rail.length || 0;
@@ -116,22 +116,22 @@ function initSidebar() {
         div.dataset.innerRadius = rail.innerRadius || 0;
         div.dataset.isDouble = rail.isDouble || false;
 
-        // radiusの型判定と文字列化
+        // radius の特殊処理：配列なら文字列化、数値ならそのまま
         if (Array.isArray(rail.radius)) {
             div.dataset.radius = JSON.stringify(rail.radius);
-        } else if (rail.radius !== undefined && rail.radius !== null) {
-            div.dataset.radius = rail.radius;
         } else {
-            div.dataset.radius = "";
+            div.dataset.radius = (rail.radius !== undefined) ? rail.radius : "";
         }
 
         div.onclick = () => {
-            const rStr = div.dataset.radius || "";
+            const rData = div.dataset.radius || "";
             const newRail = {
                 id: Date.now(),
                 type: div.dataset.type,
-                // 文字列が存在し、かつ [ で始まる場合のみJSONとしてパース
-                radius: (rStr.indexOf('[') === 0) ? JSON.parse(rStr) : parseFloat(rStr || 0),
+                // ここで配列か数値かを安全に判定
+                radius: (typeof rData === 'string' && rData.indexOf('[') === 0) 
+                        ? JSON.parse(rData) 
+                        : parseFloat(rData || 0),
                 length: parseFloat(div.dataset.length),
                 angle: parseFloat(div.dataset.angle),
                 width: parseFloat(div.dataset.width),
@@ -210,7 +210,7 @@ function render() {
 
         const type = part.type;
 
-        // 1. 曲線(curve)
+        // 1. 曲線(curve)描画
         if (type === "curve") {
             if (Array.isArray(part.radius)) {
                 part.radius.forEach(r => drawArc(r, part.angle, part.color));
@@ -218,9 +218,9 @@ function render() {
                 drawArc(part.radius, part.angle, part.color);
             }
         } 
-        // 2. ポイント(point) - 新設
+        // 2. ポイント(point)描画 - 今回の新設機能
         else if (type && type.includes("point")) {
-            // 本線（直線）
+            // 本線（直線部）
             ctx.beginPath();
             ctx.moveTo(0, 0);
             ctx.lineTo(part.length, 0);
@@ -228,17 +228,18 @@ function render() {
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // 分岐（曲線）
+            // 分岐側（曲線部）
             if (Array.isArray(part.radius)) {
                 part.radius.forEach(r => {
                     const angleRad = (part.angle * Math.PI) / 180;
                     ctx.beginPath();
+                    // 分岐開始点(0,0)から描画
                     ctx.arc(0, r, r, -Math.PI / 2, -Math.PI / 2 + angleRad, part.angle < 0);
                     ctx.stroke();
                 });
             }
         }
-        // 3. 直線・複線（既存ロジック）
+        // 3. 直線・複線描画（既存ロジックそのまま）
         else {
             if (part.isDouble) {
                 const d = 25; 
@@ -258,13 +259,13 @@ function render() {
             }
         }
 
-        // 4. 選択表示（赤枠 ＋ 回転ハンドル「○」）
+        // 4. 選択時のハイライト表示（赤枠 ＋ 回転用ハンドル「○」）
         if (index === selectedIndex) {
             ctx.strokeStyle = "red";
             ctx.lineWidth = 1;
             ctx.strokeRect(-5, -10, (part.length || 50) + 10, 20);
 
-            // 回転用ハンドル
+            // 既存の回転ハンドル「○」を確実に描画
             ctx.beginPath();
             ctx.arc(-15, 0, 5, 0, Math.PI * 2);
             ctx.fillStyle = "red";

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0047</title>
+    <title>Railroad Models Layout Designer v.0049</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -312,14 +312,10 @@
                 };
             }
 
-/**
- * システムの吸着順序（起点・終点のペア）に合わせたインデックス再配置
- * 0:左上(IN), 1:右上(OUT), 2:左下(IN), 3:右下(OUT) の順で返す
- */
 function getConnectorPoints(p, x, y, rotation) {
     const points = [];
     const rad = (rotation * Math.PI) / 180;
-    const gap = p.nTrackGap || 0;
+    const gap = p.nTrackGap || 33;
 
     const transform = (rx, ry) => {
         const tx = rx * Math.cos(rad) - ry * Math.sin(rad);
@@ -327,47 +323,41 @@ function getConnectorPoints(p, x, y, rotation) {
         return { x: x + tx, y: y + ty };
     };
 
-    // 内部で4つの角を計算
-    const a = (p.nAngle * Math.PI) / 180;
-    const rOut = p.nRadius;
-    const rIn = p.nRadius - gap;
-    
-    // 直線の場合の座標
-    const sRX = p.nLength;
-    // 曲線の場合の座標
-    const cRX_Out = Math.sin(a) * rOut;
-    const cRY_Out = rOut - Math.cos(a) * rOut;
-    const cRX_In = Math.sin(a) * rIn;
-    const cRY_In = rOut - Math.cos(a) * rIn;
-
-    if (p.junctionCount === 4) {
-        // --- 複線：[左上, 右上, 左下, 右下] の順で出力 ---
-        points.push(transform(0, 0)); // 0: 左上(IN)
-        if (p.sRole === "straight") {
-            points.push(transform(sRX, 0));   // 1: 右上(OUT)
-            points.push(transform(0, gap));   // 2: 左下(IN)
-            points.push(transform(sRX, gap)); // 3: 右下(OUT)
-        } else {
-            points.push(transform(cRX_Out, cRY_Out)); // 1: 右上(OUT)
-            points.push(transform(0, gap));           // 2: 左下(IN)
-            points.push(transform(cRX_In, cRY_In));   // 3: 右下(OUT)
+    for (let i = 0; i < p.junctionCount; i++) {
+        let rx = 0, ry = 0;
+        if (p.junctionCount === 1) { rx = p.nLength; } 
+        else if (p.junctionCount === 2) {
+            if (i === 1) {
+                rx = p.nLength;
+                if (p.sRole === "curve") {
+                    const a = (p.nAngle * Math.PI) / 180;
+                    rx = Math.sin(a) * p.nRadius;
+                    ry = p.nRadius - Math.cos(a) * p.nRadius;
+                }
+            }
+        } 
+        else if (p.junctionCount === 4) {
+            const isEnd = (i >= 2), isSub = (i % 2 === 1);
+            if (isEnd) {
+                if (p.sRole === "straight") { rx = p.nLength; ry = isSub ? gap : 0; }
+                else {
+                    const a = (p.nAngle * Math.PI) / 180;
+                    const r = isSub ? (p.nRadius - gap) : p.nRadius;
+                    rx = Math.sin(a) * r;
+                    ry = r - Math.cos(a) * r + (isSub ? gap : 0);
+                }
+            } else { rx = 0; ry = isSub ? gap : 0; }
         }
-    } else {
-        // --- 単線・その他：既存の [左, 右, (分岐...)] 順を維持 ---
-        points.push(transform(0, 0)); // 0: 左
-        if (p.junctionCount >= 2) {
-            if (p.sRole === "straight") {
-                points.push(transform(sRX, 0));
-            } else {
-                points.push(transform(cRX_Out, cRY_Out));
+        else if (p.junctionCount === 3) {
+            if (i === 1) { rx = p.nLength; }
+            else if (i === 2) {
+                const a = (p.nAngle * Math.PI) / 180;
+                rx = Math.sin(a) * p.nRadius;
+                ry = p.nRadius - Math.cos(a) * p.nRadius;
             }
         }
-        // 3点目（分岐）がある場合はそのまま追加
-        if (p.junctionCount === 3) {
-             // 分岐の計算が必要な場合はここに追加
-        }
+        points.push(transform(rx, ry));
     }
-
     return points;
 }
             
@@ -478,26 +468,19 @@ canvas.onmousemove = function(e) {
                     const dist = Math.sqrt((sp.x - tp.x) ** 2 + (sp.y - tp.y) ** 2);
 
                     if (dist < snapDistance) {
-                        // 進行方向を合わせ、重なりを防ぐための角度計算（180度反転含む）
-                        const otherOutwardAngle = other.rotation + (j === 0 ? 180 : (other.nAngle || 0));
-                        const selfInwardAngle = (i === 0 ? 0 : ((draggedPart.nAngle || 0) + 180));
-                        
-                        // 角度を更新
-                        draggedPart.rotation = (otherOutwardAngle - selfInwardAngle + 360) % 360;
+// 1. ドラッグ中のレールが「回転だけ」した状態での、
+    //    吸着点(i番目)の原点(0,0)からのズレを計算します
+    const relPoints = getConnectorPoints(draggedRail, 0, 0, draggedRail.rotation);
+    const myOffset = relPoints[i]; 
 
-                        // 角度が変わった状態で接続点を再計算し、位置をピッタリ吸着させる
-                        const updatedSelf = getConnectorPoints(draggedPart, newX, newY, draggedPart.rotation);
-                        newX -= (updatedSelf[i].x - tp.x);
-                        newY -= (updatedSelf[i].y - tp.y);
+    // 2. 相手のドット座標(p2[j])から、自分のズレ(myOffset)を引き算します
+    // これにより、どのドットで吸着しても、そのドット同士が重なる位置にレールが置かれます
+    draggedRail.x = p2[j].x - myOffset.x;
+    draggedRail.y = p2[j].y - myOffset.y;
 
-                        // 【解決策】回転・吸着が確定した直後の座標で、ドラッグオフセットを再設定
-                        // これにより、レールが180度ひっくり返って起点の位置がガラリと変わっても、
-                        // 「今マウスがある場所」を新しい基準点として掴み直すため、ジャンプが発生しません。
-                        dragOffset.x = pos.x - newX;
-                        dragOffset.y = pos.y - newY;
-
-                        snapped = true;
-                        break;
+    // 3. 吸着フラグを立てる等の既存処理
+    isSnapped = true;
+    break;
                     }
                 }
                 if (snapped) break;

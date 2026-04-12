@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.056</title>
+    <title>Railroad Model Layout Designer v0.59.057</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -93,17 +93,26 @@ function validateRailData() {
 // 1. サイドバーの構築 (Drag startイベントを追加)
 function initSidebar() {
     const sidebar = document.getElementById("sidebar");
+    if (!sidebar) return; // サイドバー要素がない場合は中断
     sidebar.innerHTML = "";
+
+    // railData が存在しない場合のエラー回避
+    if (typeof railData === 'undefined') {
+        console.error("railData is not defined. Check rails.js loading.");
+        return;
+    }
+
     Object.keys(railData).forEach(key => {
         const rail = railData[key];
-        if (!rail.type) return;
+        // レール定義（typeを持つもの）以外はスキップ
+        if (!rail || !rail.type) return;
 
         const div = document.createElement("div");
         div.className = "rail-item";
-        div.textContent = rail.name;
+        div.textContent = rail.name || key;
 
-        // すべての既存属性を保持
-        div.dataset.type = rail.type;
+        // 既存のすべての属性を dataset に安全にセット
+        div.dataset.type = rail.type || "";
         div.dataset.color = rail.color || "#ccc";
         div.dataset.length = rail.length || 0;
         div.dataset.angle = rail.angle || 0;
@@ -112,20 +121,24 @@ function initSidebar() {
         div.dataset.innerRadius = rail.innerRadius || 0;
         div.dataset.isDouble = rail.isDouble || false;
 
-        // radiusの処理：配列なら文字列化、数値ならそのまま、未定義なら空文字
+        // radiusの処理：配列ならJSON文字列化、数値ならそのまま、それ以外は空文字
         if (Array.isArray(rail.radius)) {
             div.dataset.radius = JSON.stringify(rail.radius);
+        } else if (typeof rail.radius === 'number') {
+            div.dataset.radius = rail.radius;
         } else {
-            div.dataset.radius = rail.radius !== undefined ? rail.radius : "";
+            div.dataset.radius = ""; 
         }
 
         div.onclick = () => {
-            const rawRadius = div.dataset.radius;
+            const rData = div.dataset.radius;
             const newRail = {
                 id: Date.now(),
                 type: div.dataset.type,
-                // radiusが空でなく、'[' で始まる場合のみパースする（エラー回避）
-                radius: (rawRadius && rawRadius.startsWith('[')) ? JSON.parse(rawRadius) : parseFloat(rawRadius || 0),
+                // radiusが "[" で始まる時だけパースし、それ以外は数値変換（空なら0）
+                radius: (rData && typeof rData === 'string' && rData.startsWith('[')) 
+                        ? JSON.parse(rData) 
+                        : parseFloat(rData || 0),
                 length: parseFloat(div.dataset.length),
                 angle: parseFloat(div.dataset.angle),
                 width: parseFloat(div.dataset.width),
@@ -215,8 +228,8 @@ function render() {
             }
         } 
         // 2. ポイント(point)の描画
-        else if (type.includes("point")) {
-            // 本線（直線部）
+        else if (type && type.includes("point")) {
+            // 直線部
             ctx.beginPath();
             ctx.moveTo(0, 0);
             ctx.lineTo(part.length, 0);
@@ -224,7 +237,7 @@ function render() {
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // 分岐側（曲線部）
+            // 分岐曲線部
             if (Array.isArray(part.radius)) {
                 part.radius.forEach(r => {
                     const angleRad = (part.angle * Math.PI) / 180;
@@ -254,14 +267,15 @@ function render() {
             }
         }
 
-        // 4. 選択中の表示（赤い枠 ＋ 回転ハンドル「○」）
+        // 4. 選択表示（赤枠 ＋ 回転ハンドル）
         if (index === selectedIndex) {
-            // 赤い枠
+            // 赤いハイライト枠
             ctx.strokeStyle = "red";
             ctx.lineWidth = 1;
-            ctx.strokeRect(-5, -10, (part.length || 50) + 10, 20);
+            const highlightWidth = (part.length || 50) + 10;
+            ctx.strokeRect(-5, -10, highlightWidth, 20);
 
-            // 回転ハンドル「○」の描画（復元しました）
+            // 回転ハンドル（赤丸「○」）の復元
             ctx.beginPath();
             ctx.arc(-15, 0, 5, 0, Math.PI * 2);
             ctx.fillStyle = "red";

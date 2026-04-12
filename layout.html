@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0051</title>
+    <title>Railroad Models Layout Designer v.0052</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -315,7 +315,7 @@
 function getConnectorPoints(p, x, y, rotation) {
     const points = [];
     const rad = (rotation * Math.PI) / 180;
-    const gap = p.nTrackGap || 33; // 複線間隔
+    const gap = p.nTrackGap || 33;
 
     const transform = (rx, ry) => {
         const tx = rx * Math.cos(rad) - ry * Math.sin(rad);
@@ -325,58 +325,37 @@ function getConnectorPoints(p, x, y, rotation) {
 
     for (let i = 0; i < p.junctionCount; i++) {
         let rx = 0, ry = 0;
-
-        // --- 点数に応じた物理配置の定義 ---
-        
-        // 【1点接続：車止めなど】
-        if (p.junctionCount === 1) {
-            rx = p.nLength; // 先端（右側）を接続点とする
-        }
-        
-        // 【2点接続：単線・カーブ】
+        if (p.junctionCount === 1) { rx = p.nLength; } 
         else if (p.junctionCount === 2) {
-            if (i === 1) { // 0=左(起点), 1=右(終点)
-                if (p.sRole === "straight") {
-                    rx = p.nLength;
-                } else {
+            if (i === 1) {
+                rx = p.nLength;
+                if (p.sRole === "curve") {
                     const a = (p.nAngle * Math.PI) / 180;
                     rx = Math.sin(a) * p.nRadius;
                     ry = p.nRadius - Math.cos(a) * p.nRadius;
                 }
             }
-        }
-        
-        // 【3点接続：ポイントレール】
+        } 
         else if (p.junctionCount === 3) {
-            // 0=左(共通起点), 1=右(直進終点), 2=右(分岐終点)
-            if (i === 1) {
-                rx = p.nLength;
-            } else if (i === 2) {
+            if (i === 1) rx = p.nLength;
+            else if (i === 2) {
                 const a = (p.nAngle * Math.PI) / 180;
                 rx = Math.sin(a) * p.nRadius;
                 ry = p.nRadius - Math.cos(a) * p.nRadius;
             }
         }
-        
-        // 【4点接続：複線レール】
         else if (p.junctionCount === 4) {
-            // 0=左上, 1=左下, 2=右上, 3=右下
-            const isEnd = (i >= 2);   // 2,3番が右側
-            const isSub = (i % 2 === 1); // 1,3番が下側(gap)
+            const isEnd = (i >= 2), isSub = (i % 2 === 1);
             if (isEnd) {
-                if (p.sRole === "straight") {
-                    rx = p.nLength; ry = isSub ? gap : 0;
-                } else {
+                if (p.sRole === "straight") { rx = p.nLength; ry = isSub ? gap : 0; }
+                else {
                     const a = (p.nAngle * Math.PI) / 180;
                     const r = isSub ? (p.nRadius - gap) : p.nRadius;
                     rx = Math.sin(a) * r;
                     ry = p.nRadius - Math.cos(a) * r;
                 }
-            } else {
-                rx = 0; ry = isSub ? gap : 0;
-            }
+            } else { rx = 0; ry = isSub ? gap : 0; }
         }
-
         points.push(transform(rx, ry));
     }
     return points;
@@ -466,23 +445,23 @@ function getConnectorPoints(p, x, y, rotation) {
 canvas.onmousemove = function(e) {
     if (!isDragging || !draggedRail) return;
 
-    // マウス位置に合わせてレールの中心を移動（ドラッグの基本動作）
     const rect = canvas.getBoundingClientRect();
-    draggedRail.x = e.clientX - rect.left;
-    draggedRail.y = e.clientY - rect.top;
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    // 一旦マウス位置にレールを移動させる（これで「動かない」が直ります）
+    draggedRail.x = mouseX;
+    draggedRail.y = mouseY;
 
     let bestMatch = null;
-    let minDistance = 15; // 吸着しきい値（20より少し絞ることで誤判定を防止）
+    let minDistance = 15; 
     let draggedPointIdx = -1;
     let targetPointCoords = null;
 
-    // 自分のレールの全接点（現在の回転状態）を取得
     const myPoints = getConnectorPoints(draggedRail, draggedRail.x, draggedRail.y, draggedRail.rotation);
 
-    // 他の全レールとの距離をチェック
     rails.forEach(targetRail => {
         if (targetRail === draggedRail) return;
-
         const targetPoints = getConnectorPoints(targetRail, targetRail.x, targetRail.y, targetRail.rotation);
 
         myPoints.forEach((p1, i) => {
@@ -491,7 +470,6 @@ canvas.onmousemove = function(e) {
                 const dy = p1.y - p2.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
-                // 範囲内で、かつこれまでの最小距離よりも近ければ記録
                 if (dist < minDistance) {
                     minDistance = dist;
                     bestMatch = targetRail;
@@ -502,22 +480,18 @@ canvas.onmousemove = function(e) {
         });
     });
 
-    // 最も近い点が見つかった場合のみ吸着を実行
+    // 吸着対象がある場合は座標を補正
     if (bestMatch && targetPointCoords) {
-        // 回転だけ考慮した、自分の吸着点の「中心からのズレ」を逆算
         const relPoints = getConnectorPoints(draggedRail, 0, 0, draggedRail.rotation);
         const myOffset = relPoints[draggedPointIdx];
-
-        // 相手のドットに重なるように、レール全体の座標を補正
         draggedRail.x = targetPointCoords.x - myOffset.x;
         draggedRail.y = targetPointCoords.y - myOffset.y;
-        
-        isSnapped = true; // 吸着中フラグ
+        isSnapped = true;
     } else {
         isSnapped = false;
     }
 
-    draw(); // 再描画
+    draw(); 
 };
         
             window.onmouseup = function() {

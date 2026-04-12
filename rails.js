@@ -22,7 +22,7 @@ const railData = {
         sDirection: "none",
         nViewWidth: 25,
         nHeight: 0,
-        nGuage: 9,
+        nGauge: 9,
         sColor: "#cccccc",
         sComment: "標準的な直線レール。PC枕木版と共通で使用可能。",
         sExtra: ""

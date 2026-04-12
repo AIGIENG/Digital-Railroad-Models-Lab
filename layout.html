@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0033</title>
+    <title>Railroad Models Layout Designer v.0034</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -312,60 +312,61 @@
                 };
             }
 
-/**
- * junctionCount を参照して接続点を算出
- */
-function getConnectorPoints(p, x, y, rotation) {
-    const points = [];
-    const rad = (rotation * Math.PI) / 180;
-    const count = p.junctionCount || 2;
-
-    // 補助関数：相対座標を回転・平行移動
-    const transform = (rx, ry) => {
-        const tx = rx * Math.cos(rad) - ry * Math.sin(rad);
-        const ty = rx * Math.sin(rad) + ry * Math.cos(rad);
-        return { x: x + tx, y: y + ty };
-    };
-
-    if (p.bIsDouble && count === 4) {
-        // --- 複線（4点接続） ---
-        const halfGap = (p.nTrackGap || 33) / 2;
-
-        // 起点側の2点
-        points.push(transform(0, -halfGap)); // 左（外）
-        points.push(transform(0, halfGap));  // 右（内）
-
-        // 終点側の2点
-        if (p.sRole === "straight") {
-            points.push(transform(p.nLength, -halfGap));
-            points.push(transform(p.nLength, halfGap));
-        } else if (p.sRole === "curve" || p.sRole === "approach") {
-            const a = (p.nAngle * Math.PI) / 180;
-            const rOut = p.nRadius;
-            const rIn = p.nRadius - (p.nTrackGap || 33);
-            // 外線終点
-            points.push(transform(Math.sin(a) * rOut, rOut - Math.cos(a) * rOut - halfGap));
-            // 内線終点
-            points.push(transform(Math.sin(a) * rIn, rOut - Math.cos(a) * rIn - halfGap));
-        }
-    } else {
-        // --- 単線（1〜2点接続） ---
-        points.push(transform(0, 0)); // 起点
-
-        if (count >= 2) {
-            if (p.sRole === "straight") {
-                points.push(transform(p.nLength, 0));
-            } else if (p.sRole === "curve" || p.sRole === "approach") {
-                const a = (p.nAngle * Math.PI) / 180;
-                const r = p.nRadius;
-                points.push(transform(Math.sin(a) * r, r - Math.cos(a) * r));
+            /**
+             * レールの接続点（ジョイナー位置）を算出する関数
+             * junctionCount の値に基づき、単線・複線・特殊形状の接点を自動生成する
+             */
+            function getConnectorPoints(p, x, y, rotation) {
+                const points = [];
+                const rad = (rotation * Math.PI) / 180;
+                const count = p.junctionCount || 2; // 未定義の場合はデフォルト2点（単線）
+            
+                // 補助関数：相対座標をパーツの回転・位置に合わせて変換
+                const transform = (rx, ry) => {
+                    const tx = rx * Math.cos(rad) - ry * Math.sin(rad);
+                    const ty = rx * Math.sin(rad) + ry * Math.cos(rad);
+                    return { x: x + tx, y: y + ty };
+                };
+            
+                if (p.bIsDouble && count === 4) {
+                    // --- 複線（4点接続）の場合 ---
+                    const halfGap = (p.nTrackGap || 33) / 2;
+            
+                    // 起点側の2点
+                    points.push(transform(0, -halfGap)); // 左（外）
+                    points.push(transform(0, halfGap));  // 右（内）
+            
+                    // 終点側の2点
+                    if (p.sRole === "straight") {
+                        points.push(transform(p.nLength, -halfGap));
+                        points.push(transform(p.nLength, halfGap));
+                    } else if (p.sRole === "curve" || p.sRole === "approach") {
+                        const a = (p.nAngle * Math.PI) / 180;
+                        const rOut = p.nRadius;
+                        const rIn = p.nRadius - (p.nTrackGap || 33);
+                        // 外線終点
+                        points.push(transform(Math.sin(a) * rOut, rOut - Math.cos(a) * rOut - halfGap));
+                        // 内線終点
+                        points.push(transform(Math.sin(a) * rIn, rOut - Math.cos(a) * rIn - halfGap));
+                    }
+                } else {
+                    // --- 単線（1〜2点接続）またはその他の場合 ---
+                    points.push(transform(0, 0)); // 起点
+            
+                    if (count >= 2) {
+                        if (p.sRole === "straight") {
+                            points.push(transform(p.nLength, 0));
+                        } else if (p.sRole === "curve" || p.sRole === "approach") {
+                            const a = (p.nAngle * Math.PI) / 180;
+                            const r = p.nRadius;
+                            points.push(transform(Math.sin(a) * r, r - Math.cos(a) * r));
+                        }
+                    }
+                }
+            
+                return points;
             }
-        }
-    }
-
-    return points;
-}
-
+            
             /**
              * キーボード入力イベント
              * Rキーで 22.5度回転（時計回り）

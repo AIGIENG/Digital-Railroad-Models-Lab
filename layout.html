@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0017</title>
+    <title>Railroad Models Layout Designer v.0018</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -311,6 +311,38 @@
                     }
                 };
             }
+
+            /**
+             * 接続点（ジョイナー位置）を算出する補助関数
+             * ※既存のデータ構造に基づき、レールの端点を返します
+             */
+            function getConnectorPoints(p) {
+                const points = [];
+                const centerOffset = p.bIsDouble ? (p.nTrackGap / 2) : 0;
+            
+                // 起点 (0, centerOffset)
+                points.push({ x: 0, y: centerOffset });
+            
+                if (p.sRole === "straight") {
+                    // 終点 (Length, centerOffset)
+                    points.push({ x: p.nLength, y: centerOffset });
+                } else if (p.sRole === "curve" || p.sRole === "approach") {
+                    // 終点 (R*sin(angle), R*(1-cos(angle)) 的な回転座標)
+                    const rad = p.nAngle * Math.PI / 180;
+                    const r = p.nRadius - centerOffset;
+                    points.push({
+                        x: r * Math.sin(rad),
+                        y: p.nRadius - r * Math.cos(rad)
+                    });
+                }
+                
+                // パーツ自身の回転(p.rotation)を考慮した座標変換
+                const pRad = p.rotation * Math.PI / 180;
+                return points.map(pt => ({
+                    x: pt.x * Math.cos(pRad) - pt.y * Math.sin(pRad),
+                    y: pt.x * Math.sin(pRad) + pt.y * Math.cos(pRad)
+                }));
+            }
             
             // --- マウスイベント ---
             canvas.onmousedown = function(e) {
@@ -354,11 +386,52 @@
                 }
             };
         
+            /**
+             * マウス移動イベント（吸着スナップ機能の実装）
+             */
             canvas.onmousemove = function(e) {
                 if (!isDragging || !draggedPart) return;
+            
                 const pos = getMousePos(canvas, e);
-                draggedPart.x = pos.x - dragOffset.x;
-                draggedPart.y = pos.y - dragOffset.y;
+                const snapDistance = 15; // 吸着する距離（ピクセル）
+            
+                // 1. マウス位置に基づいて暫定的な新座標を計算
+                let newX = pos.x - dragOffset.x;
+                let newY = pos.y - dragOffset.y;
+            
+                // 2. 他のパーツとの接続判定
+                let snapped = false;
+                for (const other of layers.rail) {
+                    if (other.id === draggedPart.id) continue;
+            
+                    // 自身の接続点(self)と、相手の接続点(target)を定義
+                    // ※簡易版としてレールの両端（起点と終点）をループ
+                    const selfPoints = getConnectorPoints(draggedPart);
+                    const targetPoints = getConnectorPoints(other);
+            
+                    for (const sp of selfPoints) {
+                        for (const tp of targetPoints) {
+                            // 距離の計算
+                            const dx = (newX + sp.x) - tp.x;
+                            const dy = (newY + sp.y) - tp.y;
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+                            if (dist < snapDistance) {
+                                // 吸着：位置を補正
+                                newX = tp.x - sp.x;
+                                newY = tp.y - sp.y;
+                                snapped = true;
+                                break;
+                            }
+                        }
+                        if (snapped) break;
+                    }
+                    if (snapped) break;
+                }
+            
+                // 3. 座標の更新と再描画
+                draggedPart.x = newX;
+                draggedPart.y = newY;
                 render();
             };
         

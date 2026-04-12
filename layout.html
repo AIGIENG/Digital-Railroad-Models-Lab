@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0043</title>
+    <title>Railroad Models Layout Designer v.0044</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -313,7 +313,8 @@
             }
 
 /**
- * junctionCount: 1 (車止め等) から 4 (複線) までを網羅
+ * 役割を junctionCount から動的に判定し、
+ * rails.js の定義（1番が左か右か）に忠実に座標を返す
  */
 function getConnectorPoints(p, x, y, rotation) {
     const points = [];
@@ -327,53 +328,26 @@ function getConnectorPoints(p, x, y, rotation) {
     };
 
     for (let i = 0; i < p.junctionCount; i++) {
-        let rx = 0;
-        let ry = 0;
+        // 1. そのインデックスが「右側（終点）」かどうかを判定
+        // 単線(2)なら i=1 が終点、3点以上なら i>=2 が終点 (1点は常に終点扱い)
+        const isEnd = (p.junctionCount === 2) ? (i === 1) : (p.junctionCount === 1 || i >= 2);
 
-        // --- junctionCount ごとの役割振り分け ---
-        
-        // 1. junctionCount: 1 の場合
-        // 唯一の点を「終点（接続先）」として計算する
-        if (p.junctionCount === 1) {
+        // 2. そのインデックスが「下のライン（gap側）」かどうかを判定
+        // 複線の 1番(左下) と 3番(右下) が gap を持つ
+        const isOffset = (p.junctionCount === 4 && (i === 1 || i === 3));
+
+        let rx = 0;
+        let ry = isOffset ? gap : 0;
+
+        if (isEnd) {
             if (p.sRole === "straight") {
                 rx = p.nLength;
-            } else if (p.sRole === "curve") {
+            } else {
                 const a = (p.nAngle * Math.PI) / 180;
-                rx = Math.sin(a) * p.nRadius;
-                ry = p.nRadius - Math.cos(a) * p.nRadius;
+                const r = isOffset ? (p.nRadius - gap) : p.nRadius;
+                rx = Math.sin(a) * r;
+                ry = r - Math.cos(a) * r + (isOffset ? gap : 0);
             }
-        } 
-        // 2. junctionCount: 2 (単線) の場合
-        // i=0: 起点, i=1: 終点
-        else if (p.junctionCount === 2) {
-            if (i === 1) {
-                rx = p.nLength;
-                if (p.sRole === "curve") {
-                    const a = (p.nAngle * Math.PI) / 180;
-                    rx = Math.sin(a) * p.nRadius;
-                    ry = p.nRadius - Math.cos(a) * p.nRadius;
-                }
-            }
-        }
-        // 3. junctionCount: 3以上 (分岐・複線) の場合
-        else {
-            if (i === 1) {
-                // 起点2 (左下)
-                rx = 0; ry = gap;
-            } else if (i >= 2) {
-                // 終点側
-                const isOffset = (i === 3); // 4点目の場合はオフセット線
-                if (p.sRole === "straight") {
-                    rx = p.nLength;
-                    ry = isOffset ? gap : 0;
-                } else {
-                    const a = (p.nAngle * Math.PI) / 180;
-                    const r = isOffset ? (p.nRadius - gap) : p.nRadius;
-                    rx = Math.sin(a) * r;
-                    ry = r - Math.cos(a) * r + (isOffset ? gap : 0);
-                }
-            }
-            // i=0 はデフォルト(0,0)のまま
         }
 
         points.push(transform(rx, ry));

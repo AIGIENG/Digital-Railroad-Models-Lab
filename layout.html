@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0021</title>
+    <title>Railroad Models Layout Designer v.0022</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -339,6 +339,29 @@
                     y: y + (pt.x * Math.sin(rad) + pt.y * Math.cos(rad))
                 }));
             }
+
+            /**
+             * キーボード入力イベント
+             * Rキーで 22.5度回転（時計回り）
+             */
+            window.onkeydown = function(e) {
+                // Rキー (大文字・小文字両対応)
+                if (e.key === 'r' || e.key === 'R') {
+                    // 操作対象のパーツがある場合のみ実行
+                    const target = draggedPart || (layers.rail.length > 0 ? layers.rail[layers.rail.length - 1] : null);
+                    
+                    if (target) {
+                        // 現在の角度に 22.5度を加算
+                        target.rotation = (target.rotation + 22.5) % 360;
+                        
+                        // 再描画して回転を反映
+                        render();
+                        
+                        // ページスクロール等のデフォルト動作を防止
+                        e.preventDefault();
+                    }
+                }
+            };
             
             // --- マウスイベント ---
             /**

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0004</title>
+    <title>Railroad Models Layout Designer v.0005</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -285,9 +285,9 @@
         };
         
         /**
-         * マウスアップ：ドラッグ終了
+         * マウスアップ：掴み終了
          */
-        window.onmouseup = () => {
+        window.onmouseup = function() {
             isDragging = false;
             draggedPart = null;
         };

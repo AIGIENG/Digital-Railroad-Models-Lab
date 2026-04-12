@@ -27,6 +27,25 @@ const railData = {
         sExtra: ""
     },
 
+    "KATO_R317-45": {
+        sName: "曲線レール R317-45",
+        sProductCode: "2x-xxx",
+        sMaker: "KATO",
+        sSeries: "UNITRACK",
+        sRole: "curve",
+        nLength: 0,
+        nRadius: 317,
+        nAngle: 45,
+        bIsDouble: false,
+        nTrackGap: 33,
+        sDirection: "none",
+        nViewWidth: 25,
+        nHeight: 0,
+        sColor: "#cccccc",
+        sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。",
+        sExtra: ""
+    },
+    
     // --- 複線曲線レール (代表半径 414mm / 381mm) ---
     "KATO_R414_45_W": {
         sName: "複線曲線 R414/381-45",

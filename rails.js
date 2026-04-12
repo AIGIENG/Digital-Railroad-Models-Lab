@@ -4,6 +4,7 @@
  * 1. キー名（例: "KATO_S248"）は自動的に sId として処理されます。
  * 2. 型を厳守（s=文字列, n=数値, b=真偽値）。
  * 3. 全てのデータで全17項目（sId除く）を必ず記述してください。
+ *    sRoleの種類によって無視される項目もありますが、省略はできません。
  */
 
 const railData = {
@@ -67,7 +68,28 @@ const railData = {
         sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。",
         sExtra: ""
     },
-
+    
+    // --- 複線直線レール (248mm) ---
+    "KATO_WS248": {
+        sName: "複線直線 WS248",
+        sProductCode: "20-xxx",
+        sMaker: "KATO",
+        sSeries: "UNITRACK",
+        sRole: "straight",
+        nLength: 248,
+        nRadius: 0,
+        nAngle: 0,
+        bIsDouble: true,      // 複線フラグをON
+        nTrackGap: 33,       // 内側レールは (414 - 33) で自動計算される
+        sDirection: "none",
+        nViewWidth: 57.5,       // 道床2本分の幅
+        nHeight: 0,
+        nGauge: 9,
+        sColor: "#999999",
+        sComment: "複線レール。",
+        sExtra: ""
+    },
+    
     // --- 複線曲線レール (代表半径 315mm / 282mm) ---
     "KATO_R315_282_W": {
         sName: "複線曲線 R315/282-45",
@@ -81,7 +103,7 @@ const railData = {
         bIsDouble: true,      // 複線フラグをON
         nTrackGap: 33,       // 内側レールは (414 - 33) で自動計算される
         sDirection: "none",
-        nViewWidth: 50,       // 道床2本分の幅
+        nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
         nGauge: 9,
         sColor: "#999999",
@@ -102,7 +124,7 @@ const railData = {
         bIsDouble: true,      // 複線フラグをON
         nTrackGap: 33,       // 内側レールは (414 - 33) で自動計算される
         sDirection: "none",
-        nViewWidth: 50,       // 道床2本分の幅
+        nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
         nGauge: 9,
         sColor: "#999999",
@@ -123,7 +145,7 @@ const railData = {
         bIsDouble: true,
         nTrackGap: 33,
         sDirection: "left",  // 左方向にカーブが始まるアプローチ
-        nViewWidth: 50,
+        nViewWidth: 57.5,
         nHeight: 0,
         nGauge: 9,
         sColor: "#888888",

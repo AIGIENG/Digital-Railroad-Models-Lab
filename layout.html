@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0003</title>
+    <title>Railroad Models Layout Designer v.0004</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -45,6 +45,12 @@
     <script src="rails.js"></script>
 
     <script>
+
+        // --- マウス操作用ステート ---
+        let isDragging = false;
+        let draggedPart = null;
+        let offset = { x: 0, y: 0 };
+                
         // --- 状態管理 ---
         const layers = {
             rail: [] // キャンバス上に配置されたレールの配列
@@ -81,12 +87,19 @@
         }
 
         /**
-         * サイドバーの生成
-         * rails.js のキーを sId として自動補完し、リスト化します
+         * キャンバス上のマウス座標を取得（スクロール考慮）
          */
-/**
- * サイドバーの生成（sSeries > sRole のツリー表示版）
- */
+        function getMousePos(canvas, evt) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: evt.clientX - rect.left,
+                y: evt.clientY - rect.top
+            };
+        }
+        
+        /**
+         * サイドバーの生成（sSeries > sRole のツリー表示版）
+         */
         function initSidebar() {
             const listContainer = document.getElementById('rail-list');
             listContainer.innerHTML = "";
@@ -228,6 +241,57 @@
             initCanvas(); // キャンバスサイズの適用
         };
 
+        /**
+         * マウスダウン：パーツの選択
+         */
+        canvas.onmousedown = (e) => {
+            const pos = getMousePos(canvas, e);
+            
+            // 重なりを考慮し、配列の後ろ（＝上に描画されているもの）から判定
+            for (let i = layers.rail.length - 1; i >= 0; i--) {
+                const p = layers.rail[i];
+                
+                // 簡易的な当たり判定（矩形範囲）
+                // ※本来は回転を考慮すべきですが、まずは基本の移動を実現します
+                const halfWidth = p.nViewWidth / 2;
+                const length = p.nLength || p.nRadius; // 曲線やストラクチャーにも対応
+        
+                if (pos.x >= p.x && pos.x <= p.x + length &&
+                    pos.y >= p.y - halfWidth && pos.y <= p.y + halfWidth) {
+                    
+                    isDragging = true;
+                    draggedPart = p;
+                    offset.x = pos.x - p.x;
+                    offset.y = pos.y - p.y;
+                    
+                    // 選択したパーツを最前面へ（配列の最後に移動）
+                    layers.rail.push(layers.rail.splice(i, 1)[0]);
+                    break;
+                }
+            }
+        };
+        
+        /**
+         * マウスムーブ：ドラッグ実行
+         */
+        canvas.onmousemove = (e) => {
+            if (!isDragging || !draggedPart) return;
+            
+            const pos = getMousePos(canvas, e);
+            draggedPart.x = pos.x - offset.x;
+            draggedPart.y = pos.y - offset.y;
+            
+            render(); // 移動に合わせて再描画
+        };
+        
+        /**
+         * マウスアップ：ドラッグ終了
+         */
+        window.onmouseup = () => {
+            isDragging = false;
+            draggedPart = null;
+        };
+        
     </script>
 </body>
 </html>

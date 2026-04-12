@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0020</title>
+    <title>Railroad Models Layout Designer v.0021</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -342,70 +342,41 @@
             
             // --- マウスイベント ---
             /**
-             * マウスダウンイベント（曲線レールの当たり判定を直線と同様に実装）
+             * マウスダウンイベント（マウスポインタの位置を維持したまま、中心座標を保持）
              */
             canvas.onmousedown = function(e) {
                 const pos = getMousePos(canvas, e);
                 
-                // 描画順の逆（最前面）から判定
                 for (let i = layers.rail.length - 1; i >= 0; i--) {
                     const p = layers.rail[i];
-                    
-                    // 判定用の基本数値
                     const halfView = p.nViewWidth / 2;
                     const centerOffset = p.bIsDouble ? (p.nTrackGap / 2) : 0;
                     
-                    // --- 当たり判定用の矩形範囲 (Local Bounding Box) ---
                     let isHit = false;
-                    
-                    // マウス位置をパーツの起点(p.x, p.y)からの相対座標に変換
-                    // ※簡易判定のため、ここでは回転前の座標系で判定
                     const dx = pos.x - p.x;
                     const dy = pos.y - p.y;
             
+                    // 当たり判定（既存ロジック）
                     if (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") {
-                        // 直線判定
                         const yMin = centerOffset - halfView;
                         const yMax = centerOffset + halfView;
-                        if (dx >= 0 && dx <= p.nLength && dy >= yMin && dy <= yMax) {
-                            isHit = true;
-                        }
+                        if (dx >= 0 && dx <= p.nLength && dy >= yMin && dy <= yMax) isHit = true;
                     } else if (p.sRole === "curve" || p.sRole === "approach") {
-                        // 曲線判定（直線と同様、外形を囲う矩形範囲で簡易実装）
-                        // 曲線が描画される「半径方向の厚み」と「角度による広がり」をカバー
                         const rOuter = p.nRadius + halfView;
-                        const rInner = p.bIsDouble ? (p.nRadius - p.nTrackGap - halfView) : (p.nRadius - halfView);
-                        
-                        // 曲線レールの占有幅（角度から概算）
                         const width = rOuter * Math.sin(p.nAngle * Math.PI / 180);
-                        const height = p.nRadius - (rInner * Math.cos(p.nAngle * Math.PI / 180));
-                        
-                        // 基準点(p.x, p.y)からの相対的な広がりで判定
-                        if (dx >= 0 && dx <= Math.max(width, 20) && dy >= -20 && dy <= Math.max(height, 20)) {
-                            isHit = true;
-                        }
+                        const height = p.nRadius - ((p.nRadius - halfView) * Math.cos(p.nAngle * Math.PI / 180));
+                        if (dx >= 0 && dx <= Math.max(width, 20) && dy >= -20 && dy <= Math.max(height, 20)) isHit = true;
                     }
             
                     if (isHit) {
                         isDragging = true;
                         draggedPart = p;
             
-                        // 中心（〇印）の位置を算出して基準点に固定
-                        let cX, cY;
-                        if (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") {
-                            cX = p.nLength / 2;
-                            cY = centerOffset;
-                        } else {
-                            const midAngle = ((-90 + (p.nAngle / 2)) * Math.PI / 180);
-                            const midR = p.nRadius - centerOffset;
-                            cX = midR * Math.cos(midAngle);
-                            cY = p.nRadius + midR * Math.sin(midAngle);
-                        }
-                        
-                        dragOffset.x = cX;
-                        dragOffset.y = cY;
+                        // 【修正】マウス位置をそのまま基準点(dragOffset)として保持
+                        // これにより、クリックした場所とパーツ起点の相対距離が維持されます
+                        dragOffset.x = pos.x - p.x;
+                        dragOffset.y = pos.y - p.y;
             
-                        // 最前面へ移動
                         layers.rail.push(layers.rail.splice(i, 1)[0]);
                         render();
                         break;

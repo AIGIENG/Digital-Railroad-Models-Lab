@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0001</title>
+    <title>Railroad Models Layout Designer v.0002</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -55,68 +55,114 @@
          * サイドバーの生成
          * rails.js のキーを sId として自動補完し、リスト化します
          */
+/**
+ * サイドバーの生成（sSeries > sRole のツリー表示版）
+ */
         function initSidebar() {
             const listContainer = document.getElementById('rail-list');
             listContainer.innerHTML = "";
-
+        
             if (typeof railData === 'undefined') {
-                listContainer.innerHTML = "<p style='color:red;'>rails.js が読み込めません</p>";
+                listContainer.innerHTML = "<p style='color:red;'>rails.js is not found</p>";
                 return;
             }
-
-            // Object.entries を使い、[キー, 中身] でループ
+        
+            // 1. データをツリー構造に整理 (Series > Role > Items)
+            const tree = {};
             Object.entries(railData).forEach(([key, rail]) => {
-                // キーを sId として自動代入（齋藤さんとの約束事）
-                rail.sId = key;
-
-                const div = document.createElement("div");
-                div.className = "rail-item";
+                rail.sId = key; // IDの自動補完
                 
-                // 表示内容の構築
-                div.innerHTML = `
-                    ${rail.sName}
-                    <span class="rail-item-sub">${rail.sMaker} | ${rail.sProductCode}</span>
-                `;
-
-                // クリック時の処理
-                div.onclick = () => {
-                    addPartToCanvas(rail);
+                const series = rail.sSeries || "Unknown Series";
+                const role = rail.sRole || "Other";
+        
+                if (!tree[series]) tree[series] = {};
+                if (!tree[series][role]) tree[series][role] = [];
+                
+                tree[series][role].push(rail);
+            });
+        
+            // 2. ツリーをHTMLとして構築
+            Object.keys(tree).sort().forEach(seriesName => {
+                // Series 階層
+                const seriesDetails = document.createElement("details");
+                seriesDetails.style.marginBottom = "10px";
+                const seriesSummary = document.createElement("summary");
+                seriesSummary.style.cursor = "pointer";
+                seriesSummary.style.fontWeight = "bold";
+                seriesSummary.style.padding = "5px";
+                seriesSummary.style.background = "#1a252f";
+                seriesSummary.textContent = "[+] " + seriesName;
+                
+                seriesDetails.appendChild(seriesSummary);
+        
+                // Role 階層
+                Object.keys(tree[seriesName]).sort().forEach(roleName => {
+                    const roleDetails = document.createElement("details");
+                    roleDetails.style.marginLeft = "15px";
+                    roleDetails.style.marginTop = "5px";
+                    const roleSummary = document.createElement("summary");
+                    roleSummary.style.cursor = "pointer";
+                    roleSummary.style.fontSize = "13px";
+                    roleSummary.style.color = "#1abc9c";
+                    roleSummary.textContent = "> " + roleName;
+        
+                    roleDetails.appendChild(roleSummary);
+        
+                    // Item 階層
+                    tree[seriesName][roleName].forEach(rail => {
+                        const div = document.createElement("div");
+                        div.className = "rail-item";
+                        div.style.marginLeft = "10px";
+                        div.style.marginTop = "5px";
+                        div.innerHTML = `
+                            ${rail.sName}
+                            <span class="rail-item-sub">${rail.sProductCode}</span>
+                        `;
+                        div.onclick = () => addPartToCanvas(rail);
+                        roleDetails.appendChild(div);
+                    });
+        
+                    seriesDetails.appendChild(roleDetails);
+                });
+        
+                // 開閉状態に合わせて記号を切り替える（文字化け対策で半角のみ使用）
+                seriesDetails.addEventListener("toggle", () => {
+                    seriesSummary.textContent = (seriesDetails.open ? "[-] " : "[+] ") + seriesName;
+                });
+        
+                listContainer.appendChild(seriesDetails);
+            });
+        }
+            /**
+             * パーツをキャンバス（データ）に追加
+             */
+            function addPartToCanvas(sourceData) {
+                // 元データをディープコピーし、配置用の個別プロパティを追加
+                const newPart = {
+                    ...sourceData,
+                    id: Date.now(), // インスタンス識別用のユニークID
+                    x: canvas.width / 2,
+                    y: canvas.height / 2,
+                    rotation: 0
                 };
-
-                listContainer.appendChild(div);
-            });
-        }
-
-        /**
-         * パーツをキャンバス（データ）に追加
-         */
-        function addPartToCanvas(sourceData) {
-            // 元データをディープコピーし、配置用の個別プロパティを追加
-            const newPart = {
-                ...sourceData,
-                id: Date.now(), // インスタンス識別用のユニークID
-                x: canvas.width / 2,
-                y: canvas.height / 2,
-                rotation: 0
-            };
-
-            layers.rail.push(newPart);
-            console.log("配置済みパーツ数:", layers.rail.length);
-            render(); // 再描画
-        }
-
-        /**
-         * 描画メインループ
-         */
-        function render() {
-            // 背景クリア
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // 配置されたパーツの描画
-            layers.rail.forEach(part => {
-                drawPart(ctx, part);
-            });
-        }
+    
+                layers.rail.push(newPart);
+                console.log("配置済みパーツ数:", layers.rail.length);
+                render(); // 再描画
+            }
+    
+            /**
+             * 描画メインループ
+             */
+            function render() {
+                // 背景クリア
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+                // 配置されたパーツの描画
+                layers.rail.forEach(part => {
+                    drawPart(ctx, part);
+                });
+            }
 
         /**
          * 個別パーツの描画（簡易版：まずは矩形や円弧の枠だけ）

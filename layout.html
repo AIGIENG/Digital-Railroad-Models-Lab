@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.036</title>
+    <title>Railroad Model Layout Designer v0.59.040r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -137,102 +137,116 @@ canvas.ondrop = (e) => {
 };
 
 // 4. 描画
-function getPointJoints(p) {
-    const L = p.length || p.len || 140;
-    const rad = p.rotation * Math.PI / 180;
-    return [
-        { x: p.x, y: p.y, angle: (p.rotation + 180) % 360 }, // 根元
-        { x: p.x + L * Math.cos(rad), y: p.y + L * Math.sin(rad), angle: p.rotation } // 直進先
-    ];
+function drawArc(ctx, r, a, w, fill, off = 0) {
+    const rad = a * Math.PI / 180;
+    const centerX = 0;
+    const centerY = r; 
+    const currentR = r + off;
+
+    ctx.beginPath();
+    if (fill) {
+        ctx.arc(centerX, centerY, currentR + w/2, -Math.PI/2, -Math.PI/2 + rad);
+        ctx.arc(centerX, centerY, currentR - w/2, -Math.PI/2 + rad, -Math.PI/2, true);
+        ctx.closePath();
+        ctx.fill();
+    } else {
+        // ハイライト線などの場合
+        ctx.arc(centerX, centerY, currentR, -Math.PI/2, -Math.PI/2 + rad);
+        // fillでない場合はclosePathしない
+    }
+    ctx.stroke();
 }
 
-function checkSnapping() {
-    if (!selectedPart) return;
-    try {
-        const isP = (selectedPart.type || "").startsWith("point");
-        const mJs = isP ? getPointJoints(selectedPart) : getJoints(selectedPart);
-        let snapped = false;
-
-        layers.rail.forEach(part => {
-            if (part === selectedPart || snapped) return;
-            const isTP = (part.type || "").startsWith("point");
-            const tJs = isTP ? getPointJoints(part) : getJoints(part);
-            if (!mJs || !tJs) return;
-
-            mJs.forEach(mj => {
-                tJs.forEach(tj => {
-                    if (snapped) return;
-                    const dx = mj.x - tj.x, dy = mj.y - tj.y;
-                    if (Math.sqrt(dx*dx + dy*dy) < SNAP_DISTANCE) {
-                        selectedPart.x += (tj.x - mj.x);
-                        selectedPart.y += (tj.y - mj.y);
-                        selectedPart.rotation = (tj.angle + 180 - (mj.angle - selectedPart.rotation) + 360) % 360;
-                        snapped = true;
-                    }
-                });
-            });
-        });
-    } catch (e) { console.error("Snapping Error:", e); }
-}
-    
 function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     layers.rail.forEach(part => {
-        const std = STANDARDS[part.std] || { gauge: 9, defWidth: 25, color: "#aaa", edge: "#888" };
-        const type = part.type || "";
+        const std = STANDARDS[part.std] || { gauge: 9, space: 33, defWidth: 25, color: "#aaa", edge: "#888" };
+        const w = part.width || std.defWidth;
+        const g = std.gauge;
         
         ctx.save();
         ctx.translate(part.x, part.y);
         ctx.rotate(part.rotation * Math.PI / 180);
 
-        // --- ポイントレールの描画 (ここだけ追加) ---
-        if (type.startsWith("point")) {
-            const w = part.width || std.defWidth, L = part.length || part.len || 140;
-            const R = (Array.isArray(part.radius) ? part.radius[0] : part.radius) || 481;
-            const A = part.angle || 15, s = (type === "point-L") ? -1 : 1;
-            
-            ctx.fillStyle = part.color || std.color;
-            ctx.strokeStyle = part.edge || std.edge;
+        const radii = Array.isArray(part.radius) ? part.radius : [part.radius];
+        const isDouble = part.isDouble || radii.length > 1;
+
+        if (part.type === "curve") {
+            const avgR = radii.reduce((a, b) => a + b) / radii.length;
+            ctx.fillStyle = part.color || std.color || "#aaa";
+            ctx.strokeStyle = part.edge || std.edge || "#888";
             ctx.lineWidth = 1;
-            // 直線道床
-            ctx.fillRect(0, -w/2, L, w);
-            ctx.strokeRect(0, -w/2, L, w);
-            // 分岐道床
-            ctx.save();
-            ctx.translate(0, s * R);
-            const sa = (s===-1?0.5:-0.5) * Math.PI, ea = sa + (s * A * Math.PI/180);
-            ctx.beginPath(); ctx.arc(0, 0, R, sa, ea, s===-1);
-            ctx.lineWidth = w; ctx.strokeStyle = ctx.fillStyle; ctx.stroke();
-            ctx.lineWidth = 1; ctx.strokeStyle = part.edge || std.edge;
-            ctx.beginPath(); ctx.arc(0, 0, R-w/2, sa, ea, s===-1); ctx.stroke();
-            ctx.beginPath(); ctx.arc(0, 0, R+w/2, sa, ea, s===-1); ctx.stroke();
-            ctx.restore();
-        } 
-        // --- 既存レールの描画 (ここは元のコードを維持) ---
-        else if (type === "curve") {
-            const radii = Array.isArray(part.radius) ? part.radius : [part.radius];
-            const avgR = radii.reduce((a,b)=>a+b)/radii.length;
-            drawArc(ctx, avgR, part.angle, part.width || std.defWidth, true, 0);
+            drawArc(ctx, avgR, part.angle, w, true, 0);
+
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 1.5;
+            radii.forEach(r => {
+                drawArc(ctx, avgR, part.angle, 1.5, false, r - avgR - g/2);
+                drawArc(ctx, avgR, part.angle, 1.5, false, r - avgR + g/2);
+            });
         } else {
-            const w = part.width || std.defWidth, L = part.length || part.len || 140;
-            ctx.fillStyle = part.color || std.color;
-            ctx.strokeStyle = part.edge || std.edge;
-            ctx.fillRect(0, -w/2, L, w);
-            ctx.strokeRect(0, -w/2, L, w);
+            const len = part.length || 50;
+            const space = std.space || 33;
+            ctx.fillStyle = part.color || std.color || "#aaa";
+            ctx.strokeStyle = part.edge || std.edge || "#888";
+            ctx.lineWidth = 1;
+            ctx.fillRect(0, -w/2, len, w);
+            ctx.strokeRect(0, -w/2, len, w);
+
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 1.5;
+            const railOffsets = isDouble ? [-space/2, space/2] : [0];
+            railOffsets.forEach(off => {
+                ctx.beginPath(); ctx.moveTo(0, off - g/2); ctx.lineTo(len, off - g/2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, off + g/2); ctx.lineTo(len, off + g/2); ctx.stroke();
+            });
         }
 
-        // 選択表示（マーカー）
+        // 選択中の表示：中央に〇を表示
         if (selectedPart === part) {
-            ctx.fillStyle = "rgba(255, 165, 0, 0.8)";
-            ctx.beginPath(); ctx.arc((part.length||140)/2, 0, 8, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "rgba(255, 165, 0, 0.8)"; // 透明度のあるオレンジ
+            ctx.strokeStyle = "orange";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            let centerX, centerY;
+            if (part.type === "curve") {
+                const arad = (part.angle / 2) * Math.PI / 180;
+                const avgR = radii.reduce((a, b) => a + b) / radii.length;
+                centerX = Math.sin(arad) * avgR;
+                centerY = (1 - Math.cos(arad)) * avgR;
+            } else {
+                centerX = (part.length || 50) / 2;
+                centerY = 0;
+            }
+            ctx.arc(centerX, centerY, 8, 0, Math.PI * 2); // 半径8pxの丸
+            ctx.fill();
+            ctx.stroke();
         }
         ctx.restore();
     });
 }
     
+    function drawArc(ctx, r, a, w, fill, off = 0) {
+    const rad = a * Math.PI / 180;
+    const centerX = 0;
+    const centerY = r; // 中心を y 方向に半径分オフセット
+    const currentR = r + off;
+    ctx.beginPath();
+    if (fill) {
+        ctx.arc(centerX, centerY, currentR + w/2, -Math.PI/2, -Math.PI/2 + rad);
+        ctx.arc(centerX, centerY, currentR - w/2, -Math.PI/2 + rad, -Math.PI/2, true);
+        ctx.closePath();
+        ctx.fill();
+    } else {
+        ctx.arc(centerX, centerY, currentR, -Math.PI/2, -Math.PI/2 + rad);
+    }
+    ctx.stroke();
+}
+
 function getJoints(p) {
     const std = STANDARDS[p.std] || { space: 33 };
     const rad = p.rotation * Math.PI / 180;
@@ -279,7 +293,7 @@ function getJoints(p) {
 
     return joints;
 }
-   
+    
 // 5. マウス操作
 // グローバル変数または適切なスコープに定義
 

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0013</title>
+    <title>Railroad Models Layout Designer v.0014</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -194,7 +194,7 @@
             }
 
             /**
-             * 個別パーツ描画（nViewWidthを絶対的な道床幅として扱う修正版）
+             * 個別パーツ描画（選択・移動中の中心点表示対応版）
              */
             function drawPart(ctx, p) {
                 ctx.save();
@@ -203,8 +203,6 @@
             
                 const halfView = p.nViewWidth / 2;
                 const halfGauge = (p.nGauge && p.nGauge > 0) ? p.nGauge / 2 : 0;
-                
-                // 道床の描画基準となる中心線を計算（単線なら0、複線ならGapの半分）
                 const centerOffset = p.bIsDouble ? (p.nTrackGap / 2) : 0;
             
                 // --- 1. 外形（道床・土台）の描画 ---
@@ -214,16 +212,13 @@
             
                 ctx.beginPath();
                 if (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") {
-                    // 直線：centerOffset を中心に nViewWidth の幅で描く
                     const yStart = centerOffset - halfView;
                     ctx.fillRect(0, yStart, p.nLength, p.nViewWidth);
                     ctx.strokeRect(0, yStart, p.nLength, p.nViewWidth);
                 } else if (p.sRole === "curve" || p.sRole === "approach") {
-                    // 曲線：centerOffset を中心に nViewWidth の厚みで描く
                     const centerR = p.nRadius - centerOffset;
                     const outerEdgeR = centerR + halfView;
                     const innerEdgeR = centerR - halfView;
-                    
                     ctx.arc(0, p.nRadius, outerEdgeR, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
                     ctx.arc(0, p.nRadius, innerEdgeR, (-90 + p.nAngle) * Math.PI / 180, -Math.PI / 2, true);
                     ctx.closePath();
@@ -235,42 +230,64 @@
                 if (halfGauge > 0) {
                     ctx.strokeStyle = "#555555";
                     ctx.lineWidth = 1;
-            
-                    // 第1線（基準線：y=0）
-                    if (p.sRole === "straight") {
-                        ctx.beginPath();
-                        ctx.moveTo(0, -halfGauge); ctx.lineTo(p.nLength, -halfGauge);
-                        ctx.moveTo(0, halfGauge);  ctx.lineTo(p.nLength, halfGauge);
-                        ctx.stroke();
-                    } else if (p.sRole === "curve" || p.sRole === "approach") {
-                        ctx.beginPath();
-                        ctx.arc(0, p.nRadius, p.nRadius - halfGauge, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
-                        ctx.stroke();
-                        ctx.beginPath();
-                        ctx.arc(0, p.nRadius, p.nRadius + halfGauge, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
-                        ctx.stroke();
-                    }
-                    
-                    // 第2線（複線：y=nTrackGap）
+                    // 第1線
+                    drawRailLines(ctx, p, 0, halfGauge);
+                    // 第2線（複線）
                     if (p.bIsDouble && p.nTrackGap > 0) {
-                        const gap = p.nTrackGap;
-                        if (p.sRole === "straight") {
-                            ctx.beginPath();
-                            ctx.moveTo(0, gap - halfGauge); ctx.lineTo(p.nLength, gap - halfGauge);
-                            ctx.moveTo(0, gap + halfGauge); ctx.lineTo(p.nLength, gap + halfGauge);
-                            ctx.stroke();
-                        } else if (p.sRole === "curve" || p.sRole === "approach") {
-                            const r2 = p.nRadius - gap;
-                            ctx.beginPath();
-                            ctx.arc(0, p.nRadius, r2 - halfGauge, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
-                            ctx.stroke();
-                            ctx.beginPath();
-                            ctx.arc(0, p.nRadius, r2 + halfGauge, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
-                            ctx.stroke();
-                        }
+                        drawRailLines(ctx, p, p.nTrackGap, halfGauge);
                     }
                 }
+            
+                // --- 3. 選択・移動中の中心印（〇）の描画 ---
+                // draggedPart と一致する場合のみ描画
+                if (typeof draggedPart !== 'undefined' && draggedPart && draggedPart.id === p.id) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = "#ff0000"; // 視認性の高い赤色
+                    ctx.lineWidth = 2;
+                    
+                    // パーツの幾何学的な中心位置を算出
+                    let centerX, centerY;
+                    if (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") {
+                        centerX = p.nLength / 2;
+                        centerY = centerOffset;
+                    } else if (p.sRole === "curve" || p.sRole === "approach") {
+                        // 曲線の中心（弦の中点方向）
+                        const midAngle = ((-90 + (p.nAngle / 2)) * Math.PI / 180);
+                        const midR = p.nRadius - centerOffset;
+                        centerX = midR * Math.cos(midAngle);
+                        centerY = p.nRadius + midR * Math.sin(midAngle);
+                    }
+            
+                    // 〇印を描画（半径5px）
+                    ctx.arc(centerX, centerY, 5, 0, Math.PI * 2);
+                    ctx.stroke();
+                    
+                    // 中心点（ドット）も追加
+                    ctx.fillStyle = "#ff0000";
+                    ctx.fill();
+                }
+            
                 ctx.restore();
+            }
+            
+            /**
+             * レール線路描画の共通処理（既存維持）
+             */
+            function drawRailLines(ctx, p, offset, hg) {
+                if (p.sRole === "straight") {
+                    ctx.beginPath();
+                    ctx.moveTo(0, offset - hg); ctx.lineTo(p.nLength, offset - hg);
+                    ctx.moveTo(0, offset + hg); ctx.lineTo(p.nLength, offset + hg);
+                    ctx.stroke();
+                } else if (p.sRole === "curve" || p.sRole === "approach") {
+                    const r = p.nRadius - offset;
+                    ctx.beginPath();
+                    ctx.arc(0, p.nRadius, r - hg, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(0, p.nRadius, r + hg, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
+                    ctx.stroke();
+                }
             }
                         
             /**

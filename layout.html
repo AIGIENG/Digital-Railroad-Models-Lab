@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0036</title>
+    <title>Railroad Models Layout Designer v.0037</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -313,14 +313,13 @@
             }
 
 /**
- * レールの描画基準（各線の中心線）に合わせて接続点を算出
+ * 描画位置と完全に同期させ、nTrackGap に基づき接続点を算出
  */
 function getConnectorPoints(p, x, y, rotation) {
     const points = [];
     const rad = (rotation * Math.PI) / 180;
     const count = p.junctionCount || 2;
-    // 複線間隔を基準としたオフセット
-    const halfGap = (p.nTrackGap || 33) / 2;
+    const gap = p.nTrackGap || 33; // nTrackGap（複線間隔）を基準にする
 
     const transform = (rx, ry) => {
         const tx = rx * Math.cos(rad) - ry * Math.sin(rad);
@@ -329,27 +328,27 @@ function getConnectorPoints(p, x, y, rotation) {
     };
 
     if (p.bIsDouble && count === 4) {
-        // --- 複線：描画される2本のレール位置にそれぞれ接点を配置 ---
-        // 起点側（y方向に ±halfGap）
-        points.push(transform(0, -halfGap)); 
-        points.push(transform(0, halfGap));
+        // --- 複線：一方を基準(0)とし、もう一方を nTrackGap 分オフセット ---
+        // 起点側
+        points.push(transform(0, 0));   // 基準レール（単線と同一線上の接点）
+        points.push(transform(0, gap)); // 複線側の併設レール
 
         // 終点側
         if (p.sRole === "straight") {
-            points.push(transform(p.nLength, -halfGap));
-            points.push(transform(p.nLength, halfGap));
+            points.push(transform(p.nLength, 0));
+            points.push(transform(p.nLength, gap));
         } else if (p.sRole === "curve" || p.sRole === "approach") {
             const a = (p.nAngle * Math.PI) / 180;
             const rOut = p.nRadius;
-            const rIn = p.nRadius - (p.nTrackGap || 33);
+            const rIn = p.nRadius - gap; // 内線側の半径
             
-            // 外線（基準半径）の終点
-            points.push(transform(Math.sin(a) * rOut, rOut - Math.cos(a) * rOut - halfGap));
-            // 内線（基準半径 - nTrackGap）の終点
-            points.push(transform(Math.sin(a) * rIn, rOut - Math.cos(a) * rIn - halfGap));
+            // 外線（基準レール）の終点
+            points.push(transform(Math.sin(a) * rOut, rOut - Math.cos(a) * rOut));
+            // 内線（併設レール）の終点
+            points.push(transform(Math.sin(a) * rIn, rOut - Math.cos(a) * rIn));
         }
     } else {
-        // --- 単線：中央（0,0）を基準に生成（既存仕様を維持） ---
+        // --- 単線：既存の 0 基準の仕様を維持 ---
         points.push(transform(0, 0)); 
 
         if (count >= 2) {

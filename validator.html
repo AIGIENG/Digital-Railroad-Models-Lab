@@ -48,79 +48,90 @@
     <script src="rails.js"></script>
 
     <script>
+        /**
+         * validate 関数の更新（nGauge追加 ＆ 成功ラベル表示対応）
+         */
         function validate() {
             const container = document.getElementById('log-container');
             const totalEl = document.getElementById('total-count');
             const errorEl = document.getElementById('error-count');
             const warningEl = document.getElementById('warning-count');
-
+        
             if (typeof railData === 'undefined') {
                 container.innerHTML = '<div class="log-item ERROR">致命的なエラー: rails.js が読み込めないか、railData が定義されていません。</div>';
                 return;
             }
-
+        
             const items = Object.entries(railData);
             totalEl.textContent = items.length;
-
-            // 期待されるプロパティ (nGauge を追加した全17項目 ※sIdは自動付与のため除く)
-                const requiredProps = [
-                    "sName", "sProductCode", "sMaker", "sSeries", "sRole",
-                    "nLength", "nRadius", "nAngle", "bIsDouble", "nTrackGap",
-                    "sDirection", "nViewWidth", "nHeight", "nGauge", // nGauge を追加
-                    "sColor", "sComment", "sExtra"
-                ];
-            
-                let errors = 0;
-                let warnings = 0;
-                let logs = "";
-            
-                items.forEach(([key, rail]) => {
-                    let itemLogs = "";
-                    
-                    // 1. プロパティ不足チェック
-                    requiredProps.forEach(prop => {
-                        if (!(prop in rail)) {
-                            itemLogs += `<div class="log-item ERROR">[不足] プロパティ "${prop}" がありません。</div>`;
-                            errors++;
-                        }
-                    });
-            
-                    // 2. 型チェック (接頭辞 s, n, b に基づく)
-                    Object.entries(rail).forEach(([prop, value]) => {
-                        const prefix = prop.charAt(0);
-                        if (prefix === 's' && typeof value !== 'string') {
-                            itemLogs += `<div class="log-item ERROR">[型違い] ${prop}: 文字列(s)であるべきですが ${typeof value} です。</div>`;
-                            errors++;
-                        } else if (prefix === 'n' && typeof value !== 'number') {
-                            itemLogs += `<div class="log-item ERROR">[型違い] ${prop}: 数値(n)であるべきですが ${typeof value} です。</div>`;
-                            errors++;
-                        } else if (prefix === 'b' && typeof value !== 'boolean') {
-                            itemLogs += `<div class="log-item ERROR">[型違い] ${prop}: 真偽値(b)であるべきですが ${typeof value} です。</div>`;
-                            errors++;
-                        }
-                    });
-            
-                    // 3. nGauge 固有の論理チェック（警告）
-                    if (rail.nGauge === 0 && (rail.sRole === "straight" || rail.sRole === "curve")) {
-                        itemLogs += `<div class="log-item WARNING">[警告] レールパーツですが nGauge が 0 です。</div>`;
-                        warnings++;
+        
+            // 期待されるプロパティ (nGauge を追加した全17項目)
+            const requiredProps = [
+                "sName", "sProductCode", "sMaker", "sSeries", "sRole",
+                "nLength", "nRadius", "nAngle", "bIsDouble", "nTrackGap",
+                "sDirection", "nViewWidth", "nHeight", "nGauge", 
+                "sColor", "sComment", "sExtra"
+            ];
+        
+            let errors = 0;
+            let warnings = 0;
+            let logs = "";
+        
+            items.forEach(([key, rail]) => {
+                let itemLogs = "";
+                
+                // 1. プロパティ不足チェック
+                requiredProps.forEach(prop => {
+                    if (!(prop in rail)) {
+                        itemLogs += `<div class="log-item ERROR">[不足] プロパティ "${prop}" がありません。</div>`;
+                        errors++;
                     }
-
+                });
+        
+                // 2. 型チェック
+                Object.entries(rail).forEach(([prop, value]) => {
+                    const prefix = prop.charAt(0);
+                    if (prefix === 's' && typeof value !== 'string') {
+                        itemLogs += `<div class="log-item ERROR">[型違い] ${prop}: 文字列(s)であるべきですが ${typeof value} です。</div>`;
+                        errors++;
+                    } else if (prefix === 'n' && typeof value !== 'number') {
+                        itemLogs += `<div class="log-item ERROR">[型違い] ${prop}: 数値(n)であるべきですが ${typeof value} です。</div>`;
+                        errors++;
+                    } else if (prefix === 'b' && typeof value !== 'boolean') {
+                        itemLogs += `<div class="log-item ERROR">[型違い] ${prop}: 真偽値(b)であるべきですが ${typeof value} です。</div>`;
+                        errors++;
+                    }
+                });
+        
+                // 3. 運用上の警告 (nGauge 0チェック含む)
+                if (rail.nGauge === 0 && (rail.sRole === "straight" || rail.sRole === "curve")) {
+                    itemLogs += `<div class="log-item WARNING">[警告] レールパーツですが nGauge が 0 です。</div>`;
+                    warnings++;
+                }
+                if (rail.sName === "") {
+                    itemLogs += `<div class="log-item WARNING">[警告] 表示名(sName)が空です。</div>`;
+                    warnings++;
+                }
+        
+                // --- ログの構築 ---
                 if (itemLogs !== "") {
-                    logs += `<span class="log-header">ID: ${key}</span>` + itemLogs + "<br>";
+                    // エラーや警告がある場合
+                    logs += `<span class="log-header">ID: ${key} (${rail.sName || "名称不明"})</span>` + itemLogs + "<br>";
+                } else {
+                    // チェックに成功した場合のラベル表示
+                    logs += `<div class="log-item SUCCESS">[PASS] ID: ${key} - ${rail.sName}</div>`;
                 }
             });
-
+        
             errorEl.textContent = errors;
             warningEl.textContent = warnings;
-
-            if (errors === 0 && warnings === 0) {
-                container.innerHTML = '<div class="log-item SUCCESS">🎉 全てのデータが定義したルールに合格しました！</div>';
-            } else if (errors === 0) {
-                container.innerHTML = '<div class="log-item SUCCESS">✅ エラーはありませんが、いくつかの警告があります。</div>' + logs;
-            } else {
-                container.innerHTML = logs;
-            }
+        
+            // 最終表示
+            const headerStatus = (errors === 0) 
+                ? '<div class="log-item SUCCESS">🎉 全てのデータがルールに合格しました！</div>'
+                : '<div class="log-item ERROR">❌ 修正が必要な箇所があります。</div>';
+            
+            container.innerHTML = headerStatus + "<br>" + logs;
         }
 
         // ページ読み込み完了時に実行

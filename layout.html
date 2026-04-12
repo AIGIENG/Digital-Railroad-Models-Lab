@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0010</title>
+    <title>Railroad Models Layout Designer v.0011</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -194,7 +194,7 @@
             }
         
             /**
-             * 個別パーツ描画（複線時の道床幅をレール位置基準で正確に修正）
+             * 個別パーツ描画（複線時の道床幅計算を厳密に修正）
              */
             function drawPart(ctx, p) {
                 ctx.save();
@@ -211,15 +211,19 @@
             
                 ctx.beginPath();
                 if (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") {
-                    // 直線：基準線+半分 から 複線間隔+半分 までを覆う
+                    // 直線：基準線(0)から左右にhalfViewずつある状態から、
+                    // 複線時は 0-halfView を起点に、nTrackGap+halfView までを覆う
                     const yStart = -halfView;
                     const yEnd = p.bIsDouble ? (p.nTrackGap + halfView) : halfView;
                     ctx.rect(0, yStart, p.nLength, yEnd - yStart);
                 } else if (p.sRole === "curve" || p.sRole === "approach") {
-                    // 曲線：外側の端（R + halfView）
-                    ctx.arc(0, p.nRadius, p.nRadius + halfView, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
+                    // 曲線：外側の端は常に 基準半径 + halfView
+                    const outerEdgeR = p.nRadius + halfView;
+                    ctx.arc(0, p.nRadius, outerEdgeR, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
                     
-                    // 内側の端（複線なら R - Gap - halfView、単線なら R - halfView）
+                    // 内側の端：
+                    // 単線なら 基準半径 - halfView
+                    // 複線なら 基準半径 - nTrackGap - halfView
                     const innerEdgeR = p.bIsDouble ? (p.nRadius - p.nTrackGap - halfView) : (p.nRadius - halfView);
                     ctx.arc(0, p.nRadius, innerEdgeR, (-90 + p.nAngle) * Math.PI / 180, -Math.PI / 2, true);
                     
@@ -233,7 +237,7 @@
                     ctx.strokeStyle = "#555555";
                     ctx.lineWidth = 1;
             
-                    // 第1線（基準線）
+                    // 第1線（基準線：中心が y=0 または R=p.nRadius）
                     if (p.sRole === "straight") {
                         ctx.beginPath();
                         ctx.moveTo(0, -halfGauge); ctx.lineTo(p.nLength, -halfGauge);
@@ -248,7 +252,7 @@
                         ctx.stroke();
                     }
                     
-                    // 第2線（複線：nTrackGapオフセット）
+                    // 第2線（複線：中心が y=p.nTrackGap または R=p.nRadius - p.nTrackGap）
                     if (p.bIsDouble && p.nTrackGap > 0) {
                         const gap = p.nTrackGap;
                         if (p.sRole === "straight") {
@@ -270,7 +274,7 @@
             
                 ctx.restore();
             }
-            
+                        
             /**
              * キャンバスのイベント初期化（ドロップ対応）
              */

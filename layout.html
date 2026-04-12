@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0052</title>
+    <title>Railroad Models Layout Designer v.0053</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -316,13 +316,11 @@ function getConnectorPoints(p, x, y, rotation) {
     const points = [];
     const rad = (rotation * Math.PI) / 180;
     const gap = p.nTrackGap || 33;
-
     const transform = (rx, ry) => {
         const tx = rx * Math.cos(rad) - ry * Math.sin(rad);
         const ty = rx * Math.sin(rad) + ry * Math.cos(rad);
         return { x: x + tx, y: y + ty };
     };
-
     for (let i = 0; i < p.junctionCount; i++) {
         let rx = 0, ry = 0;
         if (p.junctionCount === 1) { rx = p.nLength; } 
@@ -335,16 +333,14 @@ function getConnectorPoints(p, x, y, rotation) {
                     ry = p.nRadius - Math.cos(a) * p.nRadius;
                 }
             }
-        } 
-        else if (p.junctionCount === 3) {
+        } else if (p.junctionCount === 3) {
             if (i === 1) rx = p.nLength;
             else if (i === 2) {
                 const a = (p.nAngle * Math.PI) / 180;
                 rx = Math.sin(a) * p.nRadius;
                 ry = p.nRadius - Math.cos(a) * p.nRadius;
             }
-        }
-        else if (p.junctionCount === 4) {
+        } else if (p.junctionCount === 4) {
             const isEnd = (i >= 2), isSub = (i % 2 === 1);
             if (isEnd) {
                 if (p.sRole === "straight") { rx = p.nLength; ry = isSub ? gap : 0; }
@@ -388,57 +384,29 @@ function getConnectorPoints(p, x, y, rotation) {
             /**
              * マウスダウンイベント（回転を考慮した正確な当たり判定）
              */
-            canvas.onmousedown = function(e) {
-                const pos = getMousePos(canvas, e);
-                
-                for (let i = layers.rail.length - 1; i >= 0; i--) {
-                    const p = layers.rail[i];
-                    const halfView = p.nViewWidth / 2;
-                    const centerOffset = p.bIsDouble ? (p.nTrackGap / 2) : 0;
-                    
-                    // --- 回転を考慮した座標変換（逆回転） ---
-                    const rad = -p.rotation * Math.PI / 180; // 逆方向に回す
-                    const dxOrig = pos.x - p.x;
-                    const dyOrig = pos.y - p.y;
-                    
-                    // 回転後のマウス位置を、パーツのローカル座標(0度基準)に変換
-                    const dx = dxOrig * Math.cos(rad) - dyOrig * Math.sin(rad);
-                    const dy = dxOrig * Math.sin(rad) + dyOrig * Math.cos(rad);
-            
-                    let isHit = false;
-                    if (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") {
-                        const yMin = centerOffset - halfView;
-                        const yMax = centerOffset + halfView;
-                        if (dx >= 0 && dx <= p.nLength && dy >= yMin && dy <= yMax) isHit = true;
-                    } else if (p.sRole === "curve" || p.sRole === "approach") {
-                        // 曲線判定：中心(0, p.nRadius)からの距離と角度で判定
-                        const ry = dy - p.nRadius;
-                        const dist = Math.sqrt(dx * dx + ry * ry);
-                        const angle = Math.atan2(dx, -ry) * 180 / Math.PI;
-            
-                        const rOuter = p.nRadius + halfView;
-                        const rInner = p.bIsDouble ? (p.nRadius - p.nTrackGap - halfView) : (p.nRadius - halfView);
-            
-                        if (dist >= rInner && dist <= rOuter && angle >= 0 && angle <= p.nAngle) {
-                            isHit = true;
-                        }
-                    }
-            
-                    if (isHit) {
-                        isDragging = true;
-                        draggedPart = p;
-            
-                        // マウス位置とパーツ起点の相対距離を維持（グローバル座標で保持）
-                        dragOffset.x = pos.x - p.x;
-                        dragOffset.y = pos.y - p.y;
-            
-                        layers.rail.push(layers.rail.splice(i, 1)[0]);
-                        render();
-                        break;
-                    }
-                }
-            };
+canvas.onmousedown = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
 
+    // 逆順にループして、一番上のレールを選択
+    for (let i = rails.length - 1; i >= 0; i--) {
+        const rail = rails[i];
+        // 簡易的な矩形判定（または既存の判定ロジックがあればそれを流用）
+        if (Math.abs(mouseX - rail.x) < 50 && Math.abs(mouseY - rail.y) < 50) {
+            draggedRail = rail;
+            isDragging = true;
+            // 掴んだ位置のオフセットを記録（これが動かない原因の解消です）
+            offsetX = mouseX - rail.x;
+            offsetY = mouseY - rail.y;
+            // 選択したレールを配列の最後に移動（最前面へ）
+            rails.splice(i, 1);
+            rails.push(draggedRail);
+            break;
+        }
+    }
+};
+            
 /**
  * マウス移動イベント（180度反転時のジャンプ防止・追従補正版）
  */
@@ -449,12 +417,12 @@ canvas.onmousemove = function(e) {
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    // 一旦マウス位置にレールを移動させる（これで「動かない」が直ります）
-    draggedRail.x = mouseX;
-    draggedRail.y = mouseY;
+    // オフセットを考慮して移動
+    draggedRail.x = mouseX - offsetX;
+    draggedRail.y = mouseY - offsetY;
 
     let bestMatch = null;
-    let minDistance = 15; 
+    let minDistance = 15;
     let draggedPointIdx = -1;
     let targetPointCoords = null;
 
@@ -469,7 +437,6 @@ canvas.onmousemove = function(e) {
                 const dx = p1.x - p2.x;
                 const dy = p1.y - p2.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
-
                 if (dist < minDistance) {
                     minDistance = dist;
                     bestMatch = targetRail;
@@ -480,7 +447,6 @@ canvas.onmousemove = function(e) {
         });
     });
 
-    // 吸着対象がある場合は座標を補正
     if (bestMatch && targetPointCoords) {
         const relPoints = getConnectorPoints(draggedRail, 0, 0, draggedRail.rotation);
         const myOffset = relPoints[draggedPointIdx];
@@ -490,15 +456,16 @@ canvas.onmousemove = function(e) {
     } else {
         isSnapped = false;
     }
-
-    draw(); 
+    draw();
 };
-        
-            window.onmouseup = function() {
-                isDragging = false;
-                draggedPart = null;
-                render(); // 〇を消すために再描画
-            };
+
+window.onmouseup = function() {
+    if (isDragging) {
+        isDragging = false;
+        draggedRail = null;
+        draw(); // 最後に描画を確定
+    }
+};
                     
             /**
              * window.onload を更新

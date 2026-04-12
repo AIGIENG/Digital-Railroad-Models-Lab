@@ -51,7 +51,7 @@
         /**
          * validate 関数の更新（nGauge追加 ＆ 成功ラベル表示対応）
          */
-        function validate() {
+function validate() {
             const container = document.getElementById('log-container');
             const totalEl = document.getElementById('total-count');
             const errorEl = document.getElementById('error-count');
@@ -65,11 +65,11 @@
             const items = Object.entries(railData);
             totalEl.textContent = items.length;
         
-            // 期待されるプロパティ (nGauge を追加した全17項目)
+            // 期待されるプロパティ (nGauge, junctionCount を追加した全18項目)
             const requiredProps = [
                 "sName", "sProductCode", "sMaker", "sSeries", "sRole",
                 "nLength", "nRadius", "nAngle", "bIsDouble", "nTrackGap",
-                "sDirection", "nViewWidth", "nHeight", "nGauge", 
+                "sDirection", "nViewWidth", "nHeight", "nGauge", "junctionCount", 
                 "sColor", "sComment", "sExtra"
             ];
         
@@ -91,7 +91,13 @@
                 // 2. 型チェック
                 Object.entries(rail).forEach(([prop, value]) => {
                     const prefix = prop.charAt(0);
-                    if (prefix === 's' && typeof value !== 'string') {
+                    // junctionCount は接頭辞がないため、個別に数値型チェックを行う
+                    if (prop === 'junctionCount') {
+                        if (typeof value !== 'number') {
+                            itemLogs += `<div class="log-item ERROR">[型違い] junctionCount: 数値であるべきですが ${typeof value} です。</div>`;
+                            errors++;
+                        }
+                    } else if (prefix === 's' && typeof value !== 'string') {
                         itemLogs += `<div class="log-item ERROR">[型違い] ${prop}: 文字列(s)であるべきですが ${typeof value} です。</div>`;
                         errors++;
                     } else if (prefix === 'n' && typeof value !== 'number') {
@@ -110,6 +116,11 @@
                 }
                 if (rail.sName === "") {
                     itemLogs += `<div class="log-item WARNING">[警告] 表示名(sName)が空です。</div>`;
+                    warnings++;
+                }
+                // junctionCount の論理矛盾チェック
+                if (rail.bIsDouble === true && rail.junctionCount < 4) {
+                    itemLogs += `<div class="log-item WARNING">[警告] 複線設定ですが junctionCount が 4 未満です。</div>`;
                     warnings++;
                 }
         

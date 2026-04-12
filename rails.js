@@ -42,7 +42,7 @@ const railData = {
         sDirection: "none",
         nViewWidth: 25,
         nHeight: 0,
-        nGuage: 9,
+        nGauge: 9,
         sColor: "#cccccc",
         sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。",
         sExtra: ""
@@ -63,7 +63,7 @@ const railData = {
         sDirection: "none",
         nViewWidth: 50,       // 道床2本分の幅
         nHeight: 0,
-        nGuage: 9,
+        nGauge: 9,
         sColor: "#999999",
         sComment: "カント付き複線曲線。内側はR381。",
         sExtra: ""
@@ -84,7 +84,7 @@ const railData = {
         sDirection: "left",  // 左方向にカーブが始まるアプローチ
         nViewWidth: 50,
         nHeight: 0,
-        nGuage: 9,
+        nGauge: 9,
         sColor: "#888888",
         sComment: "カント導入用アプローチレール（左用）。",
         sExtra: ""
@@ -105,7 +105,7 @@ const railData = {
         sDirection: "none",
         nViewWidth: 80,       // 建物の横幅として使用
         nHeight: 0,
-        nGuage: 0,
+        nGauge: 9,
         sColor: "#d2b48c",
         sComment: "木造の標準的な駅舎。",
         sExtra: ""
@@ -126,7 +126,7 @@ const railData = {
         sDirection: "front",
         nViewWidth: 1800,      // 横幅
         nHeight: 700,         // 机の高さ
-        nGuage: 0,
+        nGauge: 9,
         sColor: "#ffffff",
         sComment: "設営シミュレーション用。1800x450サイズ。",
         sExtra: ""

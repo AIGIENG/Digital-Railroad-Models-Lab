@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0039</title>
+    <title>Railroad Models Layout Designer v.0040/title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -313,56 +313,36 @@
             }
 
 /**
- * 接続点の座標を算出
- * 基準点付近での重なりや反転を防ぐため、各点に識別IDと属性を付与
+ * rails.js の定義をそのまま座標に変換するシンプルな実装
  */
 function getConnectorPoints(p, x, y, rotation) {
     const points = [];
     const rad = (rotation * Math.PI) / 180;
-    const count = p.junctionCount || 2;
-    const gap = p.nTrackGap || 33;
+    const gap = p.nTrackGap || 0; // 単線なら 0、複線なら規定値
 
-    // 座標変換補助関数
-    const transform = (rx, ry, type, localId) => {
+    const transform = (rx, ry) => {
         const tx = rx * Math.cos(rad) - ry * Math.sin(rad);
         const ty = rx * Math.sin(rad) + ry * Math.cos(rad);
-        return { 
-            x: x + tx, 
-            y: y + ty, 
-            type: type, // "IN" または "OUT"
-            localId: localId // パーツ内での固有点ID
-        };
+        return { x: x + tx, y: y + ty };
     };
 
-    if (p.bIsDouble && count === 4) {
-        // --- 複線 ---
-        // 起点側 (IN)
-        points.push(transform(0, 0, "IN", 0));   // 基準線・起点
-        points.push(transform(0, gap, "IN", 1)); // 併設線・起点
+    // junctionCount 分だけループを回すが、
+    // 0,1番目は「起点(IN)」、2,3番目は「終点(OUT)」としてシンプルに配置
+    for (let i = 0; i < p.junctionCount; i++) {
+        let rx = 0;
+        let ry = (i % 2 === 0) ? 0 : gap; // 偶数番目は基準線(0)、奇数番目は隣の線(gap)
 
-        // 終点側 (OUT)
-        if (p.sRole === "straight") {
-            points.push(transform(p.nLength, 0, "OUT", 2));
-            points.push(transform(p.nLength, gap, "OUT", 3));
-        } else if (p.sRole === "curve" || p.sRole === "approach") {
-            const a = (p.nAngle * Math.PI) / 180;
-            const rOut = p.nRadius;
-            const rIn = p.nRadius - gap;
-            points.push(transform(Math.sin(a) * rOut, rOut - Math.cos(a) * rOut, "OUT", 2));
-            points.push(transform(Math.sin(a) * rIn, rOut - Math.cos(a) * rIn, "OUT", 3));
-        }
-    } else {
-        // --- 単線 ---
-        points.push(transform(0, 0, "IN", 0)); // 起点
-        if (count >= 2) {
+        if (i >= 2) { // 終点側の計算
             if (p.sRole === "straight") {
-                points.push(transform(p.nLength, 0, "OUT", 1));
+                rx = p.nLength;
             } else if (p.sRole === "curve" || p.sRole === "approach") {
                 const a = (p.nAngle * Math.PI) / 180;
-                const r = p.nRadius;
-                points.push(transform(Math.sin(a) * r, r - Math.cos(a) * r, "OUT", 1));
+                const r = (i === 2) ? p.nRadius : p.nRadius - gap;
+                rx = Math.sin(a) * r;
+                ry = r - Math.cos(a) * r + (i === 2 ? 0 : gap); // 曲線外側のズレを補正
             }
         }
+        points.push(transform(rx, ry));
     }
 
     return points;

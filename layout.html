@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0029</title>
+    <title>Railroad Models Layout Designer v.0030</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -419,7 +419,7 @@
             };
 
 /**
- * マウス移動イベント（重なり防止・180度反転吸着の実装）
+ * マウス移動イベント（180度反転時のジャンプ防止・追従補正版）
  */
 canvas.onmousemove = function(e) {
     if (!isDragging || !draggedPart) return;
@@ -427,7 +427,7 @@ canvas.onmousemove = function(e) {
     const pos = getMousePos(canvas, e);
     const snapDistance = 25;
 
-    // 1. マウス位置から暫定座標を計算
+    // 1. 現在のオフセットを元に暫定座標を決定
     let newX = pos.x - dragOffset.x;
     let newY = pos.y - dragOffset.y;
 
@@ -447,24 +447,23 @@ canvas.onmousemove = function(e) {
                     const dist = Math.sqrt((sp.x - tp.x) ** 2 + (sp.y - tp.y) ** 2);
 
                     if (dist < snapDistance) {
-                        // --- 重なり防止の角度同期ロジック ---
-                        
-                        // 相手側ジョイナーの「外向き」角度を算出
-                        // 起点(j=0)なら反対側(+180)、終点(j=1)なら進行方向(+nAngle)
+                        // 進行方向を合わせ、重なりを防ぐための角度計算（180度反転含む）
                         const otherOutwardAngle = other.rotation + (j === 0 ? 180 : (other.nAngle || 0));
-                        
-                        // 自分側ジョイナーの「起点から見た相対角度（内向き）」を算出
-                        // 起点(i=0)ならそのまま(0)、終点(i=1)なら進行方向の逆(+nAngle+180)
                         const selfInwardAngle = (i === 0 ? 0 : ((draggedPart.nAngle || 0) + 180));
-
-                        // 角度を同期：相手の外向き角度に、自分の内向き角度を一致させる
-                        // これにより、レール同士が重ならず、必ず「伸びる方向」に繋がります
+                        
+                        // 角度を更新
                         draggedPart.rotation = (otherOutwardAngle - selfInwardAngle + 360) % 360;
 
-                        // 3. 角度確定後に位置を再計算して正確に吸着
+                        // 角度が変わった状態で接続点を再計算し、位置をピッタリ吸着させる
                         const updatedSelf = getConnectorPoints(draggedPart, newX, newY, draggedPart.rotation);
                         newX -= (updatedSelf[i].x - tp.x);
                         newY -= (updatedSelf[i].y - tp.y);
+
+                        // 【解決策】回転・吸着が確定した直後の座標で、ドラッグオフセットを再設定
+                        // これにより、レールが180度ひっくり返って起点の位置がガラリと変わっても、
+                        // 「今マウスがある場所」を新しい基準点として掴み直すため、ジャンプが発生しません。
+                        dragOffset.x = pos.x - newX;
+                        dragOffset.y = pos.y - newY;
 
                         snapped = true;
                         break;
@@ -476,7 +475,7 @@ canvas.onmousemove = function(e) {
         }
     }
 
-    // 最終座標の更新
+    // 最終的な座標を反映
     draggedPart.x = newX;
     draggedPart.y = newY;
     render();

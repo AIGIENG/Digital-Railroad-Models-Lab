@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Railroad Models Layout Designer v.0001</title>
+    <style>
+        body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
+        /* サイドバー */
+        #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
+        .rail-item { 
+            background: #34495e; margin-bottom: 8px; padding: 10px; border-radius: 4px; 
+            cursor: pointer; transition: background 0.2s; font-size: 14px;
+        }
+        .rail-item:hover { background: #1abc9c; }
+        .rail-item-sub { font-size: 11px; color: #bdc3c7; display: block; margin-top: 4px; }
+        
+        /* メインエリア */
+        #main { flex: 1; background: #ecf0f1; position: relative; }
+        #canvas { background: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); display: block; margin: 20px auto; }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <h3 style="border-bottom: 1px solid #7f8c8d; padding-bottom: 5px;">パーツリスト</h3>
+        <div id="rail-list"></div>
+    </div>
+
+    <div id="main">
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <script src="rails.js"></script>
+
+    <script>
+        // --- 状態管理 ---
+        const layers = {
+            rail: [] // キャンバス上に配置されたレールの配列
+        };
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // キャンバスサイズの初期化
+        canvas.width = 1200;
+        canvas.height = 800;
+
+        // --- 初期化処理 ---
+        function init() {
+            initSidebar();
+            render();
+        }
+
+        /**
+         * サイドバーの生成
+         * rails.js のキーを sId として自動補完し、リスト化します
+         */
+        function initSidebar() {
+            const listContainer = document.getElementById('rail-list');
+            listContainer.innerHTML = "";
+
+            if (typeof railData === 'undefined') {
+                listContainer.innerHTML = "<p style='color:red;'>rails.js が読み込めません</p>";
+                return;
+            }
+
+            // Object.entries を使い、[キー, 中身] でループ
+            Object.entries(railData).forEach(([key, rail]) => {
+                // キーを sId として自動代入（齋藤さんとの約束事）
+                rail.sId = key;
+
+                const div = document.createElement("div");
+                div.className = "rail-item";
+                
+                // 表示内容の構築
+                div.innerHTML = `
+                    ${rail.sName}
+                    <span class="rail-item-sub">${rail.sMaker} | ${rail.sProductCode}</span>
+                `;
+
+                // クリック時の処理
+                div.onclick = () => {
+                    addPartToCanvas(rail);
+                };
+
+                listContainer.appendChild(div);
+            });
+        }
+
+        /**
+         * パーツをキャンバス（データ）に追加
+         */
+        function addPartToCanvas(sourceData) {
+            // 元データをディープコピーし、配置用の個別プロパティを追加
+            const newPart = {
+                ...sourceData,
+                id: Date.now(), // インスタンス識別用のユニークID
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                rotation: 0
+            };
+
+            layers.rail.push(newPart);
+            console.log("配置済みパーツ数:", layers.rail.length);
+            render(); // 再描画
+        }
+
+        /**
+         * 描画メインループ
+         */
+        function render() {
+            // 背景クリア
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 配置されたパーツの描画
+            layers.rail.forEach(part => {
+                drawPart(ctx, part);
+            });
+        }
+
+        /**
+         * 個別パーツの描画（簡易版：まずは矩形や円弧の枠だけ）
+         */
+        function drawPart(ctx, p) {
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate((p.rotation * Math.PI) / 180);
+
+            ctx.strokeStyle = p.sColor;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            if (p.sRole === "straight") {
+                // 直線描画
+                ctx.strokeRect(0, -p.nViewWidth/2, p.nLength, p.nViewWidth);
+            } else if (p.sRole === "curve" || p.sRole === "approach") {
+                // 曲線描画（簡易）
+                ctx.arc(0, p.nRadius, p.nRadius, -Math.PI/2, (-90 + p.nAngle) * Math.PI / 180);
+                ctx.stroke();
+            } else if (p.sRole === "structure" || p.sRole === "furniture") {
+                // ストラクチャー描画
+                ctx.fillStyle = p.sColor + "44"; // 半透明
+                ctx.fillRect(0, -p.nViewWidth/2, p.nLength, p.nViewWidth);
+                ctx.strokeRect(0, -p.nViewWidth/2, p.nLength, p.nViewWidth);
+            }
+
+            ctx.restore();
+        }
+
+        // 起動
+        window.onload = init;
+
+    </script>
+</body>
+</html>

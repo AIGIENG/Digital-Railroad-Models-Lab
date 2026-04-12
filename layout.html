@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0019</title>
+    <title>Railroad Models Layout Designer v.0020</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -341,40 +341,71 @@
             }
             
             // --- マウスイベント ---
+            /**
+             * マウスダウンイベント（曲線レールの当たり判定を直線と同様に実装）
+             */
             canvas.onmousedown = function(e) {
                 const pos = getMousePos(canvas, e);
+                
+                // 描画順の逆（最前面）から判定
                 for (let i = layers.rail.length - 1; i >= 0; i--) {
                     const p = layers.rail[i];
                     
-                    // 当たり判定用の各数値算出
+                    // 判定用の基本数値
                     const halfView = p.nViewWidth / 2;
                     const centerOffset = p.bIsDouble ? (p.nTrackGap / 2) : 0;
                     
-                    // パーツの中心座標(centerX, centerY)を算出
-                    let centerX, centerY;
+                    // --- 当たり判定用の矩形範囲 (Local Bounding Box) ---
+                    let isHit = false;
+                    
+                    // マウス位置をパーツの起点(p.x, p.y)からの相対座標に変換
+                    // ※簡易判定のため、ここでは回転前の座標系で判定
+                    const dx = pos.x - p.x;
+                    const dy = pos.y - p.y;
+            
                     if (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") {
-                        centerX = p.nLength / 2;
-                        centerY = centerOffset;
+                        // 直線判定
+                        const yMin = centerOffset - halfView;
+                        const yMax = centerOffset + halfView;
+                        if (dx >= 0 && dx <= p.nLength && dy >= yMin && dy <= yMax) {
+                            isHit = true;
+                        }
                     } else if (p.sRole === "curve" || p.sRole === "approach") {
-                        const midAngle = ((-90 + (p.nAngle / 2)) * Math.PI / 180);
-                        const midR = p.nRadius - centerOffset;
-                        centerX = midR * Math.cos(midAngle);
-                        centerY = p.nRadius + midR * Math.sin(midAngle);
+                        // 曲線判定（直線と同様、外形を囲う矩形範囲で簡易実装）
+                        // 曲線が描画される「半径方向の厚み」と「角度による広がり」をカバー
+                        const rOuter = p.nRadius + halfView;
+                        const rInner = p.bIsDouble ? (p.nRadius - p.nTrackGap - halfView) : (p.nRadius - halfView);
+                        
+                        // 曲線レールの占有幅（角度から概算）
+                        const width = rOuter * Math.sin(p.nAngle * Math.PI / 180);
+                        const height = p.nRadius - (rInner * Math.cos(p.nAngle * Math.PI / 180));
+                        
+                        // 基準点(p.x, p.y)からの相対的な広がりで判定
+                        if (dx >= 0 && dx <= Math.max(width, 20) && dy >= -20 && dy <= Math.max(height, 20)) {
+                            isHit = true;
+                        }
                     }
             
-                    // 当たり判定（簡易的にパーツの起点p.x, p.yからの範囲で判定）
-                    // ※厳密な回転判定が必要な場合は今後拡張
-                    if (pos.x >= p.x && pos.x <= p.x + p.nLength &&
-                        pos.y >= p.y - halfView + centerOffset && pos.y <= p.y + halfView + centerOffset) {
-                        
+                    if (isHit) {
                         isDragging = true;
                         draggedPart = p;
+            
+                        // 中心（〇印）の位置を算出して基準点に固定
+                        let cX, cY;
+                        if (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") {
+                            cX = p.nLength / 2;
+                            cY = centerOffset;
+                        } else {
+                            const midAngle = ((-90 + (p.nAngle / 2)) * Math.PI / 180);
+                            const midR = p.nRadius - centerOffset;
+                            cX = midR * Math.cos(midAngle);
+                            cY = p.nRadius + midR * Math.sin(midAngle);
+                        }
                         
-                        // 【重要】基準点を「パーツの中心」に固定
-                        // これにより移動中、マウス位置が常にパーツ中央（〇印）と重なります
-                        dragOffset.x = centerX;
-                        dragOffset.y = centerY;
-                        
+                        dragOffset.x = cX;
+                        dragOffset.y = cY;
+            
+                        // 最前面へ移動
                         layers.rail.push(layers.rail.splice(i, 1)[0]);
                         render();
                         break;

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.033</title>
+    <title>Railroad Model Layout Designer v0.59.033f</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -321,24 +321,6 @@ function render() {
                 const avgR = radii.reduce((a,b)=>a+b)/radii.length;
                 const arad = (part.angle / 2) * Math.PI / 180;
                 mX = Math.sin(arad) * avgR; mY = (1 - Math.cos(arad)) * avgR;
-            }
-            ctx.beginPath(); ctx.arc(mX, mY, 8, 0, Math.PI * 2); ctx.fill();
-        }
-        ctx.restore();
-    });
-}
-    
-        // --- マーカー位置の計算（各レールの中心へ） ---
-        if (selectedPart === part) {
-            ctx.fillStyle = "rgba(255, 165, 0, 0.8)";
-            let mX = 0, mY = 0;
-            if (type === "curve") {
-                const radii = Array.isArray(part.radius) ? part.radius : [part.radius];
-                const avgR = radii.reduce((a,b)=>a+b)/radii.length;
-                const arad = (part.angle / 2) * Math.PI / 180;
-                mX = Math.sin(arad) * avgR; mY = (1 - Math.cos(arad)) * avgR;
-            } else {
-                mX = (part.length || 140) / 2; mY = 0;
             }
             ctx.beginPath(); ctx.arc(mX, mY, 8, 0, Math.PI * 2); ctx.fill();
         }

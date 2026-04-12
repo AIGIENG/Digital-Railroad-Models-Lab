@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.041f5</title>
+    <title>Railroad Model Layout Designer v0.59.041f6</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -41,36 +41,48 @@
 </div>
 
 <script src="rails.js"></script>
+
 <script>
 
 // --- layout.html 15行目 <script> の直下に追加 ---
+// --- 修正開始ポイント ---
 function validateRailData() {
     const errorMessages = [];
     
-    // RAIL_DATAが存在しない場合はチェックを中止
-    if (typeof RAIL_DATA === 'undefined') return;
+    // rails.jsを<script src="rails.js">で読み込んでいる場合、
+    // ここでRAIL_DATAを直接チェックできます
+    if (typeof RAIL_DATA === 'undefined') {
+        console.warn("RAIL_DATA が読み込まれていません。");
+        return;
+    }
 
     RAIL_DATA.forEach((rail, index) => {
         const lineInfo = `[${index + 1}行目: ${rail.name || "名称不明"}]`;
         
-        // 1. radiusがある場合、配列になっているかチェック
+        // radiusがある場合、配列になっているかチェック
         if (rail.radius !== undefined && !Array.isArray(rail.radius)) {
             errorMessages.push(`${lineInfo} radiusが配列 [ ] で囲まれていません。`);
         }
         
-        // 2. 必須プロパティチェック
         if (!rail.name) errorMessages.push(`${lineInfo} nameが定義されていません。`);
         if (!rail.type) errorMessages.push(`${lineInfo} typeが定義されていません。`);
     });
 
     if (errorMessages.length > 0) {
         const alertDiv = document.createElement("div");
-        alertDiv.id = "data-error-alert";
         alertDiv.style = "position:fixed; top:10px; right:10px; background:rgba(220,53,69,0.9); color:white; padding:15px; border-radius:5px; z-index:10000; font-size:12px; max-height:80vh; overflow-y:auto; line-height:1.5; box-shadow: 0 4px 6px rgba(0,0,0,0.3);";
         alertDiv.innerHTML = "<strong>【レール定義エラー】</strong><br>" + errorMessages.join("<br>");
         document.body.appendChild(alertDiv);
     }
-}    
+}
+
+// 起動処理をその直後に配置
+window.onload = () => {
+    validateRailData();
+    initSidebar();
+    render();
+};
+// --- 修正終了ポイント ---  
     
 const canvas = document.getElementById('mainCanvas');
 const ctx = canvas.getContext('2d');
@@ -529,6 +541,7 @@ window.addEventListener('keydown', (e) => {
         render();
     }
 });
+</>
 </script>
 </body>
 </html>

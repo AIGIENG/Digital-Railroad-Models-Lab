@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0022</title>
+    <title>Railroad Models Layout Designer v.0023</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -365,7 +365,7 @@
             
             // --- マウスイベント ---
             /**
-             * マウスダウンイベント（マウスポインタの位置を維持したまま、中心座標を保持）
+             * マウスダウンイベント（回転を考慮した正確な当たり判定）
              */
             canvas.onmousedown = function(e) {
                 const pos = getMousePos(canvas, e);
@@ -375,28 +375,39 @@
                     const halfView = p.nViewWidth / 2;
                     const centerOffset = p.bIsDouble ? (p.nTrackGap / 2) : 0;
                     
-                    let isHit = false;
-                    const dx = pos.x - p.x;
-                    const dy = pos.y - p.y;
+                    // --- 回転を考慮した座標変換（逆回転） ---
+                    const rad = -p.rotation * Math.PI / 180; // 逆方向に回す
+                    const dxOrig = pos.x - p.x;
+                    const dyOrig = pos.y - p.y;
+                    
+                    // 回転後のマウス位置を、パーツのローカル座標(0度基準)に変換
+                    const dx = dxOrig * Math.cos(rad) - dyOrig * Math.sin(rad);
+                    const dy = dxOrig * Math.sin(rad) + dyOrig * Math.cos(rad);
             
-                    // 当たり判定（既存ロジック）
+                    let isHit = false;
                     if (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") {
                         const yMin = centerOffset - halfView;
                         const yMax = centerOffset + halfView;
                         if (dx >= 0 && dx <= p.nLength && dy >= yMin && dy <= yMax) isHit = true;
                     } else if (p.sRole === "curve" || p.sRole === "approach") {
+                        // 曲線判定：中心(0, p.nRadius)からの距離と角度で判定
+                        const ry = dy - p.nRadius;
+                        const dist = Math.sqrt(dx * dx + ry * ry);
+                        const angle = Math.atan2(dx, -ry) * 180 / Math.PI;
+            
                         const rOuter = p.nRadius + halfView;
-                        const width = rOuter * Math.sin(p.nAngle * Math.PI / 180);
-                        const height = p.nRadius - ((p.nRadius - halfView) * Math.cos(p.nAngle * Math.PI / 180));
-                        if (dx >= 0 && dx <= Math.max(width, 20) && dy >= -20 && dy <= Math.max(height, 20)) isHit = true;
+                        const rInner = p.bIsDouble ? (p.nRadius - p.nTrackGap - halfView) : (p.nRadius - halfView);
+            
+                        if (dist >= rInner && dist <= rOuter && angle >= 0 && angle <= p.nAngle) {
+                            isHit = true;
+                        }
                     }
             
                     if (isHit) {
                         isDragging = true;
                         draggedPart = p;
             
-                        // 【修正】マウス位置をそのまま基準点(dragOffset)として保持
-                        // これにより、クリックした場所とパーツ起点の相対距離が維持されます
+                        // マウス位置とパーツ起点の相対距離を維持（グローバル座標で保持）
                         dragOffset.x = pos.x - p.x;
                         dragOffset.y = pos.y - p.y;
             
@@ -406,7 +417,7 @@
                     }
                 }
             };
-        
+
             /**
              * マウス移動イベント（吸着ロジックの修正版）
              */

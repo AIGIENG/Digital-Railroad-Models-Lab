@@ -20,6 +20,7 @@ const railData = {
         nAngle: 0,
         bIsDouble: false,
         nTrackGap: 33,
+        junctionCount: 2,
         sDirection: "none",
         nViewWidth: 25,
         nHeight: 0,
@@ -40,6 +41,7 @@ const railData = {
         nAngle: 45,
         bIsDouble: false,
         nTrackGap: 33,
+        junctionCount: 2,
         sDirection: "none",
         nViewWidth: 25,
         nHeight: 0,
@@ -60,6 +62,7 @@ const railData = {
         nAngle: 45,
         bIsDouble: false,
         nTrackGap: 33,
+        junctionCount: 2,
         sDirection: "none",
         nViewWidth: 25,
         nHeight: 0,
@@ -81,6 +84,7 @@ const railData = {
         nAngle: 0,
         bIsDouble: true,      // 複線フラグをON
         nTrackGap: 33,       // 内側レールは (414 - 33) で自動計算される
+        junctionCount: 4,
         sDirection: "none",
         nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
@@ -102,6 +106,7 @@ const railData = {
         nAngle: 45,
         bIsDouble: true,      // 複線フラグをON
         nTrackGap: 33,       // 内側レールは (414 - 33) で自動計算される
+        junctionCount: 4,
         sDirection: "none",
         nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
@@ -123,6 +128,7 @@ const railData = {
         nAngle: 45,
         bIsDouble: true,      // 複線フラグをON
         nTrackGap: 33,       // 内側レールは (414 - 33) で自動計算される
+        junctionCount: 4,
         sDirection: "none",
         nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
@@ -144,6 +150,7 @@ const railData = {
         nAngle: 22.5,
         bIsDouble: true,
         nTrackGap: 33,
+        junctionCount: 4,
         sDirection: "left",  // 左方向にカーブが始まるアプローチ
         nViewWidth: 57.5,
         nHeight: 0,
@@ -165,6 +172,7 @@ const railData = {
         nAngle: 0,
         bIsDouble: false,
         nTrackGap: 0,
+        junctionCount: 0,
         sDirection: "none",
         nViewWidth: 80,       // 建物の横幅として使用
         nHeight: 0,
@@ -186,6 +194,7 @@ const railData = {
         nAngle: 0,
         bIsDouble: false,
         nTrackGap: 0,
+        junctionCount: 0,
         sDirection: "front",
         nViewWidth: 1800,      // 横幅
         nHeight: 700,         // 机の高さ

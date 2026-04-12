@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.052f4</title>
+    <title>Railroad Model Layout Designer v0.59.052f5</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -56,19 +56,23 @@ let draggedTemplate = null; // 現在ドラッグ中のテンプレート
 function validateRailData() {
     const errorMessages = [];
     
-    // 1. railData 自体が存在するかチェック
     if (typeof railData === 'undefined') {
         errorMessages.push("rails.js 内に 'railData' が定義されていません。");
         showError(errorMessages);
         return;
     }
 
-    // 2. オブジェクト（連想配列）の中身を順番にチェック
-    // railData が { "S140": {...}, "C280-45": {...} } の形式でも対応します
     Object.keys(railData).forEach((key) => {
         const rail = railData[key];
+        
+        // --- 修正ポイント：レールデータではない項目（STANDARDSなど）を除外 ---
+        // type プロパティがないものは、レール定義ではないと判断してスキップします
+        if (!rail || typeof rail !== 'object' || !rail.type) {
+            return; 
+        }
+
         const lineInfo = `[ID: ${key} / 名称: ${rail.name || "名称不明"}]`;
-        const type = rail.type || "";
+        const type = rail.type;
 
         // 曲線(curve)またはポイント(point)の場合のみ、radius が [ ] かチェック
         if (type.includes("curve") || type.includes("point")) {
@@ -77,25 +81,13 @@ function validateRailData() {
             }
         }
 
-        // 共通の必須項目チェック
-        if (!rail.name) errorMessages.push(`${lineInfo} name が定義されていません。`);
-        if (!rail.type) errorMessages.push(`${lineInfo} type が定義されていません。`);
+        // name の定義漏れチェック（レールデータである前提なので必須）
+        if (!rail.name) {
+            errorMessages.push(`${lineInfo} name が定義されていません。`);
+        }
     });
 
     if (errorMessages.length > 0) showError(errorMessages);
-}
-
-// 表示用関数（もし既にある場合は二重に貼り付けないようご注意ください）
-function showError(messages) {
-    // 既存の警告があれば消してから表示
-    const oldAlert = document.getElementById("data-error-alert");
-    if (oldAlert) oldAlert.remove();
-
-    const alertDiv = document.createElement("div");
-    alertDiv.id = "data-error-alert";
-    alertDiv.style = "position:fixed; top:10px; right:10px; background:rgba(220,53,69,0.95); color:white; padding:15px; border-radius:5px; z-index:10000; font-size:12px; max-height:80vh; overflow-y:auto; line-height:1.5; box-shadow: 0 4px 10px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.3);";
-    alertDiv.innerHTML = "<strong>【データ定義チェック】</strong><br>" + messages.join("<br>");
-    document.body.appendChild(alertDiv);
 }
     
 // 1. サイドバーの構築 (Drag startイベントを追加)

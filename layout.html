@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0005</title>
+    <title>Railroad Models Layout Designer v.0006</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -31,267 +31,219 @@
         }
     </style>
 </head>
-<body>
-
-    <div id="sidebar">
-        <h3 style="border-bottom: 1px solid #7f8c8d; padding-bottom: 5px;">パーツリスト</h3>
-        <div id="rail-list"></div>
-    </div>
-
-    <div id="main">
-        <canvas id="canvas"></canvas>
-    </div>
-
-    <script src="rails.js"></script>
-
-    <script>
-
-        // --- マウス操作用ステート ---
-        let isDragging = false;
-        let draggedPart = null;
-        let offset = { x: 0, y: 0 };
-                
-        // --- 状態管理 ---
-        const layers = {
-            rail: [] // キャンバス上に配置されたレールの配列
-        };
-
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-
-        /**
-         * キャンバス設定（将来的な変更を見据えた定数管理）
-         */
-        const CANVAS_CONFIG = {
-            width: 5000,
-            height: 5000
-        };
-
-        /**
-         * キャンバスの初期化
-         * 既存のサイズ指定処理をこの関数に集約します
-         */
-        function initCanvas() {
-            const canvas = document.getElementById('canvas');
-            if (!canvas) return;
-        
-            // 定数からサイズを設定
-            canvas.width = CANVAS_CONFIG.width;
-            canvas.height = CANVAS_CONFIG.height;
-        }
-        
-        // --- 初期化処理 ---
-        function init() {
-            initSidebar();
-            render();
-        }
-
-        /**
-         * キャンバス上のマウス座標を取得（スクロール考慮）
-         */
-        function getMousePos(canvas, evt) {
-            const rect = canvas.getBoundingClientRect();
-            return {
-                x: evt.clientX - rect.left,
-                y: evt.clientY - rect.top
+    <body>
+    
+        <div id="sidebar">
+            <h3 style="border-bottom: 1px solid #7f8c8d; padding-bottom: 5px;">パーツリスト</h3>
+            <div id="rail-list"></div>
+        </div>
+    
+        <div id="main">
+            <canvas id="canvas"></canvas>
+        </div>
+    
+        <script src="rails.js"></script>
+    
+        <script>
+            // --- 状態管理 ---
+            const layers = {
+                rail: [] // キャンバス上に配置されたレールの配列
             };
-        }
         
-        /**
-         * サイドバーの生成（sSeries > sRole のツリー表示版）
-         */
-        function initSidebar() {
-            const listContainer = document.getElementById('rail-list');
-            listContainer.innerHTML = "";
+            // --- キャンバス設定 ---
+            const CANVAS_CONFIG = {
+                width: 5000,
+                height: 5000
+            };
         
-            if (typeof railData === 'undefined') {
-                listContainer.innerHTML = "<p style='color:red;'>rails.js is not found</p>";
-                return;
+            // --- マウス操作用ステート ---
+            let isDragging = false;
+            let draggedPart = null;
+            let dragOffset = { x: 0, y: 0 };
+        
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+        
+            /**
+             * 初期化処理
+             */
+            function init() {
+                initCanvas();
+                initSidebar();
+                render();
             }
         
-            // 1. データをツリー構造に整理 (Series > Role > Items)
-            const tree = {};
-            Object.entries(railData).forEach(([key, rail]) => {
-                rail.sId = key; // IDの自動補完
-                
-                const series = rail.sSeries || "Unknown Series";
-                const role = rail.sRole || "Other";
+            /**
+             * キャンバスの初期化
+             */
+            function initCanvas() {
+                canvas.width = CANVAS_CONFIG.width;
+                canvas.height = CANVAS_CONFIG.height;
+            }
         
-                if (!tree[series]) tree[series] = {};
-                if (!tree[series][role]) tree[series][role] = [];
-                
-                tree[series][role].push(rail);
-            });
+            /**
+             * サイドバーの生成（sSeries > sRole のツリー表示）
+             */
+            function initSidebar() {
+                const listContainer = document.getElementById('rail-list');
+                listContainer.innerHTML = "";
         
-            // 2. ツリーをHTMLとして構築
-            Object.keys(tree).sort().forEach(seriesName => {
-                // Series 階層
-                const seriesDetails = document.createElement("details");
-                seriesDetails.style.marginBottom = "10px";
-                const seriesSummary = document.createElement("summary");
-                seriesSummary.style.cursor = "pointer";
-                seriesSummary.style.fontWeight = "bold";
-                seriesSummary.style.padding = "5px";
-                seriesSummary.style.background = "#1a252f";
-                seriesSummary.textContent = "[+] " + seriesName;
-                
-                seriesDetails.appendChild(seriesSummary);
+                if (typeof railData === 'undefined') {
+                    listContainer.innerHTML = "<p style='color:red;'>rails.js not found</p>";
+                    return;
+                }
         
-                // Role 階層
-                Object.keys(tree[seriesName]).sort().forEach(roleName => {
-                    const roleDetails = document.createElement("details");
-                    roleDetails.style.marginLeft = "15px";
-                    roleDetails.style.marginTop = "5px";
-                    const roleSummary = document.createElement("summary");
-                    roleSummary.style.cursor = "pointer";
-                    roleSummary.style.fontSize = "13px";
-                    roleSummary.style.color = "#1abc9c";
-                    roleSummary.textContent = "> " + roleName;
+                // データをツリー構造に整理
+                const tree = {};
+                Object.entries(railData).forEach(([key, rail]) => {
+                    rail.sId = key; // IDの自動補完
+                    const series = rail.sSeries || "Unknown Series";
+                    const role = rail.sRole || "Other";
+                    if (!tree[series]) tree[series] = {};
+                    if (!tree[series][role]) tree[series][role] = [];
+                    tree[series][role].push(rail);
+                });
         
-                    roleDetails.appendChild(roleSummary);
+                // ツリーHTML構築
+                Object.keys(tree).sort().forEach(seriesName => {
+                    const seriesDetails = document.createElement("details");
+                    seriesDetails.style.marginBottom = "10px";
+                    const seriesSummary = document.createElement("summary");
+                    seriesSummary.style.cursor = "pointer";
+                    seriesSummary.style.fontWeight = "bold";
+                    seriesSummary.style.padding = "5px";
+                    seriesSummary.style.background = "#1a252f";
+                    seriesSummary.textContent = "[+] " + seriesName;
+                    seriesDetails.appendChild(seriesSummary);
         
-                    // Item 階層
-                    tree[seriesName][roleName].forEach(rail => {
-                        const div = document.createElement("div");
-                        div.className = "rail-item";
-                        div.style.marginLeft = "10px";
-                        div.style.marginTop = "5px";
-                        div.innerHTML = `
-                            ${rail.sName}
-                            <span class="rail-item-sub">${rail.sProductCode}</span>
-                        `;
-                        div.onclick = () => addPartToCanvas(rail);
-                        roleDetails.appendChild(div);
+                    Object.keys(tree[seriesName]).sort().forEach(roleName => {
+                        const roleDetails = document.createElement("details");
+                        roleDetails.style.marginLeft = "15px";
+                        roleDetails.style.marginTop = "5px";
+                        const roleSummary = document.createElement("summary");
+                        roleSummary.style.cursor = "pointer";
+                        roleSummary.style.fontSize = "13px";
+                        roleSummary.style.color = "#1abc9c";
+                        roleSummary.textContent = "> " + roleName;
+                        roleDetails.appendChild(roleSummary);
+        
+                        tree[seriesName][roleName].forEach(rail => {
+                            const div = document.createElement("div");
+                            div.className = "rail-item";
+                            div.style.marginLeft = "10px";
+                            div.innerHTML = `${rail.sName}<span class="rail-item-sub">${rail.sProductCode}</span>`;
+                            div.onclick = () => addPartToCanvas(rail);
+                            roleDetails.appendChild(div);
+                        });
+                        seriesDetails.appendChild(roleDetails);
                     });
         
-                    seriesDetails.appendChild(roleDetails);
+                    seriesDetails.addEventListener("toggle", () => {
+                        seriesSummary.textContent = (seriesDetails.open ? "[-] " : "[+] ") + seriesName;
+                    });
+                    listContainer.appendChild(seriesDetails);
                 });
+            }
         
-                // 開閉状態に合わせて記号を切り替える（文字化け対策で半角のみ使用）
-                seriesDetails.addEventListener("toggle", () => {
-                    seriesSummary.textContent = (seriesDetails.open ? "[-] " : "[+] ") + seriesName;
-                });
-        
-                listContainer.appendChild(seriesDetails);
-            });
-        }
             /**
-             * パーツをキャンバス（データ）に追加
+             * パーツをキャンバスに追加
              */
             function addPartToCanvas(sourceData) {
-                // 元データをディープコピーし、配置用の個別プロパティを追加
+                // スクロール位置を考慮して、現在の表示エリアの中央付近に配置
+                const mainArea = document.getElementById('main');
+                const scrollX = mainArea.scrollLeft;
+                const scrollY = mainArea.scrollTop;
+        
                 const newPart = {
                     ...sourceData,
-                    id: Date.now(), // インスタンス識別用のユニークID
-                    x: canvas.width / 2,
-                    y: canvas.height / 2,
+                    id: Date.now(),
+                    x: scrollX + 200,
+                    y: scrollY + 200,
                     rotation: 0
                 };
-    
                 layers.rail.push(newPart);
-                console.log("配置済みパーツ数:", layers.rail.length);
-                render(); // 再描画
+                render();
             }
-    
+        
             /**
-             * 描画メインループ
+             * マウス座標取得（キャンバス相対）
+             */
+            function getMousePos(canvas, evt) {
+                const rect = canvas.getBoundingClientRect();
+                return {
+                    x: evt.clientX - rect.left,
+                    y: evt.clientY - rect.top
+                };
+            }
+        
+            // --- マウスイベント ---
+            canvas.onmousedown = function(e) {
+                const pos = getMousePos(canvas, e);
+                for (let i = layers.rail.length - 1; i >= 0; i--) {
+                    const p = layers.rail[i];
+                    const halfWidth = p.nViewWidth / 2;
+                    const length = (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") ? p.nLength : p.nRadius;
+        
+                    // 当たり判定（回転未考慮の暫定矩形）
+                    if (pos.x >= p.x && pos.x <= p.x + length &&
+                        pos.y >= p.y - halfWidth && pos.y <= p.y + halfWidth) {
+                        isDragging = true;
+                        draggedPart = p;
+                        dragOffset.x = pos.x - p.x;
+                        dragOffset.y = pos.y - p.y;
+                        layers.rail.push(layers.rail.splice(i, 1)[0]); // 最前面へ
+                        render();
+                        break;
+                    }
+                }
+            };
+        
+            canvas.onmousemove = function(e) {
+                if (!isDragging || !draggedPart) return;
+                const pos = getMousePos(canvas, e);
+                draggedPart.x = pos.x - dragOffset.x;
+                draggedPart.y = pos.y - dragOffset.y;
+                render();
+            };
+        
+            window.onmouseup = function() {
+                isDragging = false;
+                draggedPart = null;
+            };
+        
+            /**
+             * 描画処理
              */
             function render() {
-                // 背景クリア
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-                // 配置されたパーツの描画
-                layers.rail.forEach(part => {
-                    drawPart(ctx, part);
-                });
+                layers.rail.forEach(part => drawPart(ctx, part));
             }
-
-        /**
-         * 個別パーツの描画（簡易版：まずは矩形や円弧の枠だけ）
-         */
-        function drawPart(ctx, p) {
-            ctx.save();
-            ctx.translate(p.x, p.y);
-            ctx.rotate((p.rotation * Math.PI) / 180);
-
-            ctx.strokeStyle = p.sColor;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-
-            if (p.sRole === "straight") {
-                // 直線描画
-                ctx.strokeRect(0, -p.nViewWidth/2, p.nLength, p.nViewWidth);
-            } else if (p.sRole === "curve" || p.sRole === "approach") {
-                // 曲線描画（簡易）
-                ctx.arc(0, p.nRadius, p.nRadius, -Math.PI/2, (-90 + p.nAngle) * Math.PI / 180);
-                ctx.stroke();
-            } else if (p.sRole === "structure" || p.sRole === "furniture") {
-                // ストラクチャー描画
-                ctx.fillStyle = p.sColor + "44"; // 半透明
-                ctx.fillRect(0, -p.nViewWidth/2, p.nLength, p.nViewWidth);
-                ctx.strokeRect(0, -p.nViewWidth/2, p.nLength, p.nViewWidth);
-            }
-
-            ctx.restore();
-        }
-
-        // 起動
-        window.onload = () => {
-            init();       // 既存の初期化関数
-            initCanvas(); // キャンバスサイズの適用
-        };
-
-        /**
-         * マウスダウン：パーツの選択
-         */
-        canvas.onmousedown = (e) => {
-            const pos = getMousePos(canvas, e);
-            
-            // 重なりを考慮し、配列の後ろ（＝上に描画されているもの）から判定
-            for (let i = layers.rail.length - 1; i >= 0; i--) {
-                const p = layers.rail[i];
-                
-                // 簡易的な当たり判定（矩形範囲）
-                // ※本来は回転を考慮すべきですが、まずは基本の移動を実現します
-                const halfWidth = p.nViewWidth / 2;
-                const length = p.nLength || p.nRadius; // 曲線やストラクチャーにも対応
         
-                if (pos.x >= p.x && pos.x <= p.x + length &&
-                    pos.y >= p.y - halfWidth && pos.y <= p.y + halfWidth) {
-                    
-                    isDragging = true;
-                    draggedPart = p;
-                    offset.x = pos.x - p.x;
-                    offset.y = pos.y - p.y;
-                    
-                    // 選択したパーツを最前面へ（配列の最後に移動）
-                    layers.rail.push(layers.rail.splice(i, 1)[0]);
-                    break;
+            /**
+             * 個別パーツ描画
+             */
+            function drawPart(ctx, p) {
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate((p.rotation * Math.PI) / 180);
+                ctx.strokeStyle = p.sColor;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+        
+                if (p.sRole === "straight") {
+                    ctx.strokeRect(0, -p.nViewWidth/2, p.nLength, p.nViewWidth);
+                } else if (p.sRole === "curve" || p.sRole === "approach") {
+                    ctx.arc(0, p.nRadius, p.nRadius, -Math.PI/2, (-90 + p.nAngle) * Math.PI / 180);
+                    ctx.stroke();
+                } else if (p.sRole === "structure" || p.sRole === "furniture") {
+                    ctx.fillStyle = p.sColor + "44";
+                    ctx.fillRect(0, -p.nViewWidth/2, p.nLength, p.nViewWidth);
+                    ctx.strokeRect(0, -p.nViewWidth/2, p.nLength, p.nViewWidth);
                 }
+                ctx.restore();
             }
-        };
         
-        /**
-         * マウスムーブ：ドラッグ実行
-         */
-        canvas.onmousemove = (e) => {
-            if (!isDragging || !draggedPart) return;
-            
-            const pos = getMousePos(canvas, e);
-            draggedPart.x = pos.x - offset.x;
-            draggedPart.y = pos.y - offset.y;
-            
-            render(); // 移動に合わせて再描画
-        };
-        
-        /**
-         * マウスアップ：掴み終了
-         */
-        window.onmouseup = function() {
-            isDragging = false;
-            draggedPart = null;
-        };
-        
-    </script>
-</body>
+            window.onload = init;
+        </script>
+    </body>
 </html>

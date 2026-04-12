@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0023</title>
+    <title>Railroad Models Layout Designer v.0024</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -419,48 +419,50 @@
             };
 
             /**
-             * マウス移動イベント（吸着ロジックの修正版）
+             * マウス移動イベント（Shiftキー押下時はスナップ処理をスキップ）
              */
             canvas.onmousemove = function(e) {
                 if (!isDragging || !draggedPart) return;
             
                 const pos = getMousePos(canvas, e);
-                const snapDistance = 20; // 吸着感度を少し上げました
+                const snapDistance = 20;
             
-                // 1. マウス位置（パーツ中心）からパーツの起点(x, y)を逆算
+                // 1. マウス位置（パーツ基準点）から暫定座標を計算
                 let newX = pos.x - dragOffset.x;
                 let newY = pos.y - dragOffset.y;
             
-                // 2. 吸着判定
-                let snapped = false;
-                // 自身の接続点を算出（自身の現在のドラッグ位置に基づき一時的な座標を計算）
-                const selfPoints = getConnectorPoints(draggedPart, newX, newY, draggedPart.rotation);
+                // 2. スナップ判定（Shiftキーが押されていない場合のみ実行）
+                // e.shiftKey が true の時はこのブロック全体を飛ばす
+                if (!e.shiftKey) {
+                    let snapped = false;
+                    const selfPoints = getConnectorPoints(draggedPart, newX, newY, draggedPart.rotation);
             
-                for (const other of layers.rail) {
-                    if (other.id === draggedPart.id) continue;
+                    for (const other of layers.rail) {
+                        if (other.id === draggedPart.id) continue;
             
-                    // 相手の接続点を算出（固定位置）
-                    const targetPoints = getConnectorPoints(other, other.x, other.y, other.rotation);
+                        const targetPoints = getConnectorPoints(other, other.x, other.y, other.rotation);
             
-                    for (const sp of selfPoints) {
-                        for (const tp of targetPoints) {
-                            const dx = sp.x - tp.x;
-                            const dy = sp.y - tp.y;
-                            const dist = Math.sqrt(dx * dx + dy * dy);
+                        for (const sp of selfPoints) {
+                            for (const tp of targetPoints) {
+                                const dx = sp.x - tp.x;
+                                const dy = sp.y - tp.y;
+                                const dist = Math.sqrt(dx * dx + dy * dy);
             
-                            if (dist < snapDistance) {
-                                // spがtpに重なるように、パーツ全体の座標(newX, newY)をオフセット分補正
-                                newX -= dx;
-                                newY -= dy;
-                                snapped = true;
-                                break;
+                                if (dist < snapDistance) {
+                                    // 接続点同士を一致させる
+                                    newX -= dx;
+                                    newY -= dy;
+                                    snapped = true;
+                                    break;
+                                }
                             }
+                            if (snapped) break;
                         }
                         if (snapped) break;
                     }
-                    if (snapped) break;
                 }
             
+                // 3. 最終的な座標の反映
                 draggedPart.x = newX;
                 draggedPart.y = newY;
                 render();

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.058f1</title>
+    <title>Railroad Model Layout Designer v0.59.058f3</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -100,13 +100,13 @@ function initSidebar() {
 
     Object.keys(railData).forEach(key => {
         const rail = railData[key];
-        if (!rail || !rail.type) return;
+        if (!rail || !rail.type) return; // レール定義以外はスキップ
 
         const div = document.createElement("div");
         div.className = "rail-item";
         div.textContent = rail.name || key;
 
-        // --- 既存の全属性を dataset に退避（1つも削っていません） ---
+        // すべての既存属性を dataset に保持（1つも削っていません）
         div.dataset.type = rail.type || "";
         div.dataset.color = rail.color || "#ccc";
         div.dataset.length = rail.length || 0;
@@ -116,20 +116,20 @@ function initSidebar() {
         div.dataset.innerRadius = rail.innerRadius || 0;
         div.dataset.isDouble = rail.isDouble || false;
 
-        // radius の特殊処理：配列なら文字列化、数値ならそのまま
+        // radiusの処理：配列ならJSON化、そうでなければそのまま（undefinedなら空文字）
         if (Array.isArray(rail.radius)) {
             div.dataset.radius = JSON.stringify(rail.radius);
         } else {
-            div.dataset.radius = (rail.radius !== undefined) ? rail.radius : "";
+            div.dataset.radius = rail.radius !== undefined ? rail.radius : "";
         }
 
         div.onclick = () => {
-            const rData = div.dataset.radius || "";
+            const rData = div.dataset.radius;
             const newRail = {
                 id: Date.now(),
                 type: div.dataset.type,
-                // ここで配列か数値かを安全に判定
-                radius: (typeof rData === 'string' && rData.indexOf('[') === 0) 
+                // radiusの復元：文字列が [ で始まっていれば配列としてパース
+                radius: (typeof rData === 'string' && rData.startsWith('[')) 
                         ? JSON.parse(rData) 
                         : parseFloat(rData || 0),
                 length: parseFloat(div.dataset.length),
@@ -210,7 +210,7 @@ function render() {
 
         const type = part.type;
 
-        // 1. 曲線(curve)描画
+        // 1. 曲線(curve)
         if (type === "curve") {
             if (Array.isArray(part.radius)) {
                 part.radius.forEach(r => drawArc(r, part.angle, part.color));
@@ -218,9 +218,9 @@ function render() {
                 drawArc(part.radius, part.angle, part.color);
             }
         } 
-        // 2. ポイント(point)描画 - 今回の新設機能
+        // 2. ポイント(point) - 配列radiusに対応した新設ロジック
         else if (type && type.includes("point")) {
-            // 本線（直線部）
+            // 本線（直線）
             ctx.beginPath();
             ctx.moveTo(0, 0);
             ctx.lineTo(part.length, 0);
@@ -228,18 +228,17 @@ function render() {
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // 分岐側（曲線部）
+            // 分岐（曲線）
             if (Array.isArray(part.radius)) {
                 part.radius.forEach(r => {
                     const angleRad = (part.angle * Math.PI) / 180;
                     ctx.beginPath();
-                    // 分岐開始点(0,0)から描画
                     ctx.arc(0, r, r, -Math.PI / 2, -Math.PI / 2 + angleRad, part.angle < 0);
                     ctx.stroke();
                 });
             }
         }
-        // 3. 直線・複線描画（既存ロジックそのまま）
+        // 3. 直線・複線（既存維持）
         else {
             if (part.isDouble) {
                 const d = 25; 
@@ -259,13 +258,13 @@ function render() {
             }
         }
 
-        // 4. 選択時のハイライト表示（赤枠 ＋ 回転用ハンドル「○」）
+        // 4. 選択表示（赤枠 ＋ 回転ハンドル「○」）
         if (index === selectedIndex) {
             ctx.strokeStyle = "red";
             ctx.lineWidth = 1;
             ctx.strokeRect(-5, -10, (part.length || 50) + 10, 20);
 
-            // 既存の回転ハンドル「○」を確実に描画
+            // 回転ハンドル
             ctx.beginPath();
             ctx.arc(-15, 0, 5, 0, Math.PI * 2);
             ctx.fillStyle = "red";

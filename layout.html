@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.051</title>
+    <title>Railroad Model Layout Designer v0.59.052</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -53,36 +53,36 @@ let isDragging = false;
 let dragOffset = { x: 0, y: 0 };
 let draggedTemplate = null; // 現在ドラッグ中のテンプレート
 
-// --- ここからコピー ---
 function validateRailData() {
     const errorMessages = [];
     
-    // rails.js が読み込まれていない場合は何もしない
-    if (typeof RAIL_DATA === 'undefined') return;
+    // 1. rails.js の読み込み自体に失敗している場合
+    if (typeof RAIL_DATA === 'undefined') {
+        errorMessages.push("rails.js が読み込まれていないか、RAIL_DATA が定義されていません。");
+    } else {
+        // 2. データの中身をチェック
+        RAIL_DATA.forEach((rail, index) => {
+            const lineInfo = `[${index + 1}行目: ${rail.name || "名称不明"}]`;
+            
+            if (rail.radius !== undefined && !Array.isArray(rail.radius)) {
+                errorMessages.push(`${lineInfo} radiusが配列 [ ] で囲まれていません。`);
+            }
+            
+            if (!rail.name) errorMessages.push(`${lineInfo} nameが定義されていません。`);
+            if (!rail.type) errorMessages.push(`${lineInfo} typeが定義されていません。`);
+        });
+    }
 
-    RAIL_DATA.forEach((rail, index) => {
-        const lineInfo = `[${index + 1}行目: ${rail.name || "名称不明"}]`;
-        
-        // 1. radius がある場合、配列 [ ] になっているかチェック
-        if (rail.radius !== undefined && !Array.isArray(rail.radius)) {
-            errorMessages.push(`${lineInfo} radiusが配列 [ ] で囲まれていません。`);
-        }
-        
-        // 2. 必須項目（name, type）のチェック
-        if (!rail.name) errorMessages.push(`${lineInfo} nameが定義されていません。`);
-        if (!rail.type) errorMessages.push(`${lineInfo} type?が定義されていません。`);
-    });
-
-    // エラーがあった場合のみ、画面右上に警告を表示
+    // 警告の表示処理（エラーがある場合のみ実行）
     if (errorMessages.length > 0) {
         const alertDiv = document.createElement("div");
         alertDiv.id = "data-error-alert";
-        alertDiv.style = "position:fixed; top:10px; right:10px; background:rgba(220,53,69,0.9); color:white; padding:15px; border-radius:5px; z-index:10000; font-size:12px; max-height:80vh; overflow-y:auto; line-height:1.5; box-shadow: 0 4px 6px rgba(0,0,0,0.3);";
-        alertDiv.innerHTML = "<strong>【レール定義エラー】</strong><br>" + errorMessages.join("<br>");
+        // 背景色を少し変えるなどして視認性を高めています
+        alertDiv.style = "position:fixed; top:10px; right:10px; background:rgba(220,53,69,0.95); color:white; padding:15px; border-radius:5px; z-index:10000; font-size:12px; max-height:80vh; overflow-y:auto; line-height:1.5; box-shadow: 0 4px 10px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.3);";
+        alertDiv.innerHTML = "<strong>【システム・データエラー】</strong><br>" + errorMessages.join("<br>");
         document.body.appendChild(alertDiv);
     }
 }
-// --- ここまでコピー ---
     
 // 1. サイドバーの構築 (Drag startイベントを追加)
 function initSidebar() {

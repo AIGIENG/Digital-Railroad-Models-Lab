@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Model Layout Designer v0.59.041f3</title>
+    <title>Railroad Model Layout Designer v0.59.041f4</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; background: #333; color: white; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 320px; background: #222; border-right: 1px solid #444; overflow-y: auto; padding: 10px; user-select: none; }
@@ -42,6 +42,36 @@
 
 <script src="rails.js"></script>
 <script>
+
+// --- layout.html 15行目 <script> の直下に追加 ---
+function validateRailData() {
+    const errorMessages = [];
+    
+    // RAIL_DATAが存在しない場合はチェックを中止
+    if (typeof RAIL_DATA === 'undefined') return;
+
+    RAIL_DATA.forEach((rail, index) => {
+        const lineInfo = `[${index + 1}行目: ${rail.name || "名称不明"}]`;
+        
+        // 1. radiusがある場合、配列になっているかチェック
+        if (rail.radius !== undefined && !Array.isArray(rail.radius)) {
+            errorMessages.push(`${lineInfo} radiusが配列 [ ] で囲まれていません。`);
+        }
+        
+        // 2. 必須プロパティチェック
+        if (!rail.name) errorMessages.push(`${lineInfo} nameが定義されていません。`);
+        if (!rail.type) errorMessages.push(`${lineInfo} typeが定義されていません。`);
+    });
+
+    if (errorMessages.length > 0) {
+        const alertDiv = document.createElement("div");
+        alertDiv.id = "data-error-alert";
+        alertDiv.style = "position:fixed; top:10px; right:10px; background:rgba(220,53,69,0.9); color:white; padding:15px; border-radius:5px; z-index:10000; font-size:12px; max-height:80vh; overflow-y:auto; line-height:1.5; box-shadow: 0 4px 6px rgba(0,0,0,0.3);";
+        alertDiv.innerHTML = "<strong>【レール定義エラー】</strong><br>" + errorMessages.join("<br>");
+        document.body.appendChild(alertDiv);
+    }
+}    
+    
 const canvas = document.getElementById('mainCanvas');
 const ctx = canvas.getContext('2d');
 canvas.width = 2400; 
@@ -204,9 +234,7 @@ function render() {
             const pW = part.width || std.defWidth;
             const pL = part.length || 140;
             const pA = part.angle || 15;
-            const pSide = type.endsWith("-L") ? -1 : 1; // 左分岐なら-1, 右分岐なら1
-            
-            // radiusを安全に取得（配列前提）
+            const pSide = type.endsWith("-L") ? -1 : 1; 
             const pRadii = Array.isArray(part.radius) ? part.radius : [part.radius];
             const pR = pRadii[0] || 481;
 
@@ -214,23 +242,20 @@ function render() {
             ctx.strokeStyle = part.edge || std.edge;
             ctx.lineWidth = 1;
 
-            // 1. 直線側の道床
+            // 1. 直線側道床
             ctx.fillRect(0, -pW / 2, pL, pW);
             ctx.strokeRect(0, -pW / 2, pL, pW);
 
-            // 2. 分岐側の道床 (円弧)
+            // 2. 分岐側道床
             ctx.save();
             ctx.translate(0, pSide * pR);
             const startAng = (pSide === -1 ? 0.5 : -0.5) * Math.PI;
             const endAng = startAng + (pSide * pA * Math.PI / 180);
-            
             ctx.beginPath();
             ctx.arc(0, 0, pR, startAng, endAng, pSide === -1);
             ctx.lineWidth = pW;
             ctx.strokeStyle = ctx.fillStyle;
             ctx.stroke();
-
-            // 分岐道床の縁取り
             ctx.lineWidth = 1;
             ctx.strokeStyle = part.edge || std.edge;
             ctx.beginPath();
@@ -241,16 +266,14 @@ function render() {
             ctx.stroke();
             ctx.restore();
 
-            // 3. レール描画 (直線と分岐の両方)
+            // 3. レール本体
             ctx.strokeStyle = "#999"; 
             ctx.lineWidth = 2;
             const g = std.gauge / 2;
-            // 直線レール
             ctx.beginPath();
             ctx.moveTo(0, -g); ctx.lineTo(pL, -g);
             ctx.moveTo(0, g); ctx.lineTo(pL, g);
             ctx.stroke();
-            // 分岐レール
             ctx.save();
             ctx.translate(0, pSide * pR);
             ctx.beginPath();
@@ -278,7 +301,6 @@ function render() {
             ctx.strokeRect(0, -w / 2, L, w);
         }
 
-        // 選択表示
         if (selectedPart === part) {
             ctx.fillStyle = "rgba(255, 165, 0, 0.5)";
             const markerL = (type.startsWith("point") ? part.length : (part.length || 140)) || 140;
@@ -486,7 +508,11 @@ canvas.onmouseup = () => {
     render();
 };
 
-window.onload = () => { initSidebar(); render(); };
+window.onload = () => {
+    validateRailData(); // 最初に追加
+    initSidebar();
+    render();
+};
 
 // キーボード操作の追加
 window.addEventListener('keydown', (e) => {

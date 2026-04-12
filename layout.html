@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0049</title>
+    <title>Railroad Models Layout Designer v.0050</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -325,35 +325,48 @@ function getConnectorPoints(p, x, y, rotation) {
 
     for (let i = 0; i < p.junctionCount; i++) {
         let rx = 0, ry = 0;
-        if (p.junctionCount === 1) { rx = p.nLength; } 
+        
+        // --- パーツごとの接続点定義 ---
+        if (p.junctionCount === 1) { 
+            // 1点（車止め等）：先端のみ
+            rx = p.nLength; 
+        } 
         else if (p.junctionCount === 2) {
+            // 2点（単線）：0=起点, 1=終点
             if (i === 1) {
-                rx = p.nLength;
-                if (p.sRole === "curve") {
+                if (p.sRole === "straight") {
+                    rx = p.nLength;
+                } else {
                     const a = (p.nAngle * Math.PI) / 180;
                     rx = Math.sin(a) * p.nRadius;
                     ry = p.nRadius - Math.cos(a) * p.nRadius;
                 }
             }
         } 
-        else if (p.junctionCount === 4) {
-            const isEnd = (i >= 2), isSub = (i % 2 === 1);
-            if (isEnd) {
-                if (p.sRole === "straight") { rx = p.nLength; ry = isSub ? gap : 0; }
-                else {
-                    const a = (p.nAngle * Math.PI) / 180;
-                    const r = isSub ? (p.nRadius - gap) : p.nRadius;
-                    rx = Math.sin(a) * r;
-                    ry = r - Math.cos(a) * r + (isSub ? gap : 0);
-                }
-            } else { rx = 0; ry = isSub ? gap : 0; }
-        }
         else if (p.junctionCount === 3) {
+            // 3点（ポイント）：0=起点, 1=直進終点, 2=分岐終点
             if (i === 1) { rx = p.nLength; }
             else if (i === 2) {
                 const a = (p.nAngle * Math.PI) / 180;
                 rx = Math.sin(a) * p.nRadius;
                 ry = p.nRadius - Math.cos(a) * p.nRadius;
+            }
+        }
+        else if (p.junctionCount === 4) {
+            // 4点（複線）：0=左上, 1=左下, 2=右上, 3=右下
+            const isEnd = (i >= 2);
+            const isSub = (i % 2 === 1);
+            if (isEnd) {
+                if (p.sRole === "straight") {
+                    rx = p.nLength; ry = isSub ? gap : 0;
+                } else {
+                    const a = (p.nAngle * Math.PI) / 180;
+                    const r = isSub ? (p.nRadius - gap) : p.nRadius;
+                    rx = Math.sin(a) * r;
+                    ry = p.nRadius - Math.cos(a) * r;
+                }
+            } else {
+                rx = 0; ry = isSub ? gap : 0;
             }
         }
         points.push(transform(rx, ry));
@@ -472,7 +485,6 @@ canvas.onmousemove = function(e) {
     //    吸着点(i番目)の原点(0,0)からのズレを計算します
     const relPoints = getConnectorPoints(draggedRail, 0, 0, draggedRail.rotation);
     const myOffset = relPoints[i]; 
-
     // 2. 相手のドット座標(p2[j])から、自分のズレ(myOffset)を引き算します
     // これにより、どのドットで吸着しても、そのドット同士が重なる位置にレールが置かれます
     draggedRail.x = p2[j].x - myOffset.x;

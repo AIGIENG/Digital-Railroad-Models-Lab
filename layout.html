@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0040</title>
+    <title>Railroad Models Layout Designer v.0041</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -313,12 +313,12 @@
             }
 
 /**
- * rails.js の定義をそのまま座標に変換するシンプルな実装
+ * junctionCount に基づき、単線・複線を問わず正確な接続点を算出
  */
 function getConnectorPoints(p, x, y, rotation) {
     const points = [];
     const rad = (rotation * Math.PI) / 180;
-    const gap = p.nTrackGap || 0; // 単線なら 0、複線なら規定値
+    const gap = p.nTrackGap || 0;
 
     const transform = (rx, ry) => {
         const tx = rx * Math.cos(rad) - ry * Math.sin(rad);
@@ -326,22 +326,32 @@ function getConnectorPoints(p, x, y, rotation) {
         return { x: x + tx, y: y + ty };
     };
 
-    // junctionCount 分だけループを回すが、
-    // 0,1番目は「起点(IN)」、2,3番目は「終点(OUT)」としてシンプルに配置
     for (let i = 0; i < p.junctionCount; i++) {
         let rx = 0;
-        let ry = (i % 2 === 0) ? 0 : gap; // 偶数番目は基準線(0)、奇数番目は隣の線(gap)
+        let ry = 0;
 
-        if (i >= 2) { // 終点側の計算
+        // 接続点の位置判定（junctionCount 依存）
+        // 単線(2点): 0=起点, 1=終点
+        // 複線(4点): 0,1=起点, 2,3=終点
+        const isEnd = (p.junctionCount <= 2) ? (i === 1) : (i >= 2);
+        const isOffsetLine = (p.junctionCount <= 2) ? false : (i % 2 === 1);
+
+        if (isEnd) {
             if (p.sRole === "straight") {
                 rx = p.nLength;
+                ry = isOffsetLine ? gap : 0;
             } else if (p.sRole === "curve" || p.sRole === "approach") {
                 const a = (p.nAngle * Math.PI) / 180;
-                const r = (i === 2) ? p.nRadius : p.nRadius - gap;
+                const r = isOffsetLine ? (p.nRadius - gap) : p.nRadius;
                 rx = Math.sin(a) * r;
-                ry = r - Math.cos(a) * r + (i === 2 ? 0 : gap); // 曲線外側のズレを補正
+                ry = r - Math.cos(a) * r + (isOffsetLine ? gap : 0);
             }
+        } else {
+            // 起点側
+            rx = 0;
+            ry = isOffsetLine ? gap : 0;
         }
+
         points.push(transform(rx, ry));
     }
 

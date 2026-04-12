@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0014</title>
+    <title>Railroad Models Layout Designer v.0015</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -194,7 +194,8 @@
             }
 
             /**
-             * 個別パーツ描画（選択・移動中の中心点表示対応版）
+             * drawPart 内の〇印描画ロジックの修正
+             * dragOffset を利用して、マウスで掴んだ正にその位置に〇を描画します
              */
             function drawPart(ctx, p) {
                 ctx.save();
@@ -205,11 +206,10 @@
                 const halfGauge = (p.nGauge && p.nGauge > 0) ? p.nGauge / 2 : 0;
                 const centerOffset = p.bIsDouble ? (p.nTrackGap / 2) : 0;
             
-                // --- 1. 外形（道床・土台）の描画 ---
+                // --- 1. 外形描画 ---
                 ctx.strokeStyle = p.sColor;
                 ctx.lineWidth = 1;
                 ctx.fillStyle = p.sColor + "33"; 
-            
                 ctx.beginPath();
                 if (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") {
                     const yStart = centerOffset - halfView;
@@ -226,44 +226,33 @@
                     ctx.stroke();
                 }
             
-                // --- 2. レールの描画 ---
+                // --- 2. レール描画 ---
                 if (halfGauge > 0) {
                     ctx.strokeStyle = "#555555";
                     ctx.lineWidth = 1;
-                    // 第1線
                     drawRailLines(ctx, p, 0, halfGauge);
-                    // 第2線（複線）
                     if (p.bIsDouble && p.nTrackGap > 0) {
                         drawRailLines(ctx, p, p.nTrackGap, halfGauge);
                     }
                 }
             
-                // --- 3. 選択・移動中の中心印（〇）の描画 ---
-                // draggedPart と一致する場合のみ描画
+                // --- 3. 選択・移動中の中心印（〇） ---
+                // draggedPart が存在し、かつ現在のパーツと一致する場合（＝クリック継続中）のみ描画
                 if (typeof draggedPart !== 'undefined' && draggedPart && draggedPart.id === p.id) {
-                    ctx.beginPath();
-                    ctx.strokeStyle = "#ff0000"; // 視認性の高い赤色
-                    ctx.lineWidth = 2;
+                    ctx.restore(); // 一旦座標系をグローバルに戻すか、translate分を計算
+                    ctx.save();
                     
-                    // パーツの幾何学的な中心位置を算出
-                    let centerX, centerY;
-                    if (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") {
-                        centerX = p.nLength / 2;
-                        centerY = centerOffset;
-                    } else if (p.sRole === "curve" || p.sRole === "approach") {
-                        // 曲線の中心（弦の中点方向）
-                        const midAngle = ((-90 + (p.nAngle / 2)) * Math.PI / 180);
-                        const midR = p.nRadius - centerOffset;
-                        centerX = midR * Math.cos(midAngle);
-                        centerY = p.nRadius + midR * Math.sin(midAngle);
-                    }
-            
-                    // 〇印を描画（半径5px）
-                    ctx.arc(centerX, centerY, 5, 0, Math.PI * 2);
+                    // マウスで掴んでいるグローバル座標（p.x + dragOffset.x）に〇を描画
+                    ctx.beginPath();
+                    ctx.strokeStyle = "#ff0000";
+                    ctx.lineWidth = 2;
+                    ctx.arc(p.x + dragOffset.x, p.y + dragOffset.y, 8, 0, Math.PI * 2);
                     ctx.stroke();
                     
-                    // 中心点（ドット）も追加
+                    // 中心点
                     ctx.fillStyle = "#ff0000";
+                    ctx.beginPath();
+                    ctx.arc(p.x + dragOffset.x, p.y + dragOffset.y, 2, 0, Math.PI * 2);
                     ctx.fill();
                 }
             
@@ -323,21 +312,34 @@
             }
             
             // --- マウスイベント ---
+            /**
+             * マウスダウンイベントの修正
+             * 掴んだ瞬間の座標を dragOffset に記録し、基準点として確定させます
+             */
             canvas.onmousedown = function(e) {
                 const pos = getMousePos(canvas, e);
+                // 描画順の逆（最前面）から判定
                 for (let i = layers.rail.length - 1; i >= 0; i--) {
                     const p = layers.rail[i];
-                    const halfWidth = p.nViewWidth / 2;
-                    const length = (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") ? p.nLength : p.nRadius;
-        
-                    // 当たり判定（回転未考慮の暫定矩形）
-                    if (pos.x >= p.x && pos.x <= p.x + length &&
-                        pos.y >= p.y - halfWidth && pos.y <= p.y + halfWidth) {
+                    
+                    // 当たり判定（簡易矩形判定。回転を考慮する場合は後ほど拡張可能）
+                    const halfView = p.nViewWidth / 2;
+                    const totalHeight = p.bIsDouble ? (p.nTrackGap + p.nViewWidth) : p.nViewWidth;
+                    const yStart = p.bIsDouble ? -halfView : -halfView; 
+            
+                    // パーツのローカル座標系での判定
+                    if (pos.x >= p.x && pos.x <= p.x + p.nLength &&
+                        pos.y >= p.y + yStart && pos.y <= p.y + yStart + totalHeight) {
+                        
                         isDragging = true;
                         draggedPart = p;
+                        
+                        // 〇印の中央にするためのオフセットを記録
                         dragOffset.x = pos.x - p.x;
                         dragOffset.y = pos.y - p.y;
-                        layers.rail.push(layers.rail.splice(i, 1)[0]); // 最前面へ
+                        
+                        // 最前面へ移動
+                        layers.rail.push(layers.rail.splice(i, 1)[0]);
                         render();
                         break;
                     }

@@ -1,48 +1,109 @@
-﻿const STANDARDS = {
-    "KATO_N":  { gauge: 9.0,  space: 33.0, defWidth: 25.0, color: "#4f4", edge: "#040", label: "KATO N"  },
-    "TOMIX_N": { gauge: 9.0,  space: 37.0, defWidth: 18.0, color: "#44f", edge: "#004", label: "TOMIX N" },
-    "KATO_HO": { gauge: 16.5, space: 60.0, defWidth: 40.0, color: "#4f4", edge: "#040", label: "KATO HO" }
-};
+/**
+ * rails.js - レール・ストラクチャー定義データ
+ * * 【記述ルール】
+ * 1. キー名（例: "KATO_S248"）は自動的に sId として処理されます。
+ * 2. 型を厳守（s=文字列, n=数値, b=真偽値）。
+ * 3. 全てのデータで全16項目（sId除く）を必ず記述してください。
+ */
 
 const railData = {
-    "1.KATO ユニトラック(N)": {
-        "1.1.基本(地上用・地上用スラブ含む)": [
-            { name: "S248", type: "straight", length: 248, std: "KATO_N", desc: "単線直線 248mm" },
-            { name: "S186", type: "straight", length: 186, std: "KATO_N", desc: "単線直線 186mm" },
-            { name: "R282-45", type: "curve", radius: [282], angle: 45, std: "KATO_N", desc: "単線曲線 R282-45" }
-        ],
-        "1.2.複線・複線カント付レール": [
-            { name: "WS248", type: "straight", length: 248, std: "KATO_N", isDouble: true, width: 57.5, desc: "複線直線 248mm" },
-            { name: "WR315/282-45", type: "curve",    radius: [315,282], angle: 45, std: "KATO_N", isDouble: true, width: 57.5, desc: "複線カント曲線" }
-        ],
-        "1.3.高架": [],
-        "1.4.ポイント": [
-            { name: "EP481-15L", type: "point-L", length: 248, radius:[481], angle: 15, jointRoles: ["base", "straight", "diverge"], joints: 3,  std: "KATO_N", desc: "4番ポイント左" },
-            { name: "EP481-15R", type: "point-R", length: 248, radius:[481], angle: 15, jointRoles: ["base", "straight", "diverge"], joints: 3,  std: "KATO_N", desc: "4番ポイント右" },
-            { name: "EP718-15L", type: "point-L", length: 248, radius:[718], angle: 15, jointRoles: ["base", "straight", "diverge"], joints: 3,  std: "KATO_N", desc: "6番ポイント左" },
-            { name: "EP718-15R", type: "point-R", length: 248, radius:[718], angle: 15, jointRoles: ["base", "straight", "diverge"], joints: 3,  std: "KATO_N", desc: "6番ポイント右" } 
-        ],
-        "1.5.その他(一部複線含む)": [
-            { name: "S62B", type: "straight", length: 62, std: "KATO_N", joints: 1, desc: "車止め線路" }
-        ]
+    // --- 直線レール ---
+    "KATO_S248": {
+        sName: "直線レール S248",
+        sProductCode: "20-000",
+        sMaker: "KATO",
+        sSeries: "UNITRACK",
+        sRole: "straight",
+        nLength: 248,
+        nRadius: 0,
+        nAngle: 0,
+        bIsDouble: false,
+        nTrackGap: 33,
+        sDirection: "none",
+        nViewWidth: 25,
+        nHeight: 0,
+        sColor: "#cccccc",
+        sComment: "標準的な直線レール。PC枕木版と共通で使用可能。",
+        sExtra: ""
     },
-    "2.TOMIX ファイントラック(N)": {
-        "2.1.基本(スラブ含めレール全色共通)": [
-            { name: "S280", type: "straight", length: 280, std: "TOMIX_N", desc: "ストレートレール S280" },
-            { name: "C282-45", type: "curve", radius: [282], angle: 45, std: "TOMIX_N", desc: "カーブレール C282-45" }
-        ],
-        "2.2.ワイドレール(地上用)": [],
-        "2.3.高架": [],
-        "2.4.ポイント": [],
-        "2.5.その他(一部ワイド含む)": []
+
+    // --- 複線曲線レール (代表半径 414mm / 381mm) ---
+    "KATO_R414_45_W": {
+        sName: "複線曲線 R414/381-45",
+        sProductCode: "20-540",
+        sMaker: "KATO",
+        sSeries: "UNITRACK",
+        sRole: "curve",
+        nLength: 0,
+        nRadius: 414,        // 外側を代表半径として指定
+        nAngle: 45,
+        bIsDouble: true,      // 複線フラグをON
+        nTrackGap: 33,       // 内側レールは (414 - 33) で自動計算される
+        sDirection: "none",
+        nViewWidth: 50,       // 道床2本分の幅
+        nHeight: 0,
+        sColor: "#999999",
+        sComment: "カント付き複線曲線。内側はR381。",
+        sExtra: ""
     },
-    "3.KATO ユニトラック(HO)": {
-        "3.1.基本": [
-            { name: "S246", type: "straight", length: 246, std: "KATO_HO", desc: "HO単線直線 246mm" },
-            { name: "R490-22.5", type: "curve", radius: [490], angle: 22.5, std: "KATO_HO", desc: "HO単線曲線 R490" }
-        ],
-        "3.2.PC(コンクリート枕木)": [],
-        "3.3.ポイント": [],
-        "3.5.その他": []
+
+    // --- 複線アプローチレール (左) ---
+    "KATO_WR414_22_5L": {
+        sName: "複線アプローチ R414/381-22.5L",
+        sProductCode: "20-544",
+        sMaker: "KATO",
+        sSeries: "UNITRACK",
+        sRole: "approach",
+        nLength: 0,
+        nRadius: 414,
+        nAngle: 22.5,
+        bIsDouble: true,
+        nTrackGap: 33,
+        sDirection: "left",  // 左方向にカーブが始まるアプローチ
+        nViewWidth: 50,
+        nHeight: 0,
+        sColor: "#888888",
+        sComment: "カント導入用アプローチレール（左用）。",
+        sExtra: ""
+    },
+
+    // --- ストラクチャー (駅舎) ---
+    "KATO_23_210": {
+        sName: "地上駅舎",
+        sProductCode: "23-210",
+        sMaker: "KATO",
+        sSeries: "STRUCTURE",
+        sRole: "structure",
+        nLength: 160,        // 建物の奥行きとして使用
+        nRadius: 0,
+        nAngle: 0,
+        bIsDouble: false,
+        nTrackGap: 0,
+        sDirection: "none",
+        nViewWidth: 80,       // 建物の横幅として使用
+        nHeight: 0,
+        sColor: "#d2b48c",
+        sComment: "木造の標準的な駅舎。",
+        sExtra: ""
+    },
+
+    // --- 備品 (会議机) ---
+    "DESK_1800_450": {
+        sName: "会議用長机",
+        sProductCode: "MTG-1845",
+        sMaker: "ASKUL",
+        sSeries: "OFFICE",
+        sRole: "furniture",
+        nLength: 450,        // 奥行き
+        nRadius: 0,
+        nAngle: 0,
+        bIsDouble: false,
+        nTrackGap: 0,
+        sDirection: "front",
+        nViewWidth: 1800,      // 横幅
+        nHeight: 700,         // 机の高さ
+        sColor: "#ffffff",
+        sComment: "設営シミュレーション用。1800x450サイズ。",
+        sExtra: ""
     }
 };

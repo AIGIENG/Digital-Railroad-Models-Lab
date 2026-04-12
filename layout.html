@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0012f</title>
+    <title>Railroad Models Layout Designer v.0013</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -194,7 +194,7 @@
             }
 
             /**
-             * 個別パーツ描画（複線時の道床幅を再々修正）
+             * 個別パーツ描画（nViewWidthを絶対的な道床幅として扱う修正版）
              */
             function drawPart(ctx, p) {
                 ctx.save();
@@ -203,6 +203,9 @@
             
                 const halfView = p.nViewWidth / 2;
                 const halfGauge = (p.nGauge && p.nGauge > 0) ? p.nGauge / 2 : 0;
+                
+                // 道床の描画基準となる中心線を計算（単線なら0、複線ならGapの半分）
+                const centerOffset = p.bIsDouble ? (p.nTrackGap / 2) : 0;
             
                 // --- 1. 外形（道床・土台）の描画 ---
                 ctx.strokeStyle = p.sColor;
@@ -211,21 +214,18 @@
             
                 ctx.beginPath();
                 if (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") {
-                    // 直線：y軸の開始を -halfView、終了を (複線なら nTrackGap + halfView) に固定
-                    const yStart = -halfView;
-                    const yEnd = p.bIsDouble ? (p.nTrackGap + halfView) : halfView;
-                    const totalHeight = yEnd - yStart;
-                    
-                    ctx.fillRect(0, yStart, p.nLength, totalHeight);
-                    ctx.strokeRect(0, yStart, p.nLength, totalHeight);
+                    // 直線：centerOffset を中心に nViewWidth の幅で描く
+                    const yStart = centerOffset - halfView;
+                    ctx.fillRect(0, yStart, p.nLength, p.nViewWidth);
+                    ctx.strokeRect(0, yStart, p.nLength, p.nViewWidth);
                 } else if (p.sRole === "curve" || p.sRole === "approach") {
-                    // 曲線：外側の半径は R + halfView
-                    const outerR = p.nRadius + halfView;
-                    // 内側の半径は (複線なら R - nTrackGap - halfView)
-                    const innerR = p.bIsDouble ? (p.nRadius - p.nTrackGap - halfView) : (p.nRadius - halfView);
+                    // 曲線：centerOffset を中心に nViewWidth の厚みで描く
+                    const centerR = p.nRadius - centerOffset;
+                    const outerEdgeR = centerR + halfView;
+                    const innerEdgeR = centerR - halfView;
                     
-                    ctx.arc(0, p.nRadius, outerR, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
-                    ctx.arc(0, p.nRadius, innerR, (-90 + p.nAngle) * Math.PI / 180, -Math.PI / 2, true);
+                    ctx.arc(0, p.nRadius, outerEdgeR, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
+                    ctx.arc(0, p.nRadius, innerEdgeR, (-90 + p.nAngle) * Math.PI / 180, -Math.PI / 2, true);
                     ctx.closePath();
                     ctx.fill();
                     ctx.stroke();
@@ -236,7 +236,7 @@
                     ctx.strokeStyle = "#555555";
                     ctx.lineWidth = 1;
             
-                    // 第1線（基準）
+                    // 第1線（基準線：y=0）
                     if (p.sRole === "straight") {
                         ctx.beginPath();
                         ctx.moveTo(0, -halfGauge); ctx.lineTo(p.nLength, -halfGauge);
@@ -251,7 +251,7 @@
                         ctx.stroke();
                     }
                     
-                    // 第2線（複線時のみ）
+                    // 第2線（複線：y=nTrackGap）
                     if (p.bIsDouble && p.nTrackGap > 0) {
                         const gap = p.nTrackGap;
                         if (p.sRole === "straight") {

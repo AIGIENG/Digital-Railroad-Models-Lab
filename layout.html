@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0045</title>
+    <title>Railroad Models Layout Designer v.0046</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -313,7 +313,8 @@
             }
 
 /**
- * rails.js の定義を直接、4つの角（左上・左下・右上・右下）の座標に変換する
+ * 複線・単線・分岐のインデックス不整合を完全に解消する
+ * 0,1 を「起点（左）」、2,3 を「終点（右）」にグループ化して固定
  */
 function getConnectorPoints(p, x, y, rotation) {
     const points = [];
@@ -326,48 +327,35 @@ function getConnectorPoints(p, x, y, rotation) {
         return { x: x + tx, y: y + ty };
     };
 
-    // --- 1. 全てのレールの「起点側」を定義 ---
-    // 0: 基準線・起点（左上）
-    points.push(transform(0, 0)); 
-    
-    // 複線(junctionCount:4)の場合のみ、2つ目の起点を追加
-    if (p.junctionCount === 4) {
-        // 1: 併設線・起点（左下） -> ここを 0 固定にすることで右下への飛びを防止
-        points.push(transform(0, gap));
-    }
+    // --- rails.js の junctionCount に基づく絶対座標配置 ---
+    for (let i = 0; i < p.junctionCount; i++) {
+        let rx = 0;
+        let ry = 0;
 
-    // --- 2. 全てのレールの「終点側」を定義 ---
-    // junctionCount が 1（車止め）以上の場合は終点計算が必要
-    if (p.junctionCount >= 1) {
-        // 終点1（右上 / 単線の右）の計算
-        let rx1, ry1;
-        if (p.sRole === "straight") {
-            rx1 = p.nLength;
-            ry1 = 0;
-        } else {
-            const a = (p.nAngle * Math.PI) / 180;
-            rx1 = Math.sin(a) * p.nRadius;
-            ry1 = p.nRadius - Math.cos(a) * p.nRadius;
-        }
+        // 【ここが重要】単線(2)と複線(4)で 1番の「左右」を入れ替えない
+        // 常に「前半は左(rx=0)」「後半は右(rx=nLength)」というルールを強制する
         
-        // junctionCount が 1, 2 の場合はこれが最後の点、3, 4 の場合は「右上」
-        points.push(transform(rx1, ry1));
+        const isLeftHalf = (p.junctionCount <= 2) ? (i === 0) : (i < 2);
+        const isSubLine = (p.junctionCount === 4 && (i === 1 || i === 3));
 
-        // 複線(junctionCount:4)または分岐(junctionCount:3)の追加終点
-        if (p.junctionCount >= 3) {
-            let rx2, ry2;
+        if (isLeftHalf) {
+            // 起点グループ
+            rx = 0;
+            ry = isSubLine ? gap : 0;
+        } else {
+            // 終点グループ
             if (p.sRole === "straight") {
-                rx2 = p.nLength;
-                ry2 = (p.junctionCount === 4) ? gap : 0; // 複線なら下側、分岐なら定義に準ずる
+                rx = p.nLength;
+                ry = isSubLine ? gap : 0;
             } else {
+                // 曲線・アプローチ
                 const a = (p.nAngle * Math.PI) / 180;
-                // 複線(4)の場合は内線(nRadius - gap)、分岐(3)の場合は外線と同じ半径
-                const r2 = (p.junctionCount === 4) ? (p.nRadius - gap) : p.nRadius;
-                rx2 = Math.sin(a) * r2;
-                ry2 = r2 - Math.cos(a) * r2 + ((p.junctionCount === 4) ? gap : 0);
+                const r = isSubLine ? (p.nRadius - gap) : p.nRadius;
+                rx = Math.sin(a) * r;
+                ry = r - Math.cos(a) * r + (isSubLine ? gap : 0);
             }
-            points.push(transform(rx2, ry2));
         }
+        points.push(transform(rx, ry));
     }
 
     return points;

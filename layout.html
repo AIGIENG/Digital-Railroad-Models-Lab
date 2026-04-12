@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0018</title>
+    <title>Railroad Models Layout Designer v.0019</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -313,34 +313,30 @@
             }
 
             /**
-             * 接続点（ジョイナー位置）を算出する補助関数
-             * ※既存のデータ構造に基づき、レールの端点を返します
+             * 指定された座標と回転角における接続点のグローバル座標を算出
              */
-            function getConnectorPoints(p) {
+            function getConnectorPoints(p, x, y, rotation) {
                 const points = [];
                 const centerOffset = p.bIsDouble ? (p.nTrackGap / 2) : 0;
+                const rad = rotation * Math.PI / 180;
             
-                // 起点 (0, centerOffset)
-                points.push({ x: 0, y: centerOffset });
-            
+                // 1. パーツ内ローカル座標（起点と終点）
+                const local = [{ x: 0, y: centerOffset }];
                 if (p.sRole === "straight") {
-                    // 終点 (Length, centerOffset)
-                    points.push({ x: p.nLength, y: centerOffset });
+                    local.push({ x: p.nLength, y: centerOffset });
                 } else if (p.sRole === "curve" || p.sRole === "approach") {
-                    // 終点 (R*sin(angle), R*(1-cos(angle)) 的な回転座標)
-                    const rad = p.nAngle * Math.PI / 180;
+                    const aRad = p.nAngle * Math.PI / 180;
                     const r = p.nRadius - centerOffset;
-                    points.push({
-                        x: r * Math.sin(rad),
-                        y: p.nRadius - r * Math.cos(rad)
+                    local.push({
+                        x: r * Math.sin(aRad),
+                        y: p.nRadius - r * Math.cos(aRad)
                     });
                 }
-                
-                // パーツ自身の回転(p.rotation)を考慮した座標変換
-                const pRad = p.rotation * Math.PI / 180;
-                return points.map(pt => ({
-                    x: pt.x * Math.cos(pRad) - pt.y * Math.sin(pRad),
-                    y: pt.x * Math.sin(pRad) + pt.y * Math.cos(pRad)
+            
+                // 2. ローカル座標を現在の回転と位置(x, y)でグローバル座標に変換
+                return local.map(pt => ({
+                    x: x + (pt.x * Math.cos(rad) - pt.y * Math.sin(rad)),
+                    y: y + (pt.x * Math.sin(rad) + pt.y * Math.cos(rad))
                 }));
             }
             
@@ -387,39 +383,39 @@
             };
         
             /**
-             * マウス移動イベント（吸着スナップ機能の実装）
+             * マウス移動イベント（吸着ロジックの修正版）
              */
             canvas.onmousemove = function(e) {
                 if (!isDragging || !draggedPart) return;
             
                 const pos = getMousePos(canvas, e);
-                const snapDistance = 15; // 吸着する距離（ピクセル）
+                const snapDistance = 20; // 吸着感度を少し上げました
             
-                // 1. マウス位置に基づいて暫定的な新座標を計算
+                // 1. マウス位置（パーツ中心）からパーツの起点(x, y)を逆算
                 let newX = pos.x - dragOffset.x;
                 let newY = pos.y - dragOffset.y;
             
-                // 2. 他のパーツとの接続判定
+                // 2. 吸着判定
                 let snapped = false;
+                // 自身の接続点を算出（自身の現在のドラッグ位置に基づき一時的な座標を計算）
+                const selfPoints = getConnectorPoints(draggedPart, newX, newY, draggedPart.rotation);
+            
                 for (const other of layers.rail) {
                     if (other.id === draggedPart.id) continue;
             
-                    // 自身の接続点(self)と、相手の接続点(target)を定義
-                    // ※簡易版としてレールの両端（起点と終点）をループ
-                    const selfPoints = getConnectorPoints(draggedPart);
-                    const targetPoints = getConnectorPoints(other);
+                    // 相手の接続点を算出（固定位置）
+                    const targetPoints = getConnectorPoints(other, other.x, other.y, other.rotation);
             
                     for (const sp of selfPoints) {
                         for (const tp of targetPoints) {
-                            // 距離の計算
-                            const dx = (newX + sp.x) - tp.x;
-                            const dy = (newY + sp.y) - tp.y;
+                            const dx = sp.x - tp.x;
+                            const dy = sp.y - tp.y;
                             const dist = Math.sqrt(dx * dx + dy * dy);
             
                             if (dist < snapDistance) {
-                                // 吸着：位置を補正
-                                newX = tp.x - sp.x;
-                                newY = tp.y - sp.y;
+                                // spがtpに重なるように、パーツ全体の座標(newX, newY)をオフセット分補正
+                                newX -= dx;
+                                newY -= dy;
                                 snapped = true;
                                 break;
                             }
@@ -429,7 +425,6 @@
                     if (snapped) break;
                 }
             
-                // 3. 座標の更新と再描画
                 draggedPart.x = newX;
                 draggedPart.y = newY;
                 render();

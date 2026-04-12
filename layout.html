@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0008</title>
+    <title>Railroad Models Layout Designer v.0009</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -194,48 +194,55 @@
             }
         
             /**
-             * 個別パーツ描画（nViewWidthとnGaugeを参照した精密描画版）
+             * 個別パーツ描画（複線カーブの道床位置をレール基準に修正）
              */
             function drawPart(ctx, p) {
                 ctx.save();
                 ctx.translate(p.x, p.y);
                 ctx.rotate((p.rotation * Math.PI) / 180);
             
+                const halfView = p.nViewWidth / 2;
+                const halfGauge = (p.nGauge && p.nGauge > 0) ? p.nGauge / 2 : 0;
+            
                 // --- 1. 外形（道床・土台）の描画 ---
-                // nViewWidth を参照
                 ctx.strokeStyle = p.sColor;
                 ctx.lineWidth = 1;
-                ctx.fillStyle = p.sColor + "33"; // 20%程度の透明度で塗りつぶし
+                ctx.fillStyle = p.sColor + "33"; 
             
+                ctx.beginPath();
                 if (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") {
-                    // 直線・矩形
-                    ctx.fillRect(0, -p.nViewWidth / 2, p.nLength, p.nViewWidth);
-                    ctx.strokeRect(0, -p.nViewWidth / 2, p.nLength, p.nViewWidth);
+                    // 直線側の道床（複線時は2本分をカバー）
+                    const totalWidth = p.bIsDouble ? (p.nTrackGap + p.nViewWidth) : p.nViewWidth;
+                    ctx.rect(0, -halfView, p.nLength, totalWidth);
                 } else if (p.sRole === "curve" || p.sRole === "approach") {
-                    // 曲線（道床）
-                    ctx.beginPath();
-                    ctx.arc(0, p.nRadius, p.nRadius + p.nViewWidth / 2, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
-                    ctx.arc(0, p.nRadius, p.nRadius - p.nViewWidth / 2, (-90 + p.nAngle) * Math.PI / 180, -Math.PI / 2, true);
+                    // 曲線側の道床
+                    // 外側の縁：基準半径 + 道床半幅
+                    ctx.arc(0, p.nRadius, p.nRadius + halfView, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
+                    
+                    if (p.bIsDouble && p.nTrackGap > 0) {
+                        // 複線時：内側レールのさらに内側まで道床を広げる
+                        ctx.arc(0, p.nRadius, p.nRadius - p.nTrackGap - halfView, (-90 + p.nAngle) * Math.PI / 180, -Math.PI / 2, true);
+                    } else {
+                        // 単線時：基準レールの内側
+                        ctx.arc(0, p.nRadius, p.nRadius - halfView, (-90 + p.nAngle) * Math.PI / 180, -Math.PI / 2, true);
+                    }
                     ctx.closePath();
-                    ctx.fill();
-                    ctx.stroke();
                 }
+                ctx.fill();
+                ctx.stroke();
             
                 // --- 2. レールの描画 ---
-                // nGauge が 0 より大きい場合のみ、中心から左右に nGauge/2 離した2本線を描く
-                if (p.nGauge && p.nGauge > 0) {
-                    ctx.strokeStyle = "#555555"; // レール色（濃いグレー）
+                if (halfGauge > 0) {
+                    ctx.strokeStyle = "#555555";
                     ctx.lineWidth = 1;
-                    const halfGauge = p.nGauge / 2;
             
+                    // 1本目（基準レール）
                     if (p.sRole === "straight") {
-                        // 直線レール2本
                         ctx.beginPath();
                         ctx.moveTo(0, -halfGauge); ctx.lineTo(p.nLength, -halfGauge);
                         ctx.moveTo(0, halfGauge);  ctx.lineTo(p.nLength, halfGauge);
                         ctx.stroke();
                     } else if (p.sRole === "curve" || p.sRole === "approach") {
-                        // 曲線レール2本
                         ctx.beginPath();
                         ctx.arc(0, p.nRadius, p.nRadius - halfGauge, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
                         ctx.stroke();
@@ -244,20 +251,20 @@
                         ctx.stroke();
                     }
                     
-                    // 複線(bIsDouble)の場合の処理
+                    // 2本目（複線レール：内側に nTrackGap オフセット）
                     if (p.bIsDouble && p.nTrackGap > 0) {
-                        const gap = p.nTrackGap;
+                        const innerR = p.nRadius - p.nTrackGap;
                         if (p.sRole === "straight") {
                             ctx.beginPath();
-                            ctx.moveTo(0, gap - halfGauge); ctx.lineTo(p.nLength, gap - halfGauge);
-                            ctx.moveTo(0, gap + halfGauge); ctx.lineTo(p.nLength, gap + halfGauge);
+                            ctx.moveTo(0, p.nTrackGap - halfGauge); ctx.lineTo(p.nLength, p.nTrackGap - halfGauge);
+                            ctx.moveTo(0, p.nTrackGap + halfGauge); ctx.lineTo(p.nLength, p.nTrackGap + halfGauge);
                             ctx.stroke();
                         } else if (p.sRole === "curve" || p.sRole === "approach") {
                             ctx.beginPath();
-                            ctx.arc(0, p.nRadius, p.nRadius - gap - halfGauge, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
+                            ctx.arc(0, p.nRadius, innerR - halfGauge, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
                             ctx.stroke();
                             ctx.beginPath();
-                            ctx.arc(0, p.nRadius, p.nRadius - gap + halfGauge, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
+                            ctx.arc(0, p.nRadius, innerR + halfGauge, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
                             ctx.stroke();
                         }
                     }
@@ -265,7 +272,7 @@
             
                 ctx.restore();
             }
-
+            
             /**
              * キャンバスのイベント初期化（ドロップ対応）
              */

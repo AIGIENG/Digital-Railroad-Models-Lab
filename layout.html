@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0006</title>
+    <title>Railroad Models Layout Designer v.0007</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -82,29 +82,28 @@
             }
         
             /**
-             * サイドバーの生成（sSeries > sRole のツリー表示）
+             * サイドバーの生成（ドラッグ専用版）
+             * クリック配置を廃止し、ドラッグ＆ドロップのみを有効にします。
              */
             function initSidebar() {
                 const listContainer = document.getElementById('rail-list');
                 listContainer.innerHTML = "";
-        
+            
                 if (typeof railData === 'undefined') {
                     listContainer.innerHTML = "<p style='color:red;'>rails.js not found</p>";
                     return;
                 }
-        
-                // データをツリー構造に整理
+            
                 const tree = {};
                 Object.entries(railData).forEach(([key, rail]) => {
-                    rail.sId = key; // IDの自動補完
+                    rail.sId = key;
                     const series = rail.sSeries || "Unknown Series";
                     const role = rail.sRole || "Other";
                     if (!tree[series]) tree[series] = {};
                     if (!tree[series][role]) tree[series][role] = [];
                     tree[series][role].push(rail);
                 });
-        
-                // ツリーHTML構築
+            
                 Object.keys(tree).sort().forEach(seriesName => {
                     const seriesDetails = document.createElement("details");
                     seriesDetails.style.marginBottom = "10px";
@@ -115,7 +114,7 @@
                     seriesSummary.style.background = "#1a252f";
                     seriesSummary.textContent = "[+] " + seriesName;
                     seriesDetails.appendChild(seriesSummary);
-        
+            
                     Object.keys(tree[seriesName]).sort().forEach(roleName => {
                         const roleDetails = document.createElement("details");
                         roleDetails.style.marginLeft = "15px";
@@ -126,18 +125,28 @@
                         roleSummary.style.color = "#1abc9c";
                         roleSummary.textContent = "> " + roleName;
                         roleDetails.appendChild(roleSummary);
-        
+            
                         tree[seriesName][roleName].forEach(rail => {
                             const div = document.createElement("div");
                             div.className = "rail-item";
                             div.style.marginLeft = "10px";
+                            div.style.cursor = "grab"; // ドラッグ可能であることを示すカーソル
+                            div.draggable = true;      // HTML5ドラッグを有効化
                             div.innerHTML = `${rail.sName}<span class="rail-item-sub">${rail.sProductCode}</span>`;
-                            div.onclick = () => addPartToCanvas(rail);
+                            
+                            // 【クリック配置廃止】div.onclick は設定しません
+            
+                            // ドラッグ開始時に ID を格納
+                            div.ondragstart = (e) => {
+                                e.dataTransfer.setData("text/plain", rail.sId);
+                                e.dataTransfer.effectAllowed = "copy";
+                            };
+            
                             roleDetails.appendChild(div);
                         });
                         seriesDetails.appendChild(roleDetails);
                     });
-        
+            
                     seriesDetails.addEventListener("toggle", () => {
                         seriesSummary.textContent = (seriesDetails.open ? "[-] " : "[+] ") + seriesName;
                     });
@@ -175,7 +184,71 @@
                     y: evt.clientY - rect.top
                 };
             }
+
+            /**
+             * 描画処理
+             */
+            function render() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                layers.rail.forEach(part => drawPart(ctx, part));
+            }
         
+            /**
+             * 個別パーツ描画
+             */
+            function drawPart(ctx, p) {
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate((p.rotation * Math.PI) / 180);
+                ctx.strokeStyle = p.sColor;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+        
+                if (p.sRole === "straight") {
+                    ctx.strokeRect(0, -p.nViewWidth/2, p.nLength, p.nViewWidth);
+                } else if (p.sRole === "curve" || p.sRole === "approach") {
+                    ctx.arc(0, p.nRadius, p.nRadius, -Math.PI/2, (-90 + p.nAngle) * Math.PI / 180);
+                    ctx.stroke();
+                } else if (p.sRole === "structure" || p.sRole === "furniture") {
+                    ctx.fillStyle = p.sColor + "44";
+                    ctx.fillRect(0, -p.nViewWidth/2, p.nLength, p.nViewWidth);
+                    ctx.strokeRect(0, -p.nViewWidth/2, p.nLength, p.nViewWidth);
+                }
+                ctx.restore();
+            }
+
+            /**
+             * キャンバスのイベント初期化（ドロップ対応）
+             */
+            function initCanvasEvents() {
+                // ドロップを許可するための設定
+                canvas.ondragover = (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "copy";
+                };
+            
+                // ドロップ実行時の処理
+                canvas.ondrop = (e) => {
+                    e.preventDefault();
+                    const sId = e.dataTransfer.getData("text/plain");
+                    const sourceData = railData[sId];
+                    
+                    if (sourceData) {
+                        const pos = getMousePos(canvas, e);
+                        // マウスの先端位置にパーツを新規配置
+                        const newPart = {
+                            ...sourceData,
+                            id: Date.now(),
+                            x: pos.x,
+                            y: pos.y,
+                            rotation: 0
+                        };
+                        layers.rail.push(newPart);
+                        render();
+                    }
+                };
+            }
+            
             // --- マウスイベント ---
             canvas.onmousedown = function(e) {
                 const pos = getMousePos(canvas, e);
@@ -210,40 +283,15 @@
                 isDragging = false;
                 draggedPart = null;
             };
-        
+                    
             /**
-             * 描画処理
+             * window.onload を更新
              */
-            function render() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                layers.rail.forEach(part => drawPart(ctx, part));
-            }
-        
-            /**
-             * 個別パーツ描画
-             */
-            function drawPart(ctx, p) {
-                ctx.save();
-                ctx.translate(p.x, p.y);
-                ctx.rotate((p.rotation * Math.PI) / 180);
-                ctx.strokeStyle = p.sColor;
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-        
-                if (p.sRole === "straight") {
-                    ctx.strokeRect(0, -p.nViewWidth/2, p.nLength, p.nViewWidth);
-                } else if (p.sRole === "curve" || p.sRole === "approach") {
-                    ctx.arc(0, p.nRadius, p.nRadius, -Math.PI/2, (-90 + p.nAngle) * Math.PI / 180);
-                    ctx.stroke();
-                } else if (p.sRole === "structure" || p.sRole === "furniture") {
-                    ctx.fillStyle = p.sColor + "44";
-                    ctx.fillRect(0, -p.nViewWidth/2, p.nLength, p.nViewWidth);
-                    ctx.strokeRect(0, -p.nViewWidth/2, p.nLength, p.nViewWidth);
-                }
-                ctx.restore();
-            }
-        
-            window.onload = init;
+            window.onload = () => {
+                init();
+                initCanvasEvents(); // ドロップ受付を開始
+            };
+            
         </script>
     </body>
 </html>

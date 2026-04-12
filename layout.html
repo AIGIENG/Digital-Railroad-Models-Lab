@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0035</title>
+    <title>Railroad Models Layout Designer v.0036</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -313,13 +313,13 @@
             }
 
 /**
- * nTrackGap を基準に、複線の接続点を左右へ振り分けて算出
+ * レールの描画基準（各線の中心線）に合わせて接続点を算出
  */
 function getConnectorPoints(p, x, y, rotation) {
     const points = [];
     const rad = (rotation * Math.PI) / 180;
     const count = p.junctionCount || 2;
-    // 複線間隔の半分を算出（デフォルト33mmの半分 = 16.5mm）
+    // 複線間隔を基準としたオフセット
     const halfGap = (p.nTrackGap || 33) / 2;
 
     const transform = (rx, ry) => {
@@ -329,7 +329,7 @@ function getConnectorPoints(p, x, y, rotation) {
     };
 
     if (p.bIsDouble && count === 4) {
-        // --- 複線：nTrackGap を基準に左右2線分を生成 ---
+        // --- 複線：描画される2本のレール位置にそれぞれ接点を配置 ---
         // 起点側（y方向に ±halfGap）
         points.push(transform(0, -halfGap)); 
         points.push(transform(0, halfGap));
@@ -343,13 +343,13 @@ function getConnectorPoints(p, x, y, rotation) {
             const rOut = p.nRadius;
             const rIn = p.nRadius - (p.nTrackGap || 33);
             
-            // 外線終点
+            // 外線（基準半径）の終点
             points.push(transform(Math.sin(a) * rOut, rOut - Math.cos(a) * rOut - halfGap));
-            // 内線終点（外線半径から nTrackGap を引いて算出）
+            // 内線（基準半径 - nTrackGap）の終点
             points.push(transform(Math.sin(a) * rIn, rOut - Math.cos(a) * rIn - halfGap));
         }
     } else {
-        // --- 単線：中央（0,0）を基準に生成 ---
+        // --- 単線：中央（0,0）を基準に生成（既存仕様を維持） ---
         points.push(transform(0, 0)); 
 
         if (count >= 2) {

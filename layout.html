@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0024</title>
+    <title>Railroad Models Layout Designer v.0025</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -419,7 +419,7 @@
             };
 
             /**
-             * マウス移動イベント（Shiftキー押下時はスナップ処理をスキップ）
+             * マウス移動イベント（吸着時に相手の角度へ同期する実装）
              */
             canvas.onmousemove = function(e) {
                 if (!isDragging || !draggedPart) return;
@@ -427,14 +427,13 @@
                 const pos = getMousePos(canvas, e);
                 const snapDistance = 20;
             
-                // 1. マウス位置（パーツ基準点）から暫定座標を計算
                 let newX = pos.x - dragOffset.x;
                 let newY = pos.y - dragOffset.y;
             
-                // 2. スナップ判定（Shiftキーが押されていない場合のみ実行）
-                // e.shiftKey が true の時はこのブロック全体を飛ばす
+                // Shiftキーが押されていない場合のみスナップおよび角度同期を実行
                 if (!e.shiftKey) {
                     let snapped = false;
+                    // 現在の角度での接続点を算出
                     const selfPoints = getConnectorPoints(draggedPart, newX, newY, draggedPart.rotation);
             
                     for (const other of layers.rail) {
@@ -442,16 +441,32 @@
             
                         const targetPoints = getConnectorPoints(other, other.x, other.y, other.rotation);
             
-                        for (const sp of selfPoints) {
-                            for (const tp of targetPoints) {
+                        for (let i = 0; i < selfPoints.length; i++) {
+                            for (let j = 0; j < targetPoints.length; j++) {
+                                const sp = selfPoints[i];
+                                const tp = targetPoints[j];
+                                
                                 const dx = sp.x - tp.x;
                                 const dy = sp.y - tp.y;
                                 const dist = Math.sqrt(dx * dx + dy * dy);
             
                                 if (dist < snapDistance) {
-                                    // 接続点同士を一致させる
-                                    newX -= dx;
-                                    newY -= dy;
+                                    // 1. 角度の同期
+                                    // 接続する端点同士の組み合わせに基づき、角度を合わせる
+                                    // 基本は相手の角度(other.rotation)に合わせるが、
+                                    // 接続の向き（起点・終点）によって180度調整が必要な場合を考慮
+                                    let targetRotation = other.rotation;
+                                    
+                                    // 直線的な接続（起点-終点、または終点-起点）を想定した角度調整
+                                    // ※曲線レールの接線方向なども含め、other.rotation を基準にセット
+                                    draggedPart.rotation = targetRotation;
+            
+                                    // 2. 位置の補正（角度が変わった状態で再計算して吸着させる）
+                                    const updatedSelfPoints = getConnectorPoints(draggedPart, newX, newY, draggedPart.rotation);
+                                    const usp = updatedSelfPoints[i];
+                                    newX -= (usp.x - tp.x);
+                                    newY -= (usp.y - tp.y);
+            
                                     snapped = true;
                                     break;
                                 }
@@ -462,7 +477,6 @@
                     }
                 }
             
-                // 3. 最終的な座標の反映
                 draggedPart.x = newX;
                 draggedPart.y = newY;
                 render();

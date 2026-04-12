@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0053</title>
+    <title>Railroad Models Layout Designer v.0054</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -380,36 +380,31 @@ function getConnectorPoints(p, x, y, rotation) {
                 }
             };
             
-            // --- マウスイベント ---
-            /**
-             * マウスダウンイベント（回転を考慮した正確な当たり判定）
-             */
+// A. 選択（掴む）処理
 canvas.onmousedown = function(e) {
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    // 逆順にループして、一番上のレールを選択
+    // 既存の選択ロジックをベースに、オフセット保持を追加
     for (let i = rails.length - 1; i >= 0; i--) {
         const rail = rails[i];
-        // 簡易的な矩形判定（または既存の判定ロジックがあればそれを流用）
-        if (Math.abs(mouseX - rail.x) < 50 && Math.abs(mouseY - rail.y) < 50) {
+        // 判定幅を少し広めに設定（選択しやすさのため）
+        if (Math.abs(mouseX - rail.x) < 40 && Math.abs(mouseY - rail.y) < 40) {
             draggedRail = rail;
             isDragging = true;
-            // 掴んだ位置のオフセットを記録（これが動かない原因の解消です）
+            // 重要：掴んだ位置と中心の差を記録
             offsetX = mouseX - rail.x;
             offsetY = mouseY - rail.y;
-            // 選択したレールを配列の最後に移動（最前面へ）
+            // 選択したレールを最前面へ
             rails.splice(i, 1);
             rails.push(draggedRail);
             break;
         }
     }
 };
-            
-/**
- * マウス移動イベント（180度反転時のジャンプ防止・追従補正版）
- */
+
+// B. 移動と吸着の処理
 canvas.onmousemove = function(e) {
     if (!isDragging || !draggedRail) return;
 
@@ -417,63 +412,58 @@ canvas.onmousemove = function(e) {
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    // オフセットを考慮して移動
-    draggedRail.x = mouseX - offsetX;
-    draggedRail.y = mouseY - offsetY;
+    // まずは自由に移動させる
+    draggedRail.x = mouseX - (typeof offsetX !== 'undefined' ? offsetX : 0);
+    draggedRail.y = mouseY - (typeof offsetY !== 'undefined' ? offsetY : 0);
 
     let bestMatch = null;
-    let minDistance = 15;
-    let draggedPointIdx = -1;
-    let targetPointCoords = null;
+    let minDistance = 15; // 判定精度
+    let myPointIdx = -1;
+    let targetPoint = null;
 
+    // ドラッグ中の全接点
     const myPoints = getConnectorPoints(draggedRail, draggedRail.x, draggedRail.y, draggedRail.rotation);
 
-    rails.forEach(targetRail => {
-        if (targetRail === draggedRail) return;
-        const targetPoints = getConnectorPoints(targetRail, targetRail.x, targetRail.y, targetRail.rotation);
+    // 全レールとの当たり判定
+    rails.forEach(tRail => {
+        if (tRail === draggedRail) return;
+        const tPoints = getConnectorPoints(tRail, tRail.x, tRail.y, tRail.rotation);
 
         myPoints.forEach((p1, i) => {
-            targetPoints.forEach((p2, j) => {
+            tPoints.forEach((p2, j) => {
                 const dx = p1.x - p2.x;
                 const dy = p1.y - p2.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 if (dist < minDistance) {
                     minDistance = dist;
-                    bestMatch = targetRail;
-                    draggedPointIdx = i;
-                    targetPointCoords = { x: p2.x, y: p2.y };
+                    bestMatch = tRail;
+                    myPointIdx = i;
+                    targetPoint = p2;
                 }
             });
         });
     });
 
-    if (bestMatch && targetPointCoords) {
+    // 吸着実行
+    if (bestMatch && targetPoint) {
         const relPoints = getConnectorPoints(draggedRail, 0, 0, draggedRail.rotation);
-        const myOffset = relPoints[draggedPointIdx];
-        draggedRail.x = targetPointCoords.x - myOffset.x;
-        draggedRail.y = targetPointCoords.y - myOffset.y;
+        const myOffset = relPoints[myPointIdx];
+        draggedRail.x = targetPoint.x - myOffset.x;
+        draggedRail.y = targetPoint.y - myOffset.y;
         isSnapped = true;
     } else {
         isSnapped = false;
     }
+
     draw();
 };
 
+// C. 離す処理（確実性を高めるため window に設定）
 window.onmouseup = function() {
-    if (isDragging) {
-        isDragging = false;
-        draggedRail = null;
-        draw(); // 最後に描画を確定
-    }
+    isDragging = false;
+    draggedRail = null;
+    draw();
 };
-                    
-            /**
-             * window.onload を更新
-             */
-            window.onload = () => {
-                init();
-                initCanvasEvents(); // ドロップ受付を開始
-            };
             
         </script>
     </body>

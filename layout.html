@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0055f</title>
+    <title>Railroad Models Layout Designer v.0056</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -45,273 +45,70 @@
         <script src="rails.js"></script>
     
         <script>
-            // --- 状態管理 ---
-            const layers = {
-                rail: [] // キャンバス上に配置されたレールの配列
-            };
-        
-            // --- キャンバス設定 ---
-            const CANVAS_CONFIG = {
-                width: 5000,
-                height: 5000
-            };
-        
-            // --- マウス操作用ステート ---
-            let isDragging = false;
-            let draggedPart = null;
-            let dragOffset = { x: 0, y: 0 };
-        
-            const canvas = document.getElementById('canvas');
-            const ctx = canvas.getContext('2d');
-        
-            /**
-             * 初期化処理
-             */
-            function init() {
-                initCanvas();
-                initSidebar();
-                render();
-            }
-        
-            /**
-             * キャンバスの初期化
-             */
-            function initCanvas() {
-                canvas.width = CANVAS_CONFIG.width;
-                canvas.height = CANVAS_CONFIG.height;
-            }
-        
-            /**
-             * サイドバーの生成（ドラッグ専用版）
-             * クリック配置を廃止し、ドラッグ＆ドロップのみを有効にします。
-             */
-            function initSidebar() {
-                const listContainer = document.getElementById('rail-list');
-                listContainer.innerHTML = "";
-            
-                if (typeof railData === 'undefined') {
-                    listContainer.innerHTML = "<p style='color:red;'>rails.js not found</p>";
-                    return;
-                }
-            
-                const tree = {};
-                Object.entries(railData).forEach(([key, rail]) => {
-                    rail.sId = key;
-                    const series = rail.sSeries || "Unknown Series";
-                    const role = rail.sRole || "Other";
-                    if (!tree[series]) tree[series] = {};
-                    if (!tree[series][role]) tree[series][role] = [];
-                    tree[series][role].push(rail);
-                });
-            
-                Object.keys(tree).sort().forEach(seriesName => {
-                    const seriesDetails = document.createElement("details");
-                    seriesDetails.style.marginBottom = "10px";
-                    const seriesSummary = document.createElement("summary");
-                    seriesSummary.style.cursor = "pointer";
-                    seriesSummary.style.fontWeight = "bold";
-                    seriesSummary.style.padding = "5px";
-                    seriesSummary.style.background = "#1a252f";
-                    seriesSummary.textContent = "[+] " + seriesName;
-                    seriesDetails.appendChild(seriesSummary);
-            
-                    Object.keys(tree[seriesName]).sort().forEach(roleName => {
-                        const roleDetails = document.createElement("details");
-                        roleDetails.style.marginLeft = "15px";
-                        roleDetails.style.marginTop = "5px";
-                        const roleSummary = document.createElement("summary");
-                        roleSummary.style.cursor = "pointer";
-                        roleSummary.style.fontSize = "13px";
-                        roleSummary.style.color = "#1abc9c";
-                        roleSummary.textContent = "> " + roleName;
-                        roleDetails.appendChild(roleSummary);
-            
-                        tree[seriesName][roleName].forEach(rail => {
-                            const div = document.createElement("div");
-                            div.className = "rail-item";
-                            div.style.marginLeft = "10px";
-                            div.style.cursor = "grab"; // ドラッグ可能であることを示すカーソル
-                            div.draggable = true;      // HTML5ドラッグを有効化
-                            div.innerHTML = `${rail.sName}<span class="rail-item-sub">${rail.sProductCode}</span>`;
-                            
-                            // 【クリック配置廃止】div.onclick は設定しません
-            
-                            // ドラッグ開始時に ID を格納
-                            div.ondragstart = (e) => {
-                                e.dataTransfer.setData("text/plain", rail.sId);
-                                e.dataTransfer.effectAllowed = "copy";
-                            };
-            
-                            roleDetails.appendChild(div);
-                        });
-                        seriesDetails.appendChild(roleDetails);
-                    });
-            
-                    seriesDetails.addEventListener("toggle", () => {
-                        seriesSummary.textContent = (seriesDetails.open ? "[-] " : "[+] ") + seriesName;
-                    });
-                    listContainer.appendChild(seriesDetails);
-                });
-            }
-        
-            /**
-             * パーツをキャンバスに追加
-             */
-            function addPartToCanvas(sourceData) {
-                // スクロール位置を考慮して、現在の表示エリアの中央付近に配置
-                const mainArea = document.getElementById('main');
-                const scrollX = mainArea.scrollLeft;
-                const scrollY = mainArea.scrollTop;
-        
-                const newPart = {
-                    ...sourceData,
-                    id: Date.now(),
-                    x: scrollX + 200,
-                    y: scrollY + 200,
-                    rotation: 0
-                };
-                layers.rail.push(newPart);
-                render();
-            }
-        
-            /**
-             * マウス座標取得（キャンバス相対）
-             */
-            function getMousePos(canvas, evt) {
-                const rect = canvas.getBoundingClientRect();
-                return {
-                    x: evt.clientX - rect.left,
-                    y: evt.clientY - rect.top
-                };
-            }
+// --- 状態管理 ---
+const layers = {
+    rail: [] // キャンバス上のレール
+};
 
-            /**
-             * 描画処理
-             */
-            function render() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                layers.rail.forEach(part => drawPart(ctx, part));
-            }
+const CANVAS_CONFIG = {
+    width: 5000,
+    height: 5000
+};
 
-            function drawPart(ctx, p) {
-                ctx.save();
-                ctx.translate(p.x, p.y);
-                ctx.rotate((p.rotation * Math.PI) / 180);
-            
-                const halfView = p.nViewWidth / 2;
-                const halfGauge = (p.nGauge && p.nGauge > 0) ? p.nGauge / 2 : 0;
-                const centerOffset = p.bIsDouble ? (p.nTrackGap / 2) : 0;
-            
-                // --- 1. 外形描画 (既存維持) ---
-                ctx.strokeStyle = p.sColor;
-                ctx.lineWidth = 1;
-                ctx.fillStyle = p.sColor + "33"; 
-                ctx.beginPath();
-                if (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") {
-                    const yStart = centerOffset - halfView;
-                    ctx.fillRect(0, yStart, p.nLength, p.nViewWidth);
-                    ctx.strokeRect(0, yStart, p.nLength, p.nViewWidth);
-                } else if (p.sRole === "curve" || p.sRole === "approach") {
-                    const centerR = p.nRadius - centerOffset;
-                    const outerEdgeR = centerR + halfView;
-                    const innerEdgeR = centerR - halfView;
-                    ctx.arc(0, p.nRadius, outerEdgeR, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
-                    ctx.arc(0, p.nRadius, innerEdgeR, (-90 + p.nAngle) * Math.PI / 180, -Math.PI / 2, true);
-                    ctx.closePath();
-                    ctx.fill();
-                    ctx.stroke();
-                }
-            
-                // --- 2. レール描画 (既存維持) ---
-                if (halfGauge > 0) {
-                    ctx.strokeStyle = "#555555";
-                    ctx.lineWidth = 1;
-                    drawRailLines(ctx, p, 0, halfGauge);
-                    if (p.bIsDouble && p.nTrackGap > 0) {
-                        drawRailLines(ctx, p, p.nTrackGap, halfGauge);
-                    }
-                }
-            
-                // --- 3. 選択・移動中の中心印（〇） ---
-                // isDragging が true かつ、現在ドラッグ中のIDと一致する場合のみ表示
-                if (isDragging === true && draggedPart && draggedPart.id === p.id) {
-                    let cX, cY;
-                    if (p.sRole === "straight" || p.sRole === "structure" || p.sRole === "furniture") {
-                        cX = p.nLength / 2;
-                        cY = centerOffset;
-                    } else if (p.sRole === "curve" || p.sRole === "approach") {
-                        const midAngle = ((-90 + (p.nAngle / 2)) * Math.PI / 180);
-                        const midR = p.nRadius - centerOffset;
-                        cX = midR * Math.cos(midAngle);
-                        cY = p.nRadius + midR * Math.sin(midAngle);
-                    }
-            
-                    ctx.beginPath();
-                    ctx.strokeStyle = "#ff0000";
-                    ctx.lineWidth = 2;
-                    ctx.arc(cX, cY, 8, 0, Math.PI * 2);
-                    ctx.stroke();
-                    ctx.fillStyle = "#ff0000";
-                    ctx.beginPath();
-                    ctx.arc(cX, cY, 2, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            
-                ctx.restore();
-            }
-            
-            /**
-             * レール線路描画の共通処理（既存維持）
-             */
-            function drawRailLines(ctx, p, offset, hg) {
-                if (p.sRole === "straight") {
-                    ctx.beginPath();
-                    ctx.moveTo(0, offset - hg); ctx.lineTo(p.nLength, offset - hg);
-                    ctx.moveTo(0, offset + hg); ctx.lineTo(p.nLength, offset + hg);
-                    ctx.stroke();
-                } else if (p.sRole === "curve" || p.sRole === "approach") {
-                    const r = p.nRadius - offset;
-                    ctx.beginPath();
-                    ctx.arc(0, p.nRadius, r - hg, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
-                    ctx.stroke();
-                    ctx.beginPath();
-                    ctx.arc(0, p.nRadius, r + hg, -Math.PI / 2, (-90 + p.nAngle) * Math.PI / 180);
-                    ctx.stroke();
-                }
-            }
-                        
-            /**
-             * キャンバスのイベント初期化（ドロップ対応）
-             */
-            function initCanvasEvents() {
-                // ドロップを許可するための設定
-                canvas.ondragover = (e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = "copy";
-                };
-            
-                // ドロップ実行時の処理
-                canvas.ondrop = (e) => {
-                    e.preventDefault();
-                    const sId = e.dataTransfer.getData("text/plain");
-                    const sourceData = railData[sId];
-                    
-                    if (sourceData) {
-                        const pos = getMousePos(canvas, e);
-                        // マウスの先端位置にパーツを新規配置
-                        const newPart = {
-                            ...sourceData,
-                            id: Date.now(),
-                            x: pos.x,
-                            y: pos.y,
-                            rotation: 0
-                        };
-                        layers.rail.push(newPart);
-                        render();
-                    }
-                };
-            }
+// --- マウス操作ステート ---
+let isDragging = false;
+let draggedPart = null; 
+let offsetX = 0;
+let offsetY = 0;
+let isSnapped = false;
 
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+/**
+ * 初期化
+ */
+function init() {
+    canvas.width = CANVAS_CONFIG.width;
+    canvas.height = CANVAS_CONFIG.height;
+    initCanvasEvents();
+    initSidebar(); // サイドバーの生成を実行
+    render();
+}
+
+/**
+ * サイドバーの生成（rails.js のデータをリスト化）
+ */
+function initSidebar() {
+    const listContainer = document.getElementById('rail-list');
+    if (!listContainer) return;
+    listContainer.innerHTML = "";
+
+    if (typeof railData === 'undefined') {
+        listContainer.innerHTML = "<p style='color:red;'>rails.js not found</p>";
+        return;
+    }
+
+    // rails.js のデータをループしてリストを作成
+    Object.entries(railData).forEach(([key, rail]) => {
+        const div = document.createElement("div");
+        div.className = "rail-item";
+        div.style.cursor = "grab";
+        div.draggable = true;
+        div.innerHTML = `${rail.sName}<span class="rail-item-sub">${rail.sProductCode || ''}</span>`;
+        
+        // ドラッグ開始時に ID を渡す
+        div.ondragstart = (e) => {
+            e.dataTransfer.setData("text/plain", key);
+            e.dataTransfer.effectAllowed = "copy";
+        };
+        listContainer.appendChild(div);
+    });
+}
+
+/**
+ * 接点計算ロジック (1〜4点対応)
+ */
 function getConnectorPoints(p, x, y, rotation) {
     const points = [];
     const rad = (rotation * Math.PI) / 180;
@@ -323,12 +120,13 @@ function getConnectorPoints(p, x, y, rotation) {
         return { x: x + tx, y: y + ty };
     };
 
-    for (let i = 0; i < p.junctionCount; i++) {
+    const jCount = p.junctionCount || 2;
+    for (let i = 0; i < jCount; i++) {
         let rx = 0, ry = 0;
-        if (p.junctionCount === 1) { 
-            rx = p.nLength; // 車止め等
-        } else if (p.junctionCount === 2) {
-            if (i === 1) { // 0:起点, 1:終点
+        if (jCount === 1) { 
+            rx = p.nLength || 0; 
+        } else if (jCount === 2) {
+            if (i === 1) {
                 if (p.sRole === "straight") { rx = p.nLength; }
                 else {
                     const a = (p.nAngle * Math.PI) / 180;
@@ -336,14 +134,14 @@ function getConnectorPoints(p, x, y, rotation) {
                     ry = p.nRadius - Math.cos(a) * p.nRadius;
                 }
             }
-        } else if (p.junctionCount === 3) {
-            if (i === 1) rx = p.nLength; // 直進
-            else if (i === 2) { // 分岐
+        } else if (jCount === 3) { // ポイント用
+            if (i === 1) rx = p.nLength;
+            else if (i === 2) {
                 const a = (p.nAngle * Math.PI) / 180;
                 rx = Math.sin(a) * p.nRadius;
                 ry = p.nRadius - Math.cos(a) * p.nRadius;
             }
-        } else if (p.junctionCount === 4) {
+        } else if (jCount === 4) { // 複線用
             const isEnd = (i >= 2), isSub = (i % 2 === 1);
             if (isEnd) {
                 if (p.sRole === "straight") { rx = p.nLength; ry = isSub ? gap : 0; }
@@ -359,120 +157,126 @@ function getConnectorPoints(p, x, y, rotation) {
     }
     return points;
 }
-            
-            /**
-             * キーボード入力イベント
-             * Rキーで 22.5度回転（時計回り）
-             */
-            window.onkeydown = function(e) {
-                // Rキー (大文字・小文字両対応)
-                if (e.key === 'r' || e.key === 'R') {
-                    // 操作対象のパーツがある場合のみ実行
-                    const target = draggedPart || (layers.rail.length > 0 ? layers.rail[layers.rail.length - 1] : null);
-                    
-                    if (target) {
-                        // 現在の角度に 22.5度を加算
-                        target.rotation = (target.rotation + 22.5) % 360;
-                        
-                        // 再描画して回転を反映
-                        render();
-                        
-                        // ページスクロール等のデフォルト動作を防止
-                        e.preventDefault();
-                    }
-                }
-            };
-            
-// --- マウスダウン：レールを掴む ---
-canvas.onmousedown = function(e) {
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
 
-    if (typeof rail_list !== 'undefined') {
-        for (let i = rail_list.length - 1; i >= 0; i--) {
-            const rail = rail_list[i];
-            // 判定：中心から40px以内
-            if (Math.abs(mouseX - rail.x) < 40 && Math.abs(mouseY - rail.y) < 40) {
-                draggedRail = rail;
+/**
+ * 描画処理
+ */
+function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    layers.rail.forEach(part => drawPart(ctx, part));
+}
+
+function drawPart(ctx, p) {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate((p.rotation * Math.PI) / 180);
+
+    ctx.strokeStyle = (p === draggedPart) ? (isSnapped ? '#007bff' : '#ff4757') : (p.sColor || '#333');
+    ctx.lineWidth = (p === draggedPart) ? 3 : 1;
+    ctx.fillStyle = (p.sColor || '#999') + "33"; 
+
+    if (p.sRole === "straight") {
+        ctx.strokeRect(0, -p.nViewWidth/2, p.nLength, p.nViewWidth);
+        ctx.fillRect(0, -p.nViewWidth/2, p.nLength, p.nViewWidth);
+    } else if (p.sRole === "curve") {
+        const a = (p.nAngle * Math.PI) / 180;
+        ctx.beginPath();
+        ctx.arc(0, p.nRadius, p.nRadius + p.nViewWidth/2, -Math.PI/2, -Math.PI/2 + a);
+        ctx.arc(0, p.nRadius, p.nRadius - p.nViewWidth/2, -Math.PI/2 + a, -Math.PI/2, true);
+        ctx.closePath();
+        ctx.stroke(); ctx.fill();
+    }
+    ctx.restore();
+}
+
+/**
+ * イベント処理
+ */
+function initCanvasEvents() {
+    // キャンバスへのドロップでパーツ追加
+    canvas.ondragover = (e) => e.preventDefault();
+    canvas.ondrop = (e) => {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const sId = e.dataTransfer.getData("text/plain");
+        if (railData[sId]) {
+            const newPart = { 
+                ...railData[sId], 
+                id: Date.now(), 
+                x: e.clientX - rect.left, 
+                y: e.clientY - rect.top, 
+                rotation: 0 
+            };
+            layers.rail.push(newPart);
+            render();
+        }
+    };
+
+    // キャンバス上のドラッグ操作
+    canvas.onmousedown = function(e) {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        for (let i = layers.rail.length - 1; i >= 0; i--) {
+            const p = layers.rail[i];
+            if (Math.abs(mouseX - p.x) < 40 && Math.abs(mouseY - p.y) < 40) {
+                draggedPart = p;
                 isDragging = true;
-                offsetX = mouseX - rail.x;
-                offsetY = mouseY - rail.y;
-                
-                // 選択したレールを最前面（配列の最後）へ
-                rail_list.splice(i, 1);
-                rail_list.push(draggedRail);
+                offsetX = mouseX - p.x;
+                offsetY = mouseY - p.y;
+                layers.rail.splice(i, 1);
+                layers.rail.push(draggedPart);
                 break;
             }
         }
-    }
-};
+    };
 
-// --- マウスムーブ：移動と最短距離吸着 ---
-canvas.onmousemove = function(e) {
-    if (!isDragging || !draggedRail) return;
+    canvas.onmousemove = function(e) {
+        if (!isDragging || !draggedPart) return;
+        const rect = canvas.getBoundingClientRect();
+        draggedPart.x = (e.clientX - rect.left) - offsetX;
+        draggedPart.y = (e.clientY - rect.top) - offsetY;
 
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+        let minDistance = 20;
+        let targetCoords = null;
+        let myPointIdx = -1;
 
-    // 1. 自由移動（オフセット考慮）
-    draggedRail.x = mouseX - (typeof offsetX !== 'undefined' ? offsetX : 0);
-    draggedRail.y = mouseY - (typeof offsetY !== 'undefined' ? offsetY : 0);
+        const myPoints = getConnectorPoints(draggedPart, draggedPart.x, draggedPart.y, draggedPart.rotation);
 
-    let bestMatch = null;
-    let minDistance = 15; // 吸着しきい値
-    let myPointIdx = -1;
-    let targetPointCoords = null;
-
-    // 2. ドラッグ中レールの接点
-    const myPoints = getConnectorPoints(draggedRail, draggedRail.x, draggedRail.y, draggedRail.rotation);
-
-    // 3. 全レールとの当たり判定（一番近いペアを1つだけ選ぶ）
-    if (typeof rail_list !== 'undefined') {
-        rail_list.forEach(tRail => {
-            if (tRail === draggedRail) return;
-            const tPoints = getConnectorPoints(tRail, tRail.x, tRail.y, tRail.rotation);
-
+        layers.rail.forEach(t => {
+            if (t === draggedPart) return;
+            const tPoints = getConnectorPoints(t, t.x, t.y, t.rotation);
             myPoints.forEach((p1, i) => {
-                tPoints.forEach((p2, j) => {
-                    const dx = p1.x - p2.x;
-                    const dy = p1.y - p2.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < minDistance) {
-                        minDistance = dist;
-                        bestMatch = tRail;
-                        myPointIdx = i;
-                        targetPointCoords = { x: p2.x, y: p2.y };
-                    }
+                tPoints.forEach(p2 => {
+                    const d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+                    if (d < minDistance) { minDistance = d; myPointIdx = i; targetCoords = p2; }
                 });
             });
         });
-    }
 
-    // 4. 吸着実行（相対座標スライド方式）
-    if (bestMatch && targetPointCoords) {
-        const relPoints = getConnectorPoints(draggedRail, 0, 0, draggedRail.rotation);
-        const myOffset = relPoints[myPointIdx];
-        draggedRail.x = targetPointCoords.x - myOffset.x;
-        draggedRail.y = targetPointCoords.y - myOffset.y;
-        isSnapped = true;
-    } else {
-        isSnapped = false;
-    }
+        if (targetCoords) {
+            const relPoints = getConnectorPoints(draggedPart, 0, 0, draggedPart.rotation);
+            draggedPart.x = targetCoords.x - relPoints[myPointIdx].x;
+            draggedPart.y = targetCoords.y - relPoints[myPointIdx].y;
+            isSnapped = true;
+        } else { isSnapped = false; }
+        render();
+    };
 
-    if (typeof draw_layout === 'function') draw_layout();
-};
+    window.onmouseup = () => { isDragging = false; draggedPart = null; render(); };
+}
 
-// --- マウスアップ：ドラッグ終了（windowで受けることで確実化） ---
-window.onmouseup = function() {
-    if (isDragging) {
-        isDragging = false;
-        draggedRail = null;
-        if (typeof draw_layout === 'function') draw_layout();
+// Rキー回転
+window.onkeydown = (e) => {
+    if (e.key.toLowerCase() === 'r') {
+        const t = draggedPart || layers.rail[layers.rail.length-1];
+        if (t) { t.rotation = (t.rotation + 22.5) % 360; render(); e.preventDefault(); }
     }
 };
 
+// 起動
+init();
        
         </script>
     </body>

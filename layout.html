@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0077</title>
+    <title>Railroad Models Layout Designer v.0078</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -312,7 +312,8 @@ function drawCurveRail(ctx, p) {
     const gap = p.nTrackGap || 33;
     const halfGap = gap / 2;
 
-    // 基準点(0,0)を「中心半径Rの弧の中央」とするため、中心点を左にRオフセット
+    // 基準点(0,0)を「中心半径Rの弧の中央（頂点）」とする
+    // 中心点は基準点から見て半径R分だけ左にある
     const centerX = -R;
     const centerY = 0;
 
@@ -323,7 +324,7 @@ function drawCurveRail(ctx, p) {
     const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
 
     // 1. 道床（バラスト）の塗りつぶしと縁取り
-    // 複線でも道床は1つの大きな塊として描画（nViewWidthを使用）
+    // 中心点(centerX, centerY)にRを足して(0,0)を基準とした円弧を描画
     ctx.beginPath();
     ctx.arc(centerX + R, centerY, R + halfView, startAngle, endAngle);
     ctx.arc(centerX + R, centerY, R - halfView, endAngle, startAngle, true);
@@ -340,7 +341,7 @@ function drawCurveRail(ctx, p) {
     ctx.lineWidth = 1;
     ctx.strokeStyle = mainColor;
 
-    // 複線時は [内側軌道半径, 外側軌道半径] の2回ループ
+    // 複線時は [中心-gap/2, 中心+gap/2]、単線時は [中心]
     const trackRadii = p.bIsDouble ? [R - halfGap, R + halfGap] : [R];
 
     trackRadii.forEach(currentR => {
@@ -358,7 +359,8 @@ function drawCurveRail(ctx, p) {
     if (p.junctionCount) {
         const junctions = [];
         trackRadii.forEach(currentR => {
-            // 基準点(0,0)からの相対座標
+            // 基準点(0,0)を頂点とした相対座標
+            // xは頂点から円の中心方向への戻り、yは円弧の端への広がり
             const jX = currentR * Math.cos(halfAngle) - R;
             const jY = currentR * Math.sin(halfAngle);
             

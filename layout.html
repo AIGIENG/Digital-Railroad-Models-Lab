@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0054</title>
+    <title>Railroad Models Layout Designer v.0055</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -316,26 +316,29 @@ function getConnectorPoints(p, x, y, rotation) {
     const points = [];
     const rad = (rotation * Math.PI) / 180;
     const gap = p.nTrackGap || 33;
+
     const transform = (rx, ry) => {
         const tx = rx * Math.cos(rad) - ry * Math.sin(rad);
         const ty = rx * Math.sin(rad) + ry * Math.cos(rad);
         return { x: x + tx, y: y + ty };
     };
+
     for (let i = 0; i < p.junctionCount; i++) {
         let rx = 0, ry = 0;
-        if (p.junctionCount === 1) { rx = p.nLength; } 
-        else if (p.junctionCount === 2) {
-            if (i === 1) {
-                rx = p.nLength;
-                if (p.sRole === "curve") {
+        if (p.junctionCount === 1) { 
+            rx = p.nLength; // 車止め等
+        } else if (p.junctionCount === 2) {
+            if (i === 1) { // 0:起点, 1:終点
+                if (p.sRole === "straight") { rx = p.nLength; }
+                else {
                     const a = (p.nAngle * Math.PI) / 180;
                     rx = Math.sin(a) * p.nRadius;
                     ry = p.nRadius - Math.cos(a) * p.nRadius;
                 }
             }
         } else if (p.junctionCount === 3) {
-            if (i === 1) rx = p.nLength;
-            else if (i === 2) {
+            if (i === 1) rx = p.nLength; // 直進
+            else if (i === 2) { // 分岐
                 const a = (p.nAngle * Math.PI) / 180;
                 rx = Math.sin(a) * p.nRadius;
                 ry = p.nRadius - Math.cos(a) * p.nRadius;
@@ -380,31 +383,32 @@ function getConnectorPoints(p, x, y, rotation) {
                 }
             };
             
-// A. 選択（掴む）処理
+// --- マウスダウン：レールを掴む ---
 canvas.onmousedown = function(e) {
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    // 既存の選択ロジックをベースに、オフセット保持を追加
-    for (let i = rails.length - 1; i >= 0; i--) {
-        const rail = rails[i];
-        // 判定幅を少し広めに設定（選択しやすさのため）
-        if (Math.abs(mouseX - rail.x) < 40 && Math.abs(mouseY - rail.y) < 40) {
-            draggedRail = rail;
-            isDragging = true;
-            // 重要：掴んだ位置と中心の差を記録
-            offsetX = mouseX - rail.x;
-            offsetY = mouseY - rail.y;
-            // 選択したレールを最前面へ
-            rails.splice(i, 1);
-            rails.push(draggedRail);
-            break;
+    if (typeof rail_list !== 'undefined') {
+        for (let i = rail_list.length - 1; i >= 0; i--) {
+            const rail = rail_list[i];
+            // 判定：中心から40px以内
+            if (Math.abs(mouseX - rail.x) < 40 && Math.abs(mouseY - rail.y) < 40) {
+                draggedRail = rail;
+                isDragging = true;
+                offsetX = mouseX - rail.x;
+                offsetY = mouseY - rail.y;
+                
+                // 選択したレールを最前面（配列の最後）へ
+                rail_list.splice(i, 1);
+                rail_list.push(draggedRail);
+                break;
+            }
         }
     }
 };
 
-// B. 移動と吸着の処理
+// --- マウスムーブ：移動と最短距離吸着 ---
 canvas.onmousemove = function(e) {
     if (!isDragging || !draggedRail) return;
 
@@ -412,59 +416,64 @@ canvas.onmousemove = function(e) {
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    // まずは自由に移動させる
+    // 1. 自由移動（オフセット考慮）
     draggedRail.x = mouseX - (typeof offsetX !== 'undefined' ? offsetX : 0);
     draggedRail.y = mouseY - (typeof offsetY !== 'undefined' ? offsetY : 0);
 
     let bestMatch = null;
-    let minDistance = 15; // 判定精度
+    let minDistance = 15; // 吸着しきい値
     let myPointIdx = -1;
-    let targetPoint = null;
+    let targetPointCoords = null;
 
-    // ドラッグ中の全接点
+    // 2. ドラッグ中レールの接点
     const myPoints = getConnectorPoints(draggedRail, draggedRail.x, draggedRail.y, draggedRail.rotation);
 
-    // 全レールとの当たり判定
-    rails.forEach(tRail => {
-        if (tRail === draggedRail) return;
-        const tPoints = getConnectorPoints(tRail, tRail.x, tRail.y, tRail.rotation);
+    // 3. 全レールとの当たり判定（一番近いペアを1つだけ選ぶ）
+    if (typeof rail_list !== 'undefined') {
+        rail_list.forEach(tRail => {
+            if (tRail === draggedRail) return;
+            const tPoints = getConnectorPoints(tRail, tRail.x, tRail.y, tRail.rotation);
 
-        myPoints.forEach((p1, i) => {
-            tPoints.forEach((p2, j) => {
-                const dx = p1.x - p2.x;
-                const dy = p1.y - p2.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < minDistance) {
-                    minDistance = dist;
-                    bestMatch = tRail;
-                    myPointIdx = i;
-                    targetPoint = p2;
-                }
+            myPoints.forEach((p1, i) => {
+                tPoints.forEach((p2, j) => {
+                    const dx = p1.x - p2.x;
+                    const dy = p1.y - p2.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < minDistance) {
+                        minDistance = dist;
+                        bestMatch = tRail;
+                        myPointIdx = i;
+                        targetPointCoords = { x: p2.x, y: p2.y };
+                    }
+                });
             });
         });
-    });
+    }
 
-    // 吸着実行
-    if (bestMatch && targetPoint) {
+    // 4. 吸着実行（相対座標スライド方式）
+    if (bestMatch && targetPointCoords) {
         const relPoints = getConnectorPoints(draggedRail, 0, 0, draggedRail.rotation);
         const myOffset = relPoints[myPointIdx];
-        draggedRail.x = targetPoint.x - myOffset.x;
-        draggedRail.y = targetPoint.y - myOffset.y;
+        draggedRail.x = targetPointCoords.x - myOffset.x;
+        draggedRail.y = targetPointCoords.y - myOffset.y;
         isSnapped = true;
     } else {
         isSnapped = false;
     }
 
-    draw();
+    if (typeof draw_layout === 'function') draw_layout();
 };
 
-// C. 離す処理（確実性を高めるため window に設定）
+// --- マウスアップ：ドラッグ終了（windowで受けることで確実化） ---
 window.onmouseup = function() {
-    isDragging = false;
-    draggedRail = null;
-    draw();
+    if (isDragging) {
+        isDragging = false;
+        draggedRail = null;
+        if (typeof draw_layout === 'function') draw_layout();
+    }
 };
-            
+
+       
         </script>
     </body>
 </html>

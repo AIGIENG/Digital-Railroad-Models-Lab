@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0067</title>
+    <title>Railroad Models Layout Designer v.0068</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -194,8 +194,9 @@ function getConnectorPoints(p, x, y, rotation) {
     } else if (p.sRole === "curve") {
         const R = p.nRadius;
         const halfAngle = (p.nAngle * Math.PI) / 360;
-        const jX = R * (Math.cos(halfAngle) - 1);
+        const jX = R * Math.cos(halfAngle) - R;
         const jY = R * Math.sin(halfAngle);
+
         points.push(transform(jX, -jY));
         points.push(transform(jX, jY));
     }
@@ -312,12 +313,12 @@ function drawCurveRail(ctx, p) {
     const halfView = p.nViewWidth / 2;
     const mainColor = p.sColor || '#333';
 
-    // 基準点(0,0)を「弧の中間」にするための中心点座標
-    // 弧の頂点を(0,0)とし、そこから半径R分だけ内側へオフセット
+    // 弧の頂点（中間地点）を(0,0)とするための中心点オフセット
+    // 基準点から見て、中心は「進行方向に対して左（または右）」にR離れた位置
     const centerX = -R; 
-    const centerY = 0; 
-    
-    // 弧を(0,0)を中心に左右対称に描くための角度範囲
+    const centerY = 0;
+
+    // 弧の中間を基準に、左右対称に描画するための角度範囲
     const startAngle = -halfAngle;
     const endAngle = halfAngle;
 
@@ -325,11 +326,13 @@ function drawCurveRail(ctx, p) {
 
     // 1. 道床（バラスト）の描画とハイライト
     ctx.save();
-    // 中心点基準へ一時的に移動
+    // 弧の頂点(0,0)を基準とするため、中心点座標へ一時的にオフセットして描画
     ctx.translate(-centerX, -centerY); 
-    
+
     ctx.beginPath();
+    // 外側の弧
     ctx.arc(centerX, centerY, R + halfView, startAngle, endAngle);
+    // 内側の弧（逆方向に描画して閉じる）
     ctx.arc(centerX, centerY, R - halfView, endAngle, startAngle, true);
     ctx.closePath();
     
@@ -337,7 +340,7 @@ function drawCurveRail(ctx, p) {
     ctx.fillStyle = (p.sColor || '#999') + "33";
     ctx.fill();
 
-    // ハイライト・縁取り（直線レール同様のロジック）
+    // ハイライト・縁取り（直線レール同様のスタイル）
     ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
     ctx.lineWidth = isDragged ? 3 : 1;
     ctx.stroke();
@@ -347,21 +350,23 @@ function drawCurveRail(ctx, p) {
     ctx.strokeStyle = mainColor;
     ctx.lineWidth = 1;
 
-    // 外側
+    // 外側レール
     ctx.arc(centerX, centerY, R + halfGauge, startAngle, endAngle);
-    // 内側への移動
+    
+    // 内側レールへの移動
     const innerStartX = centerX + (R - halfGauge) * Math.cos(startAngle);
     const innerStartY = centerY + (R - halfGauge) * Math.sin(startAngle);
     ctx.moveTo(innerStartX, innerStartY);
     ctx.arc(centerX, centerY, R - halfGauge, startAngle, endAngle);
+    
     ctx.stroke();
 
     ctx.restore();
 
     // 3. 吸着点（Junction）の更新
     if (p.junctionCount) {
-        // 基準点(0,0)からの相対座標
-        const jX = R * (Math.cos(halfAngle) - 1); // 頂点からのXの戻り
+        // 頂点(0,0)から見た、始点・終点の相対座標
+        const jX = R * Math.cos(halfAngle) - R; 
         const jY = R * Math.sin(halfAngle);
         
         p.junctions = [

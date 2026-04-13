@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0057</title>
+    <title>Railroad Models Layout Designer v.0058</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -77,7 +77,7 @@ function init() {
 }
 
 /**
- * サイドバーの生成（2階層ツリー表示）
+ * サイドバーの生成（2階層ツリー表示 / sNameのみ表示）
  */
 function initSidebar() {
     const listContainer = document.getElementById('rail-list');
@@ -137,7 +137,8 @@ function initSidebar() {
                 div.style.marginLeft = "10px";
                 div.style.cursor = "grab";
                 div.draggable = true;
-                div.innerHTML = `${rail.sName}<span class="rail-item-sub">${rail.sProductCode || ''}</span>`;
+                // 表示を sName のみに限定
+                div.textContent = rail.sName;
                 
                 div.ondragstart = (e) => {
                     e.dataTransfer.setData("text/plain", rail.sId);
@@ -156,6 +157,7 @@ function initSidebar() {
         listContainer.appendChild(seriesDetails);
     });
 }
+            
 /**
  * 接点計算ロジック (1〜4点対応)
  */

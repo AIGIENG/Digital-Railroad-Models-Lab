@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0069</title>
+    <title>Railroad Models Layout Designer v.0070</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -231,15 +231,26 @@ function drawPart(ctx, p) {
     }
 
     // 基準点マーカー（クリック位置）の描画
-    if (p.sRole === "straight" || p.sRole === "curve") {
-        const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
+if (p.sRole === "straight") {
+        ctx.strokeRect(0, -p.nViewWidth/2, p.nLength, p.nViewWidth);
+        ctx.fillRect(0, -p.nViewWidth/2, p.nLength, p.nViewWidth);
+    } else if (p.sRole === "curve") {
+        const a = (p.nAngle * Math.PI) / 180;
+        // --- 道床（バラスト）の塗りつぶしと縁取り（修正部分） ---
         ctx.beginPath();
-        const markerRadius = (p.nGauge / 2) || 4;
-        ctx.arc(0, 0, markerRadius, 0, Math.PI * 2);
-        ctx.fillStyle = isDragged ? "rgba(0, 123, 255, 0.8)" : "rgba(255, 255, 255, 0.5)";
+        // 外側の弧（時計回り）
+        ctx.arc(0, p.nRadius, p.nRadius + p.nViewWidth/2, -Math.PI/2, -Math.PI/2 + a);
+        // --- 縁取りのためにパスを閉じる処理を追加 ---
+        // 終点側（右端）の断面の線を描画
+        const endX = Math.sin(a) * (p.nRadius - p.nViewWidth/2);
+        const endY = p.nRadius - Math.cos(a) * (p.nRadius - p.nViewWidth/2);
+        // ctx.lineTo(endX, endY); // 内側の弧へ繋ぐ（arcが自動でやるので不要な場合もあるが、明示的に）
+        // 内側の弧（反時計回りで戻る）
+        ctx.arc(0, p.nRadius, p.nRadius - p.nViewWidth/2, -Math.PI/2 + a, -Math.PI/2, true);
+        // パスを閉じる（始点へ戻る断面を描画）
+        ctx.closePath();
+        // 塗りつぶし（既存）
         ctx.fill();
-        ctx.strokeStyle = isDragged ? "#0056b3" : "#333";
-        ctx.lineWidth = 1;
         ctx.stroke();
     }
 

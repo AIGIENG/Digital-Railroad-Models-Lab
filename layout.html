@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0060</title>
+    <title>Railroad Models Layout Designer v.0061</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -181,13 +181,15 @@ function getConnectorPoints(p, x, y, rotation) {
             // 基準点(x,y)を中央とし、左右に L/2 振り分ける
             points.push(transform(-halfLen, 0)); // 始点側
             points.push(transform(halfLen, 0));  // 終点側
-        } else {
-            // --- 複線直線 (将来用) ---
+} else {
+            // 複線：[左上, 左下, 右上, 右下] の順序に整理
             const halfGap = (p.nTrackGap || 33) / 2;
-            points.push(transform(-halfLen, -halfGap)); // 始点・上
-            points.push(transform(-halfLen, halfGap));  // 始点・下
-            points.push(transform(halfLen, -halfGap));  // 終点・上
-            points.push(transform(halfLen, halfGap));   // 終点・下
+            // 始点側（左）
+            points.push(transform(-halfLen, -halfGap)); 
+            points.push(transform(-halfLen, halfGap));  
+            // 終点側（右）
+            points.push(transform(halfLen, -halfGap));  
+            points.push(transform(halfLen, halfGap));   
         }
     } else if (p.sRole === "curve") {
         // --- 曲線 (将来用: 中央基準の計算式を適用) ---
@@ -206,48 +208,77 @@ function render() {
     layers.rail.forEach(part => drawPart(ctx, part));
 }
             
+/**
+ * レール描画のエントリーポイント
+ */
 function drawPart(ctx, p) {
     ctx.save();
-    // 1. 座標変換（共通処理）
+    
+    // 基準点(中央)への座標変換
     ctx.translate(p.x, p.y);
     ctx.rotate((p.rotation * Math.PI) / 180);
 
-    // 2. 種類ごとに専用関数へ丸投げ（ロジックの分離）
+    // 直線レールの描画ロジックを呼び出し
     if (p.sRole === "straight") {
-        drawStraightRail(ctx, p); // ここで今回の新ロジックを呼ぶ
+        drawStraightRail(ctx, p);
     }
-    // else if (p.sRole === "curve") { drawCurveRail(ctx, p); }
+    // 他のsRole（curve等）は、中央基準の計算式が確定するまで現状維持またはスキップ
 
     ctx.restore();
 }
 
 /**
- * 【単線直線レール専用】の計算・描画ロジック
- * 座標系は既に中央(0,0)に移動済みとして処理する
+ * 直線レール（単線・複線）の計算および描画
  */
 function drawStraightRail(ctx, p) {
     const halfLen = p.nLength / 2;
     const halfView = p.nViewWidth / 2;
     const halfGauge = p.nGauge / 2;
+    const isDouble = p.bIsDouble;
+    const gap = p.nTrackGap || 33;
+    const halfGap = gap / 2;
 
-    // --- 道床の描画 ---
+    const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
+    const mainColor = p.sColor || '#333';
+
+    // 1. 道床（バラスト）の描画
     ctx.fillStyle = (p.sColor || '#999') + "33";
+    ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
+    ctx.lineWidth = isDragged ? 3 : 1;
+
     ctx.beginPath();
     ctx.rect(-halfLen, -halfView, p.nLength, p.nViewWidth);
     ctx.fill();
     ctx.stroke();
 
-    // --- レールの描画 ---
+    // 2. レールの描画
     ctx.beginPath();
-    ctx.moveTo(-halfLen, -halfGauge);
-    ctx.lineTo(halfLen, -halfGauge);
-    ctx.moveTo(-halfLen, halfGauge);
-    ctx.lineTo(halfLen, halfGauge);
+    ctx.strokeStyle = mainColor;
+    ctx.lineWidth = 1;
+
+    // 軌道のオフセット位置を決定
+    const trackOffsets = isDouble ? [-halfGap, halfGap] : [0];
+
+    trackOffsets.forEach(offsetY => {
+        // 各軌道の上側レール
+        ctx.moveTo(-halfLen, offsetY - halfGauge);
+        ctx.lineTo(halfLen, offsetY - halfGauge);
+        // 各軌道の下側レール
+        ctx.moveTo(-halfLen, offsetY + halfGauge);
+        ctx.lineTo(halfLen, offsetY + halfGauge);
+    });
     ctx.stroke();
 
-    // --- 吸着点の更新 ---
-    if (p.junctionCount >= 2) {
-        p.junctions = [{ x: -halfLen, y: 0 }, { x: halfLen, y: 0 }];
+    // 3. 吸着点（Junction）の座標更新（相対座標）
+    // junctionCountに基づいて配列を再生成
+    if (p.junctionCount) {
+        p.junctions = [];
+        trackOffsets.forEach(offsetY => {
+            p.junctions.push({ x: -halfLen, y: offsetY }); // 始点側
+            p.junctions.push({ x: halfLen, y: offsetY });  // 終点側
+        });
+        // 指定された数(junctionCount)に制限
+        p.junctions = p.junctions.slice(0, p.junctionCount);
     }
 }
 

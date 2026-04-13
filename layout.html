@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0061</title>
+    <title>Railroad Models Layout Designer v.0062</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -221,8 +221,25 @@ function drawPart(ctx, p) {
     // 直線レールの描画ロジックを呼び出し
     if (p.sRole === "straight") {
         drawStraightRail(ctx, p);
+        
+        // --- 基準点マーカーの描画（追加） ---
+        // 「ここをクリックすれば動く」と直感的に分かるための円形マーカー
+        const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
+        
+        ctx.beginPath();
+        // マーカーの半径。視認性を考慮し、軌間(nGauge)より少し小さいサイズ
+        const markerRadius = (p.nGauge / 2) || 4; 
+        ctx.arc(0, 0, markerRadius, 0, Math.PI * 2);
+        
+        // ドラッグ中は色を強調、通常時は少し透過させる
+        ctx.fillStyle = isDragged ? "rgba(0, 123, 255, 0.8)" : "rgba(255, 255, 255, 0.5)";
+        ctx.fill();
+        
+        // 縁取り
+        ctx.strokeStyle = isDragged ? "#0056b3" : "#333";
+        ctx.lineWidth = 1;
+        ctx.stroke();
     }
-    // 他のsRole（curve等）は、中央基準の計算式が確定するまで現状維持またはスキップ
 
     ctx.restore();
 }

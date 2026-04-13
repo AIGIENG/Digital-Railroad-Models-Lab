@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0074</title>
+    <title>Railroad Models Layout Designer v.0075</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -302,39 +302,39 @@ function drawStraightRail(ctx, p) {
 }
 
 /**
- * 曲線レールの計算および描画（単線専用・レール中央基準）
+ * 曲線レールの計算および描画（単線専用）
  */
 function drawCurveRail(ctx, p) {
     const R = p.nRadius;
-    const angleRad = (p.nAngle * Math.PI) / 180;
+    const angleDeg = p.nAngle;
+    const angleRad = (angleDeg * Math.PI) / 180;
     const halfAngle = angleRad / 2;
     const halfGauge = p.nGauge / 2;
     const halfView = p.nViewWidth / 2;
 
-    // 基準点(0,0)を「レールの弧の中央」とするための中心点オフセット
-    // 弦の中点ではなく、(0,0)から真横に半径R離れた位置に中心を置く
-    const centerX = -R; 
-    const centerY = 0;
+    const centerX = -R * Math.cos(halfAngle);
+    const centerY = 0; 
 
     const startAngle = -halfAngle;
     const endAngle = halfAngle;
 
     const mainColor = p.sColor || '#333';
+    // ドラッグ状態のスタイル判定（親関数 drawPart の変数を参照していると想定）
     const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
 
     // 1. 道床（バラスト）の塗りつぶしと縁取り
     ctx.beginPath();
-    // 外側の弧（中心点をRずらして描画）
-    ctx.arc(centerX + R, centerY, R + halfView, startAngle, endAngle);
-    // 内側の弧（逆方向に描画してパスを閉じる）
-    ctx.arc(centerX + R, centerY, R - halfView, endAngle, startAngle, true);
+    // 外側の弧（時計回り）
+    ctx.arc(centerX, centerY, R + halfView, startAngle, endAngle);
+    // 内側の弧（反時計回りで戻ることでパスを閉じる）
+    ctx.arc(centerX, centerY, R - halfView, endAngle, startAngle, true);
     ctx.closePath();
 
-    // 塗りつぶし
+    // 塗りつぶし（透過）
     ctx.fillStyle = (p.sColor || '#999') + "33";
     ctx.fill();
 
-    // 縁取り・ハイライト
+    // 縁取り（輪郭線）
     ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
     ctx.lineWidth = isDragged ? 3 : 1;
     ctx.stroke();
@@ -345,19 +345,17 @@ function drawCurveRail(ctx, p) {
 
     // 外側レール
     ctx.beginPath();
-    ctx.arc(centerX + R, centerY, R + halfGauge, startAngle, endAngle);
+    ctx.arc(centerX, centerY, R + halfGauge, startAngle, endAngle);
     ctx.stroke();
 
     // 内側レール
     ctx.beginPath();
-    ctx.arc(centerX + R, centerY, R - halfGauge, startAngle, endAngle);
+    ctx.arc(centerX, centerY, R - halfGauge, startAngle, endAngle);
     ctx.stroke();
 
     // 3. 吸着点（Junction）の座標更新
     if (p.junctionCount) {
-        // 弧の中央(0,0)から見た相対座標
-        // xは頂点からの戻り、yは円弧の広がり
-        const jX = R * Math.cos(halfAngle) - R;
+        const jX = 0; 
         const jY = R * Math.sin(halfAngle);
         
         p.junctions = [

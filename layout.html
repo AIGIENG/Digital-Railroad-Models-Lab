@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0056</title>
+    <title>Railroad Models Layout Designer v.0057</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -77,7 +77,7 @@ function init() {
 }
 
 /**
- * サイドバーの生成（rails.js のデータをリスト化）
+ * サイドバーの生成（2階層ツリー表示）
  */
 function initSidebar() {
     const listContainer = document.getElementById('rail-list');
@@ -89,23 +89,73 @@ function initSidebar() {
         return;
     }
 
-    // rails.js のデータをループしてリストを作成
+    // データをツリー構造に整理 [シリーズ][役割]
+    const tree = {};
     Object.entries(railData).forEach(([key, rail]) => {
-        const div = document.createElement("div");
-        div.className = "rail-item";
-        div.style.cursor = "grab";
-        div.draggable = true;
-        div.innerHTML = `${rail.sName}<span class="rail-item-sub">${rail.sProductCode || ''}</span>`;
+        const series = rail.sSeries || "Unknown";
+        const role = rail.sRole || "Other";
+        if (!tree[series]) tree[series] = {};
+        if (!tree[series][role]) tree[series][role] = [];
         
-        // ドラッグ開始時に ID を渡す
-        div.ondragstart = (e) => {
-            e.dataTransfer.setData("text/plain", key);
-            e.dataTransfer.effectAllowed = "copy";
-        };
-        listContainer.appendChild(div);
+        // ドラッグ用IDを保持
+        const railWithKey = { ...rail, sId: key };
+        tree[series][role].push(railWithKey);
+    });
+
+    // 第1階層: シリーズ名
+    Object.keys(tree).sort().forEach(seriesName => {
+        const seriesDetails = document.createElement("details");
+        seriesDetails.style.marginBottom = "5px";
+        
+        const seriesSummary = document.createElement("summary");
+        seriesSummary.style.cursor = "pointer";
+        seriesSummary.style.fontWeight = "bold";
+        seriesSummary.style.padding = "3px";
+        seriesSummary.style.background = "#1a252f";
+        seriesSummary.textContent = "[+] " + seriesName;
+        
+        seriesDetails.appendChild(seriesSummary);
+
+        // 第2階層: 役割 (Role)
+        Object.keys(tree[seriesName]).sort().forEach(roleName => {
+            const roleDetails = document.createElement("details");
+            roleDetails.style.marginLeft = "10px";
+            roleDetails.style.marginTop = "2px";
+            
+            const roleSummary = document.createElement("summary");
+            roleSummary.style.cursor = "pointer";
+            roleSummary.style.fontSize = "13px";
+            roleSummary.style.color = "#1abc9c";
+            roleSummary.textContent = "> " + roleName;
+            
+            roleDetails.appendChild(roleSummary);
+
+            // パーツ一覧
+            tree[seriesName][roleName].forEach(rail => {
+                const div = document.createElement("div");
+                div.className = "rail-item";
+                div.style.marginLeft = "10px";
+                div.style.cursor = "grab";
+                div.draggable = true;
+                div.innerHTML = `${rail.sName}<span class="rail-item-sub">${rail.sProductCode || ''}</span>`;
+                
+                div.ondragstart = (e) => {
+                    e.dataTransfer.setData("text/plain", rail.sId);
+                    e.dataTransfer.effectAllowed = "copy";
+                };
+                roleDetails.appendChild(div);
+            });
+            seriesDetails.appendChild(roleDetails);
+        });
+
+        // 開閉時の記号切り替え
+        seriesDetails.addEventListener("toggle", () => {
+            seriesSummary.textContent = (seriesDetails.open ? "[-] " : "[+] ") + seriesName;
+        });
+
+        listContainer.appendChild(seriesDetails);
     });
 }
-
 /**
  * 接点計算ロジック (1〜4点対応)
  */

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0075</title>
+    <title>Railroad Models Layout Designer v.0076</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -312,8 +312,8 @@ function drawCurveRail(ctx, p) {
     const halfGauge = p.nGauge / 2;
     const halfView = p.nViewWidth / 2;
 
-    const centerX = -R * Math.cos(halfAngle);
-    const centerY = 0; 
+    const centerX = -R; // 中心点は基準点(0,0)から半径分だけ左にある
+    const centerY = 0;
 
     const startAngle = -halfAngle;
     const endAngle = halfAngle;
@@ -355,7 +355,7 @@ function drawCurveRail(ctx, p) {
 
     // 3. 吸着点（Junction）の座標更新
     if (p.junctionCount) {
-        const jX = 0; 
+        const jX = R * Math.cos(halfAngle) - R; // 頂点(0,0)から見た始点・終点のXオフセット
         const jY = R * Math.sin(halfAngle);
         
         p.junctions = [

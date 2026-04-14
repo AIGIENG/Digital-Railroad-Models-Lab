@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0091</title>
+    <title>Railroad Models Layout Designer v.0093</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -375,6 +375,7 @@ function isPointInPart(mx, my, p) {
     const lx = dx * Math.cos(rad) - dy * Math.sin(rad);
     const ly = dx * Math.sin(rad) + dy * Math.cos(rad);
 
+    console.log("利用可能なキー:", Object.keys(p));
     if (p.type === 'curve') {
         // オブジェクト内のプロパティ名が nRadius / nAngle であることを前提
         const R = p.nRadius;
@@ -437,7 +438,7 @@ canvas.onmousedown = function(e) {
 
     for (let i = layers.rail.length - 1; i >= 0; i--) {
         const p = layers.rail[i];
-        
+ console.log("現在チェック中のパーツ:", p);       
         // isPointInPart の戻り値が正しければ、既存のドラッグ処理をそのまま実行
         if (isPointInPart(mouseX, mouseY, p)) {
             draggedPart = p;

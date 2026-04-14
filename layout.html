@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0096</title>
+    <title>Railroad Models Layout Designer v.0098</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -454,7 +454,6 @@ canvas.onmousedown = function(e) {
 
     for (let i = layers.rail.length - 1; i >= 0; i--) {
         const p = layers.rail[i];
- console.log("現在チェック中のパーツ:", p);       
         // isPointInPart の戻り値が正しければ、既存のドラッグ処理をそのまま実行
         if (isPointInPart(mouseX, mouseY, p)) {
             draggedPart = p;
@@ -467,7 +466,7 @@ canvas.onmousedown = function(e) {
             layers.rail.splice(i, 1);
             layers.rail.push(draggedPart);
             
-            if (typeof draw === 'function') draw(); 
+            render(); 
             break;
         }
     }
@@ -520,14 +519,14 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'Control') {
         isCtrlPressed = true;
         console.log("Ctrl Pressed: ", isCtrlPressed);
-        draw(); // 再描画して〇を表示
+        render();
     }
 });
 
 window.addEventListener('keyup', (e) => {
     if (e.key === 'Control') {
         isCtrlPressed = false;
-        draw(); // 再描画して〇を非表示
+        render();
     }
 });
             

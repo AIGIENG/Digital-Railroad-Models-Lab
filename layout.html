@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0080</title>
+    <title>Railroad Models Layout Designer v.0081</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -301,69 +301,70 @@ function drawStraightRail(ctx, p) {
 }
 
 /**
- * 曲線レールの計算および描画（単線専用）
- */
+ * 曲線レールの計算および描画
+ */
 function drawCurveRail(ctx, p) {
-    const R = p.nRadius;
-    const angleDeg = p.nAngle;
-    const angleRad = (angleDeg * Math.PI) / 180;
-    const halfAngle = angleRad / 2;
-    const halfGauge = p.nGauge / 2;
-    const halfView = p.nViewWidth / 2;
+    const R = p.nRadius;
+    const angleRad = (p.nAngle * Math.PI) / 180;
+    const halfAngle = angleRad / 2;
+    const halfGauge = p.nGauge / 2;
+    const halfView = p.nViewWidth / 2;
 
-    // --- 変更後：基準点をレールの円弧（頂点）の上に設定 ---
-    const centerX = -R; // 中心点は基準点(0,0)から半径分だけ左にある
-    const centerY = 0;
-    const startAngle = -halfAngle;
-    const endAngle = halfAngle;
+    // 基準点(0,0)をレールの頂点とするための中心点
+    const cx = -R;
+    const cy = 0;
+    const startAngle = -halfAngle;
+    const endAngle = halfAngle;
 
-    const mainColor = p.sColor || '#333';
-    // ドラッグ状態のスタイル判定（親関数 drawPart の変数を参照していると想定）
-    const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
+    const mainColor = p.sColor || '#333';
+    const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
 
-    // 1. 道床（バラスト）の塗りつぶしと縁取り
-    ctx.beginPath();
-    // 外側の弧（時計回り）
-    ctx.arc(centerX, centerY, R + halfView, startAngle, endAngle);
-    // 内側の弧（反時計回りで戻ることでパスを閉じる）
-    ctx.arc(centerX, centerY, R - halfView, endAngle, startAngle, true);
-    ctx.closePath();
+    // 1. 道床（バラスト）の塗りつぶしと縁取り
+    ctx.beginPath();
+    ctx.arc(cx, cy, R + halfView, startAngle, endAngle);
+    ctx.arc(cx, cy, R - halfView, endAngle, startAngle, true);
+    ctx.closePath();
 
-    // 塗りつぶし（透過）
-    ctx.fillStyle = (p.sColor || '#999') + "33";
-    ctx.fill();
+    ctx.fillStyle = (p.sColor || '#999') + "33";
+    ctx.fill();
 
-    // 縁取り（輪郭線）
-    ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
-    ctx.lineWidth = isDragged ? 3 : 1;
-    ctx.stroke();
+    ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
+    ctx.lineWidth = isDragged ? 3 : 1;
+    ctx.stroke();
 
-    // 2. レール（2本の円弧）の描画
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = mainColor;
+    // 2. レール（軌道）の描画
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = mainColor;
 
-    // 外側レール
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, R + halfGauge, startAngle, endAngle);
-    ctx.stroke();
+    // 複線・単線の切り分け（複線時は外側Rと、Rからgapを引いた内側軌道を描画）
+    const gap = p.nTrackGap || 33;
+    const trackRadii = p.bIsDouble ? [R, R - gap] : [R];
 
-    // 内側レール
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, R - halfGauge, startAngle, endAngle);
-    ctx.stroke();
+    trackRadii.forEach(currentR => {
+        // レール1本目（外側）
+        ctx.beginPath();
+        ctx.arc(cx, cy, currentR + halfGauge, startAngle, endAngle);
+        ctx.stroke();
+        // レール2本目（内側）
+        ctx.beginPath();
+        ctx.arc(cx, cy, currentR - halfGauge, startAngle, endAngle);
+        ctx.stroke();
+    });
 
-    // 3. 吸着点（Junction）の座標更新
-    if (p.junctionCount) {
-        // --- 変更後（吸着点の計算）：基準点(0,0)からの相対座標に修正 ---
-        const jX = R * Math.cos(halfAngle) - R; // 頂点(0,0)から見た始点・終点のXオフセット
-        const jY = R * Math.sin(halfAngle);
-        
-        p.junctions = [
-            { x: jX, y: -jY }, // 始点側
-            { x: jX, y: jY }   // 終点側
-        ];
-        p.junctions = p.junctions.slice(0, p.junctionCount);
-    }
+    // 3. 吸着点（Junction）の座標更新：機能を復旧
+    if (p.junctionCount) {
+        const junctions = [];
+        trackRadii.forEach(currentR => {
+            // 頂点(0,0)を基準とした端点の相対座標
+            // x = R * cos(halfAngle) - R_reference
+            const jX = currentR * Math.cos(halfAngle) - R;
+            const jY = currentR * Math.sin(halfAngle);
+            
+            junctions.push({ x: jX, y: -jY }); // 始点側
+            junctions.push({ x: jX, y: jY });  // 終点側
+        });
+        p.junctions = junctions.slice(0, p.junctionCount);
+    }
 }
             
 /**

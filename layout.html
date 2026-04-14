@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0081</title>
+    <title>Railroad Models Layout Designer v.0082</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -310,7 +310,7 @@ function drawCurveRail(ctx, p) {
     const halfGauge = p.nGauge / 2;
     const halfView = p.nViewWidth / 2;
 
-    // 基準点(0,0)をレールの頂点とするための中心点
+    // 基準点(0,0)をレールの頂点とするための中心点定義
     const cx = -R;
     const cy = 0;
     const startAngle = -halfAngle;
@@ -319,10 +319,14 @@ function drawCurveRail(ctx, p) {
     const mainColor = p.sColor || '#333';
     const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
 
-    // 1. 道床（バラスト）の塗りつぶしと縁取り
+    // 1. 道床（バラスト）の描画
+    const gap = p.nTrackGap || 33;
+    const rBallastOut = R + halfView;
+    const rBallastIn  = (p.bIsDouble ? (R - gap) : R) - halfView;
+
     ctx.beginPath();
-    ctx.arc(cx, cy, R + halfView, startAngle, endAngle);
-    ctx.arc(cx, cy, R - halfView, endAngle, startAngle, true);
+    ctx.arc(cx, cy, rBallastOut, startAngle, endAngle);
+    ctx.arc(cx, cy, rBallastIn, endAngle, startAngle, true);
     ctx.closePath();
 
     ctx.fillStyle = (p.sColor || '#999') + "33";
@@ -335,29 +339,23 @@ function drawCurveRail(ctx, p) {
     // 2. レール（軌道）の描画
     ctx.lineWidth = 1;
     ctx.strokeStyle = mainColor;
-
-    // 複線・単線の切り分け（複線時は外側Rと、Rからgapを引いた内側軌道を描画）
-    const gap = p.nTrackGap || 33;
     const trackRadii = p.bIsDouble ? [R, R - gap] : [R];
 
     trackRadii.forEach(currentR => {
-        // レール1本目（外側）
         ctx.beginPath();
         ctx.arc(cx, cy, currentR + halfGauge, startAngle, endAngle);
         ctx.stroke();
-        // レール2本目（内側）
         ctx.beginPath();
         ctx.arc(cx, cy, currentR - halfGauge, startAngle, endAngle);
         ctx.stroke();
     });
 
-    // 3. 吸着点（Junction）の座標更新：機能を復旧
+    // 3. 吸着点（Junction）の座標更新：X座標の計算式を修正
     if (p.junctionCount) {
         const junctions = [];
         trackRadii.forEach(currentR => {
-            // 頂点(0,0)を基準とした端点の相対座標
-            // x = R * cos(halfAngle) - R_reference
-            const jX = currentR * Math.cos(halfAngle) - R;
+            // 頂点(0,0)から見た正しい端点の相対座標
+            const jX = currentR * Math.cos(halfAngle) - R; 
             const jY = currentR * Math.sin(halfAngle);
             
             junctions.push({ x: jX, y: -jY }); // 始点側

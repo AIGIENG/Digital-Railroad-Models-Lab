@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0101</title>
+    <title>Railroad Models Layout Designer v.0102</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -233,19 +233,17 @@ function render() {
 }
             
 /**
- * レール描画のエントリーポイント
+ * レール描画のエントリーポイント（内側基準点の表示に対応）
  */
 function drawPart(ctx, p) {
     ctx.save();
     
-    // 基準点(中央)への座標変換
     ctx.translate(p.x, p.y);
     ctx.rotate((p.rotation * Math.PI) / 180);
 
     if (p.sRole === "straight") {
         drawStraightRail(ctx, p);
     } else if (p.sRole === "curve") {
-        // 【追加】複線フラグがある場合は複線用、なければ単線用の関数を呼ぶ
         if (p.bIsDouble) {
             drawDoubleCurveRail(ctx, p);
         } else {
@@ -253,24 +251,26 @@ function drawPart(ctx, p) {
         }
     }
 
-    // 基準点マーカーの描画制御
     if (p.sRole === "straight" || p.sRole === "curve") {
-        // Ctrlキーが押されている時だけ描画する
         if (isCtrlPressed) {
             const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
-            
-            ctx.beginPath();
-            // 指定通り、基準点(0,0)にサイズ1.5倍(7.5)で描画
-            ctx.arc(0, 0, 7.5, 0, Math.PI * 2); 
-            
-            // 色の設定：ドラッグ中なら少し濃い青、通常なら青
-            ctx.fillStyle = isDragged ? "rgba(0, 86, 179, 1.0)" : "blue";
-            ctx.fill();
-            
-            // 縁取り
-            ctx.strokeStyle = isDragged ? "#003d80" : "#333";
-            ctx.lineWidth = 1;
-            ctx.stroke();
+            const drawMarker = (x, y) => {
+                ctx.beginPath();
+                ctx.arc(x, y, 7.5, 0, Math.PI * 2); 
+                ctx.fillStyle = isDragged ? "rgba(0, 86, 179, 1.0)" : "blue";
+                ctx.fill();
+                ctx.strokeStyle = isDragged ? "#003d80" : "#333";
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            };
+
+            // 外側（または単線）の基準点
+            drawMarker(0, 0);
+
+            // 複線曲線の場合のみ、内側レールの基準点を描画
+            if (p.bIsDouble && p.innerCenter) {
+                drawMarker(p.innerCenter.x, p.innerCenter.y);
+            }
         }
     }
 
@@ -333,70 +333,76 @@ function drawStraightRail(ctx, p) {
 }
 
 /**
- * 曲線レールの計算および描画（単線専用）
+ * 複線曲線レールの描画（色の重複を回避し、一括で道床を塗る）
  */
-function drawCurveRail(ctx, p) {
-    const R = p.nRadius;
+function drawDoubleCurveRail(ctx, p) {
+    const rOuter = p.nRadius;
+    const rInner = p.nRadius - (p.nTrackGap || 33);
     const angleDeg = p.nAngle;
     const angleRad = (angleDeg * Math.PI) / 180;
     const halfAngle = angleRad / 2;
-    const halfGauge = p.nGauge / 2;
-    const halfView = p.nViewWidth / 2;
+    const halfGauge = (p.nGauge || 9) / 2;
+    const halfView = (p.nViewWidth || 25) / 2;
 
-    const centerX = -R * Math.cos(halfAngle);
-    const centerY = 0; 
-
+    const mainColor = p.sColor || '#333';
+    const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
+    
+    const centerX = -rOuter * Math.cos(halfAngle);
+    const centerY = 0;
     const startAngle = -halfAngle;
     const endAngle = halfAngle;
 
-    const mainColor = p.sColor || '#333';
-    // ドラッグ状態のスタイル判定（親関数 drawPart の変数を参照していると想定）
-    const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
-
-    // 1. 道床（バラスト）の塗りつぶしと縁取り
+    // 1. 道床（バラスト）の一括描画
+    // 外側レールの外端から、内側レールの内端までを一つのパスで囲む
     ctx.beginPath();
-    // 外側の弧（時計回り）
-    ctx.arc(centerX, centerY, R + halfView, startAngle, endAngle);
-    // 内側の弧（反時計回りで戻ることでパスを閉じる）
-    ctx.arc(centerX, centerY, R - halfView, endAngle, startAngle, true);
+    // 最外周（外側レールの外端）
+    ctx.arc(centerX, centerY, rOuter + halfView, startAngle, endAngle);
+    // 最内周（内側レールの内端）を逆方向に描画して閉じる
+    ctx.arc(centerX, centerY, rInner - halfView, endAngle, startAngle, true);
     ctx.closePath();
 
-    // 塗りつぶし（透過）
+    // 塗りつぶし（一度だけ実行するので重ならない）
     ctx.fillStyle = (p.sColor || '#999') + "33";
     ctx.fill();
 
-    // 縁取り（輪郭線）
+    // 縁取り（全体のシルエット）
     ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
     ctx.lineWidth = isDragged ? 3 : 1;
     ctx.stroke();
 
-    // 2. レール（2本の円弧）の描画
+    // 2. レールの描画（4本）
     ctx.lineWidth = 1;
     ctx.strokeStyle = mainColor;
+    [rOuter, rInner].forEach(R => {
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, R + halfGauge, startAngle, endAngle);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, R - halfGauge, startAngle, endAngle);
+        ctx.stroke();
+    });
 
-    // 外側レール
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, R + halfGauge, startAngle, endAngle);
-    ctx.stroke();
-
-    // 内側レール
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, R - halfGauge, startAngle, endAngle);
-    ctx.stroke();
-
-    // 3. 吸着点（Junction）の座標更新
+    // 3. 接続点（Junction）および内側基準点の更新
     if (p.junctionCount) {
-        const jX = 0; 
-        const jY = R * Math.sin(halfAngle);
-        
+        const jYOuter = rOuter * Math.sin(halfAngle);
+        const jYInner = rInner * Math.sin(halfAngle);
+        const jXInner = (rOuter - rInner) * Math.cos(halfAngle);
+
+        // 接続点
         p.junctions = [
-            { x: jX, y: -jY }, // 始点側
-            { x: jX, y: jY }   // 終点側
+            { x: 0, y: -jYOuter },
+            { x: 0, y: jYOuter },
+            { x: jXInner, y: -jYInner },
+            { x: jXInner, y: jYInner }
         ];
         p.junctions = p.junctions.slice(0, p.junctionCount);
+
+        // 【新設】内側レールの基準点（持ち手用）をプロパティとして保持
+        // 外側頂点(0,0)から中心方向にオフセットした位置
+        p.innerCenter = { x: rOuter - rInner, y: 0 };
     }
 }
-
+            
 /**
  * 複線曲線レールの描画
  */

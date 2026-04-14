@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0095f</title>
+    <title>Railroad Models Layout Designer v.0096</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -519,6 +519,7 @@ window.onkeydown = (e) => {
 window.addEventListener('keydown', (e) => {
     if (e.key === 'Control') {
         isCtrlPressed = true;
+        console.log("Ctrl Pressed: ", isCtrlPressed);
         draw(); // 再描画して〇を表示
     }
 });

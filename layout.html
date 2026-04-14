@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0102</title>
+    <title>Railroad Models Layout Designer v.0103</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -233,11 +233,12 @@ function render() {
 }
             
 /**
- * レール描画のエントリーポイント（内側基準点の表示に対応）
+ * レール描画のエントリーポイント
  */
 function drawPart(ctx, p) {
     ctx.save();
     
+    // 基準点(中央)への座標変換
     ctx.translate(p.x, p.y);
     ctx.rotate((p.rotation * Math.PI) / 180);
 
@@ -251,6 +252,7 @@ function drawPart(ctx, p) {
         }
     }
 
+    // 基準点マーカーの描画制御
     if (p.sRole === "straight" || p.sRole === "curve") {
         if (isCtrlPressed) {
             const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
@@ -264,10 +266,10 @@ function drawPart(ctx, p) {
                 ctx.stroke();
             };
 
-            // 外側（または単線）の基準点
+            // 外側（主）基準点
             drawMarker(0, 0);
 
-            // 複線曲線の場合のみ、内側レールの基準点を描画
+            // 複線の場合、内側基準点を表示
             if (p.bIsDouble && p.innerCenter) {
                 drawMarker(p.innerCenter.x, p.innerCenter.y);
             }
@@ -418,57 +420,55 @@ function drawDoubleCurveRail(ctx, p) {
     const mainColor = p.sColor || '#333';
     const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
     
-    // 中心点は外側レール(rOuter)の頂点が x=0 になる位置で固定
     const centerX = -rOuter * Math.cos(halfAngle);
     const centerY = 0;
     const startAngle = -halfAngle;
     const endAngle = halfAngle;
 
-    // 1. 道床（バラスト）の描画
-    // 外側と内側、それぞれの道床を個別に描画して塗りつぶす
-    [rOuter, rInner].forEach(R => {
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, R + halfView, startAngle, endAngle);
-        ctx.arc(centerX, centerY, R - halfView, endAngle, startAngle, true);
-        ctx.closePath();
-        ctx.fillStyle = (p.sColor || '#999') + "33"; // 透過バラスト
-        ctx.fill();
+    // 1. 道床（バラスト）の一括描画
+    // 外側レールの外端から内側レールの内端までを一筆書きで囲むことで、重なりによる色の変化を防ぐ
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, rOuter + halfView, startAngle, endAngle); // 最外周
+    ctx.arc(centerX, centerY, rInner - halfView, endAngle, startAngle, true); // 最内周を逆向きに
+    ctx.closePath();
 
-        // 縁取り
-        ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
-        ctx.lineWidth = isDragged ? 3 : 1;
-        ctx.stroke();
-    });
+    ctx.fillStyle = (p.sColor || '#999') + "33";
+    ctx.fill();
 
-    // 2. レールの描画（2線分 = 合計4本の円弧）
+    // 縁取り
+    ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
+    ctx.lineWidth = isDragged ? 3 : 1;
+    ctx.stroke();
+
+    // 2. レールの描画（4本）
     ctx.lineWidth = 1;
     ctx.strokeStyle = mainColor;
-
     [rOuter, rInner].forEach(R => {
-        // 各線の外側レール
         ctx.beginPath();
         ctx.arc(centerX, centerY, R + halfGauge, startAngle, endAngle);
         ctx.stroke();
-
-        // 各線の内側レール
         ctx.beginPath();
         ctx.arc(centerX, centerY, R - halfGauge, startAngle, endAngle);
         ctx.stroke();
     });
 
-    // 3. 複線用の吸着点（Junction）更新
+    // 3. 接続点および内側基準点の更新
     if (p.junctionCount) {
         const jYOuter = rOuter * Math.sin(halfAngle);
         const jYInner = rInner * Math.sin(halfAngle);
+        // 内側端点のX座標（中心点からの相対）
         const jXInner = (rOuter - rInner) * Math.cos(halfAngle);
 
         p.junctions = [
-            { x: 0, y: -jYOuter },        // 外・始点
-            { x: 0, y: jYOuter },         // 外・終点
-            { x: jXInner, y: -jYInner },  // 内・始点
-            { x: jXInner, y: jYInner }    // 内・終点
+            { x: 0, y: -jYOuter },
+            { x: 0, y: jYOuter },
+            { x: jXInner, y: -jYInner },
+            { x: jXInner, y: jYInner }
         ];
         p.junctions = p.junctions.slice(0, p.junctionCount);
+
+        // 【修正】内側レールの基準点。外側頂点(0,0)から見て左(マイナス方向)に配置
+        p.innerCenter = { x: -(rOuter - rInner), y: 0 };
     }
 }
             

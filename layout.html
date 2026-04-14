@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0100</title>
+    <title>Railroad Models Layout Designer v.0101</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -398,7 +398,7 @@ function drawCurveRail(ctx, p) {
 }
 
 /**
- * 複線曲線レールの描画（既存の単線ロジックをベースに複線化）
+ * 複線曲線レールの描画
  */
 function drawDoubleCurveRail(ctx, p) {
     const rOuter = p.nRadius;
@@ -411,39 +411,40 @@ function drawDoubleCurveRail(ctx, p) {
 
     const mainColor = p.sColor || '#333';
     const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
+    
+    // 中心点は外側レール(rOuter)の頂点が x=0 になる位置で固定
+    const centerX = -rOuter * Math.cos(halfAngle);
+    const centerY = 0;
+    const startAngle = -halfAngle;
+    const endAngle = halfAngle;
 
-    // 外側と内側の半径リスト
-    const radii = [rOuter, rInner];
-
-    radii.forEach((R, index) => {
-        // 重要：各レールの中心点を個別に計算する
-        // 外側レール(index 0)の頂点が x=0 になるように配置するため、
-        // 内側レール(index 1)は外側と同じ中心点を共有させる
-        const centerX = -rOuter * Math.cos(halfAngle); 
-        const centerY = 0;
-        
-        const startAngle = -halfAngle;
-        const endAngle = halfAngle;
-
-        // 1. 道床（バラスト）
+    // 1. 道床（バラスト）の描画
+    // 外側と内側、それぞれの道床を個別に描画して塗りつぶす
+    [rOuter, rInner].forEach(R => {
         ctx.beginPath();
         ctx.arc(centerX, centerY, R + halfView, startAngle, endAngle);
         ctx.arc(centerX, centerY, R - halfView, endAngle, startAngle, true);
         ctx.closePath();
-        ctx.fillStyle = (p.sColor || '#999') + "33";
+        ctx.fillStyle = (p.sColor || '#999') + "33"; // 透過バラスト
         ctx.fill();
 
         // 縁取り
         ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
         ctx.lineWidth = isDragged ? 3 : 1;
         ctx.stroke();
+    });
 
-        // 2. レール（2本）
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = mainColor;
+    // 2. レールの描画（2線分 = 合計4本の円弧）
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = mainColor;
+
+    [rOuter, rInner].forEach(R => {
+        // 各線の外側レール
         ctx.beginPath();
         ctx.arc(centerX, centerY, R + halfGauge, startAngle, endAngle);
         ctx.stroke();
+
+        // 各線の内側レール
         ctx.beginPath();
         ctx.arc(centerX, centerY, R - halfGauge, startAngle, endAngle);
         ctx.stroke();
@@ -453,9 +454,6 @@ function drawDoubleCurveRail(ctx, p) {
     if (p.junctionCount) {
         const jYOuter = rOuter * Math.sin(halfAngle);
         const jYInner = rInner * Math.sin(halfAngle);
-        // 内側レールの頂点は、外側レールの中心点から見て rInner の距離にある。
-        // 外側頂点が x=0 なので、内側頂点の X 座標は (rOuter - rInner * cos(halfAngle)ではない点に注意)
-        // 幾何学的に、中心 centerX から右に rInner 移動した位置の X座標は：
         const jXInner = (rOuter - rInner) * Math.cos(halfAngle);
 
         p.junctions = [

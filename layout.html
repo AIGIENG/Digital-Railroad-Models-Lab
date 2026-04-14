@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0094</title>
+    <title>Railroad Models Layout Designer v.0095</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -62,8 +62,9 @@ let draggedPart = null;
 let offsetX = 0;
 let offsetY = 0;
 let isSnapped = false;
+let isCtrlPressed = false;
 
-const canvas = document.getElementById('canvas');
+onst canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
 /**
@@ -241,6 +242,15 @@ if (p.sRole === "straight" || p.sRole === "curve") {
         ctx.fill();
         ctx.strokeStyle = isDragged ? "#0056b3" : "#333";
         ctx.lineWidth = 1;
+        // draw関数のループ内
+        if (isCtrlPressed) {
+            ctx.save(); // 描画状態を保存
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 7.5, 0, Math.PI * 2); // 5pxの1.5倍で7.5px
+            ctx.fillStyle = 'blue';
+            ctx.fill();
+            ctx.restore(); // 描画状態を復元
+        }
         ctx.stroke();
     }
 
@@ -371,11 +381,18 @@ function drawCurveRail(ctx, p) {
 function isPointInPart(mx, my, p) {
     const dx = mx - p.x;
     const dy = my - p.y;
+
+    // --- 追加：基準点（青い〇）の判定 ---
+    // 〇の半径 7.5px に対し、余裕を見て 10px 以内ならヒットとみなす
+    if (Math.sqrt(dx * dx + dy * dy) < 10) {
+        return true;
+    }
+    // ----------------------------------
+
     const rad = (-p.rotation * Math.PI) / 180;
     const lx = dx * Math.cos(rad) - dy * Math.sin(rad);
     const ly = dx * Math.sin(rad) + dy * Math.cos(rad);
 
-    // p.type ではなく p.sRole で判定
     if (p.sRole === 'curve') {
         const R = p.nRadius;
         const angle = p.nAngle;
@@ -499,6 +516,20 @@ window.onkeydown = (e) => {
     }
 };
 
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Control') {
+        isCtrlPressed = true;
+        draw(); // 再描画して〇を表示
+    }
+});
+
+window.addEventListener('keyup', (e) => {
+    if (e.key === 'Control') {
+        isCtrlPressed = false;
+        draw(); // 再描画して〇を非表示
+    }
+});
+            
 // 起動
 init();
        

@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0099</title>
+    <title>Railroad Models Layout Designer v.0100</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -161,7 +161,7 @@ function initSidebar() {
 }
             
 /**
- * 接点計算ロジック (中央基準・単線直線対応版)
+ * 接点計算ロジック (中央基準・単線直線対応版 + 複線曲線対応)
  */
 function getConnectorPoints(p, x, y, rotation) {
     const points = [];
@@ -180,27 +180,44 @@ function getConnectorPoints(p, x, y, rotation) {
     if (p.sRole === "straight") {
         if (!p.bIsDouble) {
             // --- 単線直線 ---
-            // 基準点(x,y)を中央とし、左右に L/2 振り分ける
             points.push(transform(-halfLen, 0)); // 始点側
             points.push(transform(halfLen, 0));  // 終点側
-    } else {
+        } else {
             // 複線：[左上, 左下, 右上, 右下] の順序に整理
             const halfGap = (p.nTrackGap || 33) / 2;
-            // 始点側（左）
             points.push(transform(-halfLen, -halfGap)); 
             points.push(transform(-halfLen, halfGap));  
-            // 終点側（右）
             points.push(transform(halfLen, -halfGap));  
             points.push(transform(halfLen, halfGap));   
         }
     } else if (p.sRole === "curve") {
-    // 基準点が円弧の中間にある場合の、両端の相対位置
-        const halfAngle = (p.nAngle * Math.PI) / 360; // (angle/2) * (PI/180)
-        const R = p.nRadius;
-        const jY = R * Math.sin(halfAngle);
-        // x方向のズレはcenterXのオフセットで相殺され、中間基準では y の振り分けになる
-        points.push(transform(0, -jY));
-        points.push(transform(0, jY));
+        const halfAngle = (p.nAngle * Math.PI) / 360; 
+        
+        if (!p.bIsDouble) {
+            // --- 単線曲線 ---
+            const R = p.nRadius;
+            const jY = R * Math.sin(halfAngle);
+            points.push(transform(0, -jY));
+            points.push(transform(0, jY));
+        } else {
+            // --- 複線曲線 ---
+            // 外側(Outer)と内側(Inner)の半径を算出
+            const rOuter = p.nRadius;
+            const rInner = p.nRadius - (p.nTrackGap || 33);
+            
+            // 外側レールの上下接点
+            const jYOuter = rOuter * Math.sin(halfAngle);
+            // 内側レールの上下接点
+            // 外側が中間基準(x=0)のため、内側のx方向のズレ(R-rInner)を考慮
+            const offsetX = rOuter - rInner; 
+            const jYInner = rInner * Math.sin(halfAngle);
+
+            // [外上, 外下, 内上, 内下] の順で追加
+            points.push(transform(0, -jYOuter));  // 外側・上
+            points.push(transform(0, jYOuter));   // 外側・下
+            points.push(transform(offsetX, -jYInner)); // 内側・上
+            points.push(transform(offsetX, jYInner));  // 内側・下
+        }
     }
 
     // 指示通りの junctionCount 数だけ返す
@@ -218,9 +235,6 @@ function render() {
 /**
  * レール描画のエントリーポイント
  */
-/**
- * レール描画のエントリーポイント
- */
 function drawPart(ctx, p) {
     ctx.save();
     
@@ -231,8 +245,12 @@ function drawPart(ctx, p) {
     if (p.sRole === "straight") {
         drawStraightRail(ctx, p);
     } else if (p.sRole === "curve") {
-        // 単線曲線レールの描画
-        drawCurveRail(ctx, p);
+        // 【追加】複線フラグがある場合は複線用、なければ単線用の関数を呼ぶ
+        if (p.bIsDouble) {
+            drawDoubleCurveRail(ctx, p);
+        } else {
+            drawCurveRail(ctx, p);
+        }
     }
 
     // 基準点マーカーの描画制御
@@ -379,6 +397,77 @@ function drawCurveRail(ctx, p) {
     }
 }
 
+/**
+ * 複線曲線レールの描画（既存の単線ロジックをベースに複線化）
+ */
+function drawDoubleCurveRail(ctx, p) {
+    const rOuter = p.nRadius;
+    const rInner = p.nRadius - (p.nTrackGap || 33);
+    const angleDeg = p.nAngle;
+    const angleRad = (angleDeg * Math.PI) / 180;
+    const halfAngle = angleRad / 2;
+    const halfGauge = (p.nGauge || 9) / 2;
+    const halfView = (p.nViewWidth || 25) / 2;
+
+    const mainColor = p.sColor || '#333';
+    const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
+
+    // 外側と内側の半径リスト
+    const radii = [rOuter, rInner];
+
+    radii.forEach((R, index) => {
+        // 重要：各レールの中心点を個別に計算する
+        // 外側レール(index 0)の頂点が x=0 になるように配置するため、
+        // 内側レール(index 1)は外側と同じ中心点を共有させる
+        const centerX = -rOuter * Math.cos(halfAngle); 
+        const centerY = 0;
+        
+        const startAngle = -halfAngle;
+        const endAngle = halfAngle;
+
+        // 1. 道床（バラスト）
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, R + halfView, startAngle, endAngle);
+        ctx.arc(centerX, centerY, R - halfView, endAngle, startAngle, true);
+        ctx.closePath();
+        ctx.fillStyle = (p.sColor || '#999') + "33";
+        ctx.fill();
+
+        // 縁取り
+        ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
+        ctx.lineWidth = isDragged ? 3 : 1;
+        ctx.stroke();
+
+        // 2. レール（2本）
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = mainColor;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, R + halfGauge, startAngle, endAngle);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, R - halfGauge, startAngle, endAngle);
+        ctx.stroke();
+    });
+
+    // 3. 複線用の吸着点（Junction）更新
+    if (p.junctionCount) {
+        const jYOuter = rOuter * Math.sin(halfAngle);
+        const jYInner = rInner * Math.sin(halfAngle);
+        // 内側レールの頂点は、外側レールの中心点から見て rInner の距離にある。
+        // 外側頂点が x=0 なので、内側頂点の X 座標は (rOuter - rInner * cos(halfAngle)ではない点に注意)
+        // 幾何学的に、中心 centerX から右に rInner 移動した位置の X座標は：
+        const jXInner = (rOuter - rInner) * Math.cos(halfAngle);
+
+        p.junctions = [
+            { x: 0, y: -jYOuter },        // 外・始点
+            { x: 0, y: jYOuter },         // 外・終点
+            { x: jXInner, y: -jYInner },  // 内・始点
+            { x: jXInner, y: jYInner }    // 内・終点
+        ];
+        p.junctions = p.junctions.slice(0, p.junctionCount);
+    }
+}
+            
 // 判定関数（既存の変数を安全に参照）
 function isPointInPart(mx, my, p) {
     const dx = mx - p.x;

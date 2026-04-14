@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0098</title>
+    <title>Railroad Models Layout Designer v.0099</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -218,6 +218,9 @@ function render() {
 /**
  * レール描画のエントリーポイント
  */
+/**
+ * レール描画のエントリーポイント
+ */
 function drawPart(ctx, p) {
     ctx.save();
     
@@ -232,26 +235,25 @@ function drawPart(ctx, p) {
         drawCurveRail(ctx, p);
     }
 
-    // 基準点マーカー（クリック位置）の描画
-if (p.sRole === "straight" || p.sRole === "curve") {
-        const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
-        ctx.beginPath();
-        const markerRadius = (p.nGauge / 2) || 4;
-        ctx.arc(0, 0, markerRadius, 0, Math.PI * 2);
-        ctx.fillStyle = isDragged ? "rgba(0, 123, 255, 0.8)" : "rgba(255, 255, 255, 0.5)";
-        ctx.fill();
-        ctx.strokeStyle = isDragged ? "#0056b3" : "#333";
-        ctx.lineWidth = 1;
-        // draw関数のループ内
+    // 基準点マーカーの描画制御
+    if (p.sRole === "straight" || p.sRole === "curve") {
+        // Ctrlキーが押されている時だけ描画する
         if (isCtrlPressed) {
-            ctx.save(); // 描画状態を保存
+            const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
+            
             ctx.beginPath();
-            ctx.arc(p.x, p.y, 7.5, 0, Math.PI * 2); // 5pxの1.5倍で7.5px
-            ctx.fillStyle = 'blue';
+            // 指定通り、基準点(0,0)にサイズ1.5倍(7.5)で描画
+            ctx.arc(0, 0, 7.5, 0, Math.PI * 2); 
+            
+            // 色の設定：ドラッグ中なら少し濃い青、通常なら青
+            ctx.fillStyle = isDragged ? "rgba(0, 86, 179, 1.0)" : "blue";
             ctx.fill();
-            ctx.restore(); // 描画状態を復元
+            
+            // 縁取り
+            ctx.strokeStyle = isDragged ? "#003d80" : "#333";
+            ctx.lineWidth = 1;
+            ctx.stroke();
         }
-        ctx.stroke();
     }
 
     ctx.restore();

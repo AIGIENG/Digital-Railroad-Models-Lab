@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0093</title>
+    <title>Railroad Models Layout Designer v.0094</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -375,32 +375,31 @@ function isPointInPart(mx, my, p) {
     const lx = dx * Math.cos(rad) - dy * Math.sin(rad);
     const ly = dx * Math.sin(rad) + dy * Math.cos(rad);
 
-    console.log("利用可能なキー:", Object.keys(p));
-    if (p.type === 'curve') {
-        // オブジェクト内のプロパティ名が nRadius / nAngle であることを前提
+    // p.type ではなく p.sRole で判定
+    if (p.sRole === 'curve') {
         const R = p.nRadius;
         const angle = p.nAngle;
         const w = p.nViewWidth;
         
-        const cx = -R; // 基準点から円の中心（コンパスの針）までの距離
+        const cx = -R; 
         const cy = 0;
 
         const dist = Math.sqrt(Math.pow(lx - cx, 2) + Math.pow(ly - cy, 2));
         
-        // 厚み判定（バラストの幅の中にマウスがあるか）
+        // 厚み判定（バラストの幅）
         if (dist >= R - w / 2 && dist <= R + w / 2) {
             const mouseAngle = Math.atan2(ly - cy, lx - cx);
-            const limitAngle = (angle * Math.PI) / 360; // 角度の半分（ラジアン）
+            const limitAngle = (angle * Math.PI) / 360; 
             
             if (mouseAngle >= -limitAngle && mouseAngle <= limitAngle) {
                 return true;
             }
         }
-    } else if (p.type === 'straight') {
-        // 直線レールの場合は、従来の 40px 四方よりも正確な「道床の幅」で判定
+    } else if (p.sRole === 'straight') {
+        // 直線レール判定
         const halfL = p.nLength / 2;
         const halfW = p.nViewWidth / 2;
-        if (lx >= -halfL && lx <= halfL && ly >= -halfW && ly <= halfW) {
+        if (Math.abs(lx) <= halfL && Math.abs(ly) <= halfW) {
             return true;
         }
     }

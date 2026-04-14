@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0103r</title>
+    <title>Railroad Models Layout Designer v.0104r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -210,7 +210,8 @@ function getConnectorPoints(p, x, y, rotation) {
             // 【修正】内側レールの接点X座標
             // 中心点 centerX = -rOuter * cos(halfAngle) から、
             // 半径 rInner で角度 halfAngle の位置にある点の相対座標を算出
-            const jXInner = (rOuter - rInner) * Math.cos(halfAngle);
+            // const jXInner = (rOuter - rInner) * Math.cos(halfAngle);
+            const jXInner = (rInner - rOuter) * Math.cos(halfAngle);
             const jYInner = rInner * Math.sin(halfAngle);
 
             // [外上, 外下, 内上, 内下] の順で追加

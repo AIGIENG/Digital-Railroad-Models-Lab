@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0101r</title>
+    <title>Railroad Models Layout Designer v.0103r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -180,10 +180,10 @@ function getConnectorPoints(p, x, y, rotation) {
     if (p.sRole === "straight") {
         if (!p.bIsDouble) {
             // --- 単線直線 ---
-            points.push(transform(-halfLen, 0)); // 始点側
-            points.push(transform(halfLen, 0));  // 終点側
+            points.push(transform(-halfLen, 0)); 
+            points.push(transform(halfLen, 0));  
         } else {
-            // 複線：[左上, 左下, 右上, 右下] の順序に整理
+            // --- 複線直線 ---
             const halfGap = (p.nTrackGap || 33) / 2;
             points.push(transform(-halfLen, -halfGap)); 
             points.push(transform(-halfLen, halfGap));  
@@ -201,22 +201,23 @@ function getConnectorPoints(p, x, y, rotation) {
             points.push(transform(0, jY));
         } else {
             // --- 複線曲線 ---
-            // 外側(Outer)と内側(Inner)の半径を算出
             const rOuter = p.nRadius;
             const rInner = p.nRadius - (p.nTrackGap || 33);
             
-            // 外側レールの上下接点
+            // 外側レールの接点（x=0）
             const jYOuter = rOuter * Math.sin(halfAngle);
-            // 内側レールの上下接点
-            // 外側が中間基準(x=0)のため、内側のx方向のズレ(R-rInner)を考慮
-            const offsetX = rOuter - rInner; 
+            
+            // 【修正】内側レールの接点X座標
+            // 中心点 centerX = -rOuter * cos(halfAngle) から、
+            // 半径 rInner で角度 halfAngle の位置にある点の相対座標を算出
+            const jXInner = (rOuter - rInner) * Math.cos(halfAngle);
             const jYInner = rInner * Math.sin(halfAngle);
 
             // [外上, 外下, 内上, 内下] の順で追加
-            points.push(transform(0, -jYOuter));  // 外側・上
-            points.push(transform(0, jYOuter));   // 外側・下
-            points.push(transform(offsetX, -jYInner)); // 内側・上
-            points.push(transform(offsetX, jYInner));  // 内側・下
+            points.push(transform(0, -jYOuter));         // 外側・上
+            points.push(transform(0, jYOuter));          // 外側・下
+            points.push(transform(jXInner, -jYInner));   // 内側・上
+            points.push(transform(jXInner, jYInner));    // 内側・下
         }
     }
 

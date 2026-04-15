@@ -5,7 +5,17 @@
  * 2. 型を厳守（s=文字列, n=数値, b=真偽値）。
  * 3. 全てのデータで全18項目（sId除く）を必ず記述してください。
  *    sRoleの種類によって無視される項目もありますが、省略はできません。
- */
+ *    Black	#000000	無彩色
+ *    White	#ffffff	無彩色
+ *    Gray	#808080	無彩色
+ *    Red	#ff0000	赤系
+ *    Blue	#0000ff	青系
+ *    Green	#008000	緑系
+ *    Yellow	#ffff00	黄色系
+ *    Cyan	#00ffff	シアン系
+ *    Magenta	#ff00ff	マゼンタ系
+ *    Orange	#ffa500	オレンジ系
+  */
 
 const railData = {
     // --- 直線レール ---
@@ -25,7 +35,7 @@ const railData = {
         nViewWidth: 25,
         nHeight: 0,
         nGauge: 9,
-        sColor: "#00f",
+        sColor: "Green",
         sComment: "標準的な直線レール。PC枕木版と共通で使用可能。",
         sExtra: ""
     },
@@ -47,7 +57,7 @@ const railData = {
         nViewWidth: 25,
         nHeight: 0,
         nGauge: 9,
-        sColor: "#00f",
+        sColor: "Green",
         sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。",
         sExtra: ""
     },
@@ -68,7 +78,7 @@ const railData = {
         nViewWidth: 25,
         nHeight: 0,
         nGauge: 9,
-        sColor: "#00f",
+        sColor: "Green",
         sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。",
         sExtra: ""
     },
@@ -90,7 +100,7 @@ const railData = {
         nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
         nGauge: 9,
-         sColor: "#00f",
+         sColor: "Green",
         sComment: "複線レール。",
         sExtra: ""
     },
@@ -112,7 +122,7 @@ const railData = {
         nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
         nGauge: 9,
-        sColor: "#00f",
+        sColor: "Green",
         sComment: "カント付き複線曲線。内側はR381。",
         sExtra: ""
     },
@@ -134,7 +144,7 @@ const railData = {
         nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
         nGauge: 9,
-        sColor: "#00f",
+        sColor: "Green",
         sComment: "カント付き複線曲線。内側はR381。",
         sExtra: ""
     },
@@ -156,7 +166,7 @@ const railData = {
         nViewWidth: 57.5,
         nHeight: 0,
         nGauge: 9,
-        sColor: "#00f",
+        sColor: "Green",
         sComment: "カント導入用アプローチレール（左用）。",
         sExtra: ""
     },
@@ -178,7 +188,7 @@ const railData = {
         nViewWidth: 57.5,
         nHeight: 0,
         nGauge: 9,
-        sColor: "#00f",
+        sColor: "Green",
         sComment: "カント導入用アプローチレール（右用）。",
         sExtra: ""
     },
@@ -200,7 +210,7 @@ const railData = {
         nViewWidth: 18,
         nHeight: 0,
         nGauge: 9,
-        sColor: "#0f0",
+        sColor: "blue",
         sComment: "標準的な直線レール。PC枕木版と共通で使用可能。",
         sExtra: ""
     },
@@ -221,7 +231,7 @@ const railData = {
         nViewWidth: 18,
         nHeight: 0,
         nGauge: 9,
-        sColor: "#0f0",
+        sColor: "blue",
         sComment: "標準的な直線レール。PC枕木版と共通で使用可能。",
         sExtra: ""
     },
@@ -243,7 +253,7 @@ const railData = {
         nViewWidth: 18,
         nHeight: 0,
         nGauge: 9,
-        sColor: "#0f0",
+        sColor: "blue",
         sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。",
         sExtra: ""
     },
@@ -264,7 +274,7 @@ const railData = {
         nViewWidth: 18,
         nHeight: 0,
         nGauge: 9,
-        sColor: "#0f0",
+        sColor: "blue",
         sComment: "ワイドレール。",
         sExtra: ""
     },
@@ -286,7 +296,7 @@ const railData = {
         nViewWidth: 80,       // 建物の横幅として使用
         nHeight: 0,
         nGauge: 9,
-        sColor: "#07f",
+        sColor: "Orange",
         sComment: "木造の標準的な駅舎。",
         sExtra: ""
     },
@@ -308,7 +318,7 @@ const railData = {
         nViewWidth: 1800,      // 横幅
         nHeight: 700,         // 机の高さ
         nGauge: 9,
-        sColor: "#fff",
+        sColor: "red",
         sComment: "設営シミュレーション用。1800x450サイズ。",
         sExtra: ""
     }

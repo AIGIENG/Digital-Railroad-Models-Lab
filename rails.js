@@ -182,10 +182,31 @@ const railData = {
         sComment: "カント導入用アプローチレール（右用）。",
         sExtra: ""
     },
-    
+   
     // --- 直線レール ---
     "TOMIX_S280": {
-        sName: "直線レール S280",
+        sName: "ストレートレール S280",
+        sProductCode: "1022",
+        sMaker: "TOMIX",
+        sSeries: "FINETRACK",
+        sRole: "straight",
+        nLength: 280,
+        nRadius: 0,
+        nAngle: 0,
+        bIsDouble: false,
+        nTrackGap: 37,
+        junctionCount: 2,
+        sDirection: "none",
+        nViewWidth: 18,
+        nHeight: 0,
+        nGauge: 9,
+        sColor: "#0f0",
+        sComment: "標準的な直線レール。PC枕木版と共通で使用可能。",
+        sExtra: ""
+    },
+
+    "TOMIX_S280-WP": {
+        sName: "ワイドPCストレートレール S280",
         sProductCode: "1022",
         sMaker: "TOMIX",
         sSeries: "FINETRACK",
@@ -207,7 +228,7 @@ const railData = {
     
     // --- 曲線レール ---
     "TOMIX_C282-45": {
-        sName: "曲線レール C282-45",
+        sName: "カーブレール C282-45",
         sProductCode: "1851",
         sMaker: "TOMIX",
         sSeries: "FINETRACK",
@@ -225,7 +246,29 @@ const railData = {
         sColor: "#0f0",
         sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。",
         sExtra: ""
-    },    
+    },
+
+    "TOMIX_C282-45-WP": {
+        sName: "ワイドPCカーブレール C282-45-WP",
+        sProductCode: "1771",
+        sMaker: "TOMIX",
+        sSeries: "FINETRACK",
+        sRole: "curve",
+        nLength: 0,
+        nRadius: 282,
+        nAngle: 45,
+        bIsDouble: false,
+        nTrackGap: 37,
+        junctionCount: 2,
+        sDirection: "none",
+        nViewWidth: 18,
+        nHeight: 0,
+        nGauge: 9,
+        sColor: "#0f0",
+        sComment: "ワイドレール。",
+        sExtra: ""
+    },
+   
     // --- ストラクチャー (駅舎) ---
     "KATO_23_210": {
         sName: "地上駅舎",

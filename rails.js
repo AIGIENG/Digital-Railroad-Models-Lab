@@ -25,11 +25,12 @@ const railData = {
         nViewWidth: 25,
         nHeight: 0,
         nGauge: 9,
-        sColor: "#cccccc",
+        sColor: "#00f",
         sComment: "標準的な直線レール。PC枕木版と共通で使用可能。",
         sExtra: ""
     },
-
+    
+    // --- 曲線レール ---
     "KATO_R315-45": {
         sName: "曲線レール R315-45",
         sProductCode: "2x-xxx",
@@ -46,7 +47,7 @@ const railData = {
         nViewWidth: 25,
         nHeight: 0,
         nGauge: 9,
-        sColor: "#cccccc",
+        sColor: "#00f",
         sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。",
         sExtra: ""
     },
@@ -67,7 +68,7 @@ const railData = {
         nViewWidth: 25,
         nHeight: 0,
         nGauge: 9,
-        sColor: "#cccccc",
+        sColor: "#00f",
         sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。",
         sExtra: ""
     },
@@ -89,7 +90,7 @@ const railData = {
         nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
         nGauge: 9,
-        sColor: "#999999",
+        sColor: "#00f",
         sComment: "複線レール。",
         sExtra: ""
     },
@@ -111,7 +112,7 @@ const railData = {
         nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
         nGauge: 9,
-        sColor: "#999999",
+        sColor: "#00f",
         sComment: "カント付き複線曲線。内側はR381。",
         sExtra: ""
     },
@@ -133,7 +134,7 @@ const railData = {
         nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
         nGauge: 9,
-        sColor: "#999999",
+        sColor: "#00f",
         sComment: "カント付き複線曲線。内側はR381。",
         sExtra: ""
     },
@@ -155,11 +156,54 @@ const railData = {
         nViewWidth: 57.5,
         nHeight: 0,
         nGauge: 9,
-        sColor: "#888888",
+        sColor: "#00f",
         sComment: "カント導入用アプローチレール（左用）。",
         sExtra: ""
     },
-
+    
+    // --- 直線レール ---
+    "TOMIX_S280": {
+        sName: "直線レール S280",
+        sProductCode: "1022",
+        sMaker: "TOMIX",
+        sSeries: "FINETRACK",
+        sRole: "straight",
+        nLength: 280,
+        nRadius: 0,
+        nAngle: 0,
+        bIsDouble: false,
+        nTrackGap: 37,
+        junctionCount: 2,
+        sDirection: "none",
+        nViewWidth: 18,
+        nHeight: 0,
+        nGauge: 9,
+        sColor: "#0f0",
+        sComment: "標準的な直線レール。PC枕木版と共通で使用可能。",
+        sExtra: ""
+    },
+    
+    // --- 曲線レール ---
+    "TOMIX_C282-45": {
+        sName: "曲線レール C282-45",
+        sProductCode: "1851",
+        sMaker: "TOMIX",
+        sSeries: "FINETRACK",
+        sRole: "curve",
+        nLength: 0,
+        nRadius: 282,
+        nAngle: 45,
+        bIsDouble: false,
+        nTrackGap: 37,
+        junctionCount: 2,
+        sDirection: "none",
+        nViewWidth: 18,
+        nHeight: 0,
+        nGauge: 9,
+        sColor: "#0f0",
+        sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。",
+        sExtra: ""
+    },    
     // --- ストラクチャー (駅舎) ---
     "KATO_23_210": {
         sName: "地上駅舎",
@@ -177,7 +221,7 @@ const railData = {
         nViewWidth: 80,       // 建物の横幅として使用
         nHeight: 0,
         nGauge: 9,
-        sColor: "#d2b48c",
+        sColor: "#0ff",
         sComment: "木造の標準的な駅舎。",
         sExtra: ""
     },
@@ -199,7 +243,7 @@ const railData = {
         nViewWidth: 1800,      // 横幅
         nHeight: 700,         // 机の高さ
         nGauge: 9,
-        sColor: "#ffffff",
+        sColor: "#fff",
         sComment: "設営シミュレーション用。1800x450サイズ。",
         sExtra: ""
     }

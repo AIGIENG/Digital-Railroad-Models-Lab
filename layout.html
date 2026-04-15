@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0104r</title>
+    <title>Railroad Models Layout Designer v.0105</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -259,25 +259,18 @@ function drawPart(ctx, p) {
         if (isCtrlPressed) {
             const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
             
-            // 外側（主）基準点
             ctx.beginPath();
-            ctx.arc(0, 0, 7.5, 0, Math.PI * 2); 
+            // 複線曲線かつ統合マーカー座標がある場合はその位置、そうでなければ(0,0)
+            const markerX = (p.bIsDouble && p.combinedCenter) ? p.combinedCenter.x : 0;
+            const markerY = (p.bIsDouble && p.combinedCenter) ? p.combinedCenter.y : 0;
+            
+            ctx.arc(markerX, markerY, 7.5, 0, Math.PI * 2); 
+            
             ctx.fillStyle = isDragged ? "rgba(0, 86, 179, 1.0)" : "blue";
             ctx.fill();
             ctx.strokeStyle = isDragged ? "#003d80" : "#333";
             ctx.lineWidth = 1;
             ctx.stroke();
-
-            // 複線の場合、内側基準点を表示
-            if (p.bIsDouble && p.innerCenter) {
-                ctx.beginPath();
-                ctx.arc(p.innerCenter.x, p.innerCenter.y, 7.5, 0, Math.PI * 2); 
-                ctx.fillStyle = isDragged ? "rgba(0, 86, 179, 1.0)" : "blue";
-                ctx.fill();
-                ctx.strokeStyle = isDragged ? "#003d80" : "#333";
-                ctx.lineWidth = 1;
-                ctx.stroke();
-            }
         }
     }
 

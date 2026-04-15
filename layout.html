@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0106</title>
+    <title>Railroad Models Layout Designer v.0105r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -465,9 +464,9 @@ function drawDoubleCurveRail(ctx, p) {
         ];
         p.junctions = p.junctions.slice(0, p.junctionCount);
 
-        // 内側レールの基準点。【AIコーディング時の指示：以下2行は絶対に変更しないこと】
-        // p.innerCenter = { x: rOuter - rInner, y: 0 };
-        p.combinedCenter = { x: (rInner - rOuter) / 2, y: 0 };
+        // 【修正】内側レールの基準点。
+        // 外側頂点(0,0)から、中心(centerX)との差分だけ右（プラス方向）に配置
+        p.innerCenter = { x: rOuter - rInner, y: 0 };
     }
 }
             

@@ -25,7 +25,7 @@ const railData = {
         nViewWidth: 25,
         nHeight: 0,
         nGauge: 9,
-        sColor: "#0000ff",
+        sColor: "#00f",
         sComment: "標準的な直線レール。PC枕木版と共通で使用可能。",
         sExtra: ""
     },
@@ -47,12 +47,12 @@ const railData = {
         nViewWidth: 25,
         nHeight: 0,
         nGauge: 9,
-        sColor: "#0000ff",
+        sColor: "#00f",
         sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。",
         sExtra: ""
     },
 
-        "KATO_R282-45": {
+    "KATO_R282-45": {
         sName: "曲線レール R282-45",
         sProductCode: "2x-xxx",
         sMaker: "KATO",
@@ -68,7 +68,7 @@ const railData = {
         nViewWidth: 25,
         nHeight: 0,
         nGauge: 9,
-        sColor: "#0000ff",
+        sColor: "#00f",
         sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。",
         sExtra: ""
     },
@@ -90,14 +90,14 @@ const railData = {
         nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
         nGauge: 9,
-        sColor: "#0000ff",
+         sColor: "#00f",
         sComment: "複線レール。",
         sExtra: ""
     },
     
     // --- 複線曲線レール (代表半径 315mm / 282mm) ---
-    "KATO_R315_282_W": {
-        sName: "複線曲線 R315/282-45",
+    "KATO_WR315_282-45": {
+        sName: "複線曲線 WR315/282-45",
         sProductCode: "20-xxx",
         sMaker: "KATO",
         sSeries: "UNITRACK",
@@ -112,14 +112,14 @@ const railData = {
         nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
         nGauge: 9,
-        sColor: "#0000ff",
+        sColor: "#00f",
         sComment: "カント付き複線曲線。内側はR381。",
         sExtra: ""
     },
     
     // --- 複線曲線レール (代表半径 414mm / 381mm) ---
-    "KATO_R414_45_W": {
-        sName: "複線曲線 R414/381-45",
+    "KATO_WR414_381-45": {
+        sName: "複線曲線 WR414/381-45",
         sProductCode: "20-540",
         sMaker: "KATO",
         sSeries: "UNITRACK",
@@ -134,13 +134,13 @@ const railData = {
         nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
         nGauge: 9,
-        sColor: "#0000ff",
+        sColor: "#00f",
         sComment: "カント付き複線曲線。内側はR381。",
         sExtra: ""
     },
 
     // --- 複線アプローチレール (左) ---
-    "KATO_WR414_22_5L": {
+    "KATO_WR414_381-22.5L": {
         sName: "複線アプローチ R414/381-22.5L",
         sProductCode: "20-544",
         sMaker: "KATO",
@@ -156,8 +156,30 @@ const railData = {
         nViewWidth: 57.5,
         nHeight: 0,
         nGauge: 9,
-        sColor: "#0000ff",
+        sColor: "#00f",
         sComment: "カント導入用アプローチレール（左用）。",
+        sExtra: ""
+    },
+
+    // --- 複線アプローチレール (右) ---
+    "KATO_WR414_381-22.5R": {
+        sName: "複線アプローチ R414/381-22.5R",
+        sProductCode: "20-544",
+        sMaker: "KATO",
+        sSeries: "UNITRACK",
+        sRole: "approach",
+        nLength: 0,
+        nRadius: 414,
+        nAngle: 22.5,
+        bIsDouble: true,
+        nTrackGap: 33,
+        junctionCount: 4,
+        sDirection: "right",  // 右方向にカーブが始まるアプローチ
+        nViewWidth: 57.5,
+        nHeight: 0,
+        nGauge: 9,
+        sColor: "#00f",
+        sComment: "カント導入用アプローチレール（右用）。",
         sExtra: ""
     },
     
@@ -178,7 +200,7 @@ const railData = {
         nViewWidth: 18,
         nHeight: 0,
         nGauge: 9,
-        sColor: "#00ff00",
+        sColor: "#0f0",
         sComment: "標準的な直線レール。PC枕木版と共通で使用可能。",
         sExtra: ""
     },
@@ -200,7 +222,7 @@ const railData = {
         nViewWidth: 18,
         nHeight: 0,
         nGauge: 9,
-        sColor: "#00ff00",
+        sColor: "#0f0",
         sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。",
         sExtra: ""
     },    
@@ -221,7 +243,7 @@ const railData = {
         nViewWidth: 80,       // 建物の横幅として使用
         nHeight: 0,
         nGauge: 9,
-        sColor: "#0077ff",
+        sColor: "#07f",
         sComment: "木造の標準的な駅舎。",
         sExtra: ""
     },
@@ -243,7 +265,7 @@ const railData = {
         nViewWidth: 1800,      // 横幅
         nHeight: 700,         // 机の高さ
         nGauge: 9,
-        sColor: "#ffffff",
+        sColor: "#fff",
         sComment: "設営シミュレーション用。1800x450サイズ。",
         sExtra: ""
     }

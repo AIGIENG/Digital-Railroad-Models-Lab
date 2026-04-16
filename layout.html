@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0107</title>
+    <title>Railroad Models Layout Designer v.0108</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -366,8 +366,20 @@ function drawCurveRail(ctx, p) {
     ctx.closePath();
 
     // 塗りつぶし（透過）
-    ctx.fillStyle = (p.sColor || '#999') + "33";
+    const prevAlpha = ctx.globalAlpha; 
+
+    // 塗りつぶし実行（色名が Green 等でも globalAlpha を使えば確実に半透明になります）
+    ctx.globalAlpha = 0.3;              // 透明度を指定（0.0〜1.0）
+    ctx.fillStyle = p.sColor || '#999'; // 文字列結合 "+ 33" を削除
     ctx.fill();
+
+    // 縁取りの前に透明度を戻す（枠線をくっきりさせるため）
+    ctx.globalAlpha = prevAlpha; 
+
+    // 縁取り（輪郭線）
+    ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
+    ctx.lineWidth = isDragged ? 3 : 1;
+    ctx.stroke();
 
     // 縁取り（輪郭線）
     ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;

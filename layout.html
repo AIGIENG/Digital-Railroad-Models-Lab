@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0108r</title>
+    <title>Railroad Models Layout Designer v.0109r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -493,50 +493,65 @@ function drawDoubleCurveRail(ctx, p) {
     }
 }
             
-// 判定関数（既存の変数を安全に参照）
-function isPointInPart(mx, my, p) {
-    const dx = mx - p.x;
-    const dy = my - p.y;
-
-    // --- 追加：基準点（青い〇）の判定 ---
-    // 〇の半径 7.5px に対し、余裕を見て 10px 以内ならヒットとみなす
-    if (Math.sqrt(dx * dx + dy * dy) < 10) {
-        return true;
+/**
+ * パーツの選択判定
+ * 直線(straight)：中心点からの距離
+ * それ以外：道床の形状（面）による判定
+ */
+function isPointInPart(mouseX, mouseY, p) {
+    // 1. 直線の場合は、既存の操作感を維持するため距離判定（20px以内）
+    if (p.sRole === 'straight') {
+        const dx = mouseX - p.x;
+        const dy = mouseY - p.y;
+        return Math.sqrt(dx * dx + dy * dy) < 20;
     }
-    // ----------------------------------
 
-    const rad = (-p.rotation * Math.PI) / 180;
-    const lx = dx * Math.cos(rad) - dy * Math.sin(rad);
-    const ly = dx * Math.sin(rad) + dy * Math.cos(rad);
+    // 2. 直線以外（curve, double-curve, turnout等）は isPointInPath 方式
+    const ctx = canvas.getContext('2d');
+    ctx.save();
 
-    if (p.sRole === 'curve') {
+    // 描画時と同じ座標変換を適用
+    ctx.translate(p.x, p.y);
+    ctx.rotate((p.nRotation || 0) * Math.PI / 180);
+
+    ctx.beginPath();
+    
+    // 曲線・複線曲線のパス作成（drawCurveRail / drawDoubleCurveRail のロジックを流用）
+    if (p.nRadius !== undefined) {
         const R = p.nRadius;
-        const angle = p.nAngle;
-        const w = p.nViewWidth;
-        
-        const cx = -R; 
-        const cy = 0;
+        const angleRad = (p.nAngle * Math.PI) / 180;
+        const halfAngle = angleRad / 2;
+        const halfView = p.nViewWidth / 2;
+        const centerX = -R * Math.cos(halfAngle);
+        const startAngle = -halfAngle;
+        const endAngle = halfAngle;
 
-        const dist = Math.sqrt(Math.pow(lx - cx, 2) + Math.pow(ly - cy, 2));
-        
-        // 厚み判定（バラストの幅）
-        if (dist >= R - w / 2 && dist <= R + w / 2) {
-            const mouseAngle = Math.atan2(ly - cy, lx - cx);
-            const limitAngle = (angle * Math.PI) / 360; 
-            
-            if (mouseAngle >= -limitAngle && mouseAngle <= limitAngle) {
-                return true;
-            }
+        if (p.sRole !== 'double-curve') {
+            // 単線曲線
+            ctx.arc(centerX, 0, R + halfView, startAngle, endAngle);
+            ctx.arc(centerX, 0, R - halfView, endAngle, startAngle, true);
+        } else {
+            // 複線曲線
+            const rInner = R - (p.nTrackGap || 33);
+            ctx.arc(centerX, 0, R + halfView, startAngle, endAngle);
+            ctx.arc(centerX, 0, rInner - halfView, endAngle, startAngle, true);
         }
-    } else if (p.sRole === 'straight') {
-        // 直線レール判定
-        const halfL = p.nLength / 2;
-        const halfW = p.nViewWidth / 2;
-        if (Math.abs(lx) <= halfL && Math.abs(ly) <= halfW) {
-            return true;
-        }
+    } 
+    // ポイント(turnout)等の場合は、ひとまず中心距離判定をバックアップとして実行
+    else {
+        ctx.restore();
+        const dx = mouseX - p.x;
+        const dy = mouseY - p.y;
+        return Math.sqrt(dx * dx + dy * dy) < 20;
     }
-    return false;
+
+    ctx.closePath();
+
+    // マウス座標がパス内にあるか判定
+    const isHit = ctx.isPointInPath(mouseX, mouseY);
+
+    ctx.restore();
+    return isHit;
 }
             
 /**

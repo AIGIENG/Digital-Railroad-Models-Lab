@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0109r</title>
+    <title>Railroad Models Layout Designer v.0120r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -494,30 +494,34 @@ function drawDoubleCurveRail(ctx, p) {
 }
             
 /**
- * パーツの選択判定
- * 直線(straight)：中心点からの距離
- * それ以外：道床の形状（面）による判定
+ * パーツの選択判定（回転・複線対応版）
  */
 function isPointInPart(mouseX, mouseY, p) {
-    // 1. 直線の場合は、既存の操作感を維持するため距離判定（20px以内）
-    if (p.sRole === 'straight') {
-        const dx = mouseX - p.x;
-        const dy = mouseY - p.y;
-        return Math.sqrt(dx * dx + dy * dy) < 20;
-    }
-
-    // 2. 直線以外（curve, double-curve, turnout等）は isPointInPath 方式
     const ctx = canvas.getContext('2d');
     ctx.save();
 
-    // 描画時と同じ座標変換を適用
+    // 1. マウス座標をパーツのローカル座標系に変換する（逆変換）
+    // これにより、パーツが何分回転していても、計算上は「回転していない状態」として判定できます
     ctx.translate(p.x, p.y);
     ctx.rotate((p.nRotation || 0) * Math.PI / 180);
 
+    // Canvas上の絶対座標(mouseX, mouseY)を、現在の行列の「逆」を使って変換
+    // これでどんな回転角度でも、常にパーツの見た目通りの位置を判定可能になります
+    const transform = ctx.getTransform();
+    const invMat = transform.inverse();
+    const localP = new DOMPoint(mouseX, mouseY).matrixTransform(invMat);
+
     ctx.beginPath();
     
-    // 曲線・複線曲線のパス作成（drawCurveRail / drawDoubleCurveRail のロジックを流用）
-    if (p.nRadius !== undefined) {
+    // --- 直線判定（sRole === 'straight'） ---
+    if (p.sRole === 'straight') {
+        const halfLen = p.nLength / 2;
+        const halfView = p.nViewWidth / 2;
+        // 面判定に拡張：中心から20pxではなく、道床の幅（halfView）全体で判定
+        ctx.rect(-halfLen, -halfView, p.nLength, p.nViewWidth);
+    } 
+    // --- 曲線・複線判定 ---
+    else if (p.nRadius !== undefined) {
         const R = p.nRadius;
         const angleRad = (p.nAngle * Math.PI) / 180;
         const halfAngle = angleRad / 2;
@@ -527,28 +531,27 @@ function isPointInPart(mouseX, mouseY, p) {
         const endAngle = halfAngle;
 
         if (p.sRole !== 'double-curve') {
-            // 単線曲線
+            // 単線曲線：外側と内側の弧を正確に結ぶ
             ctx.arc(centerX, 0, R + halfView, startAngle, endAngle);
             ctx.arc(centerX, 0, R - halfView, endAngle, startAngle, true);
         } else {
-            // 複線曲線
-            const rInner = R - (p.nTrackGap || 33);
+            // 複線曲線：外側レールの端から、内側レールの端までを一つの「面」として定義
+            const gap = p.nTrackGap || 33;
+            const rInner = R - gap;
             ctx.arc(centerX, 0, R + halfView, startAngle, endAngle);
             ctx.arc(centerX, 0, rInner - halfView, endAngle, startAngle, true);
         }
     } 
-    // ポイント(turnout)等の場合は、ひとまず中心距離判定をバックアップとして実行
+    // --- その他（ポイント等） ---
     else {
-        ctx.restore();
-        const dx = mouseX - p.x;
-        const dy = mouseY - p.y;
-        return Math.sqrt(dx * dx + dy * dy) < 20;
+        // デフォルトの矩形/円形判定
+        ctx.arc(0, 0, 20, 0, Math.PI * 2);
     }
 
     ctx.closePath();
 
-    // マウス座標がパス内にあるか判定
-    const isHit = ctx.isPointInPath(mouseX, mouseY);
+    // ローカル座標(localP)が、作成したパス内にあるか判定
+    const isHit = ctx.isPointInPath(localP.x, localP.y);
 
     ctx.restore();
     return isHit;

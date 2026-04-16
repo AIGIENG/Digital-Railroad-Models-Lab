@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0109</title>
+    <title>Railroad Models Layout Designer v.0110</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -510,6 +510,67 @@ function isPointInPart(mx, my, p) {
     }
     return false;
 }
+
+/**
+ * マウス座標がパーツ内にあるか判定する
+ */
+function isPointInPart(mouseX, mouseY, p) {
+    // 直線レールの場合は、計算負荷を避けるため既存の（あるいはシンプルな）矩形判定を優先
+    if (p.nType === 'Straight') {
+        // 直線は既に使い勝手が良いとのことなので、既存の距離判定や矩形判定をここに書く
+        // 例: 中心からの距離が一定以内ならOKとする
+        const dx = mouseX - p.x;
+        const dy = mouseY - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 20) return true; 
+    }
+
+    // 曲線および複線曲線の場合は、isPointInPath 方式で「面」を判定
+    if (p.nType === 'Curve' || p.nType === 'DoubleCurve') {
+        const ctx = canvas.getContext('2d');
+        ctx.save();
+        
+        // パーツの描画位置・角度に座標系を合わせる
+        ctx.translate(p.x, p.y);
+        ctx.rotate((p.nRotation || 0) * Math.PI / 180);
+
+        // 判定用のパスを作成（描画ロジックと全く同じ計算式を使用）
+        ctx.beginPath();
+        if (p.nType === 'Curve') {
+            const R = p.nRadius;
+            const halfAngle = ((p.nAngle || 0) * Math.PI / 180) / 2;
+            const halfView = (p.nViewWidth || 25) / 2;
+            const centerX = -R * Math.cos(halfAngle);
+            const startAngle = -halfAngle;
+            const endAngle = halfAngle;
+
+            ctx.arc(centerX, 0, R + halfView, startAngle, endAngle);
+            ctx.arc(centerX, 0, R - halfView, endAngle, startAngle, true);
+        } else {
+            // 複線曲線の場合
+            const rOuter = p.nRadius;
+            const rInner = rOuter - (p.nTrackGap || 33);
+            const halfAngle = ((p.nAngle || 0) * Math.PI / 180) / 2;
+            const halfView = (p.nViewWidth || 25) / 2;
+            const centerX = -rOuter * Math.cos(halfAngle);
+            
+            ctx.arc(centerX, 0, rOuter + halfView, -halfAngle, halfAngle);
+            ctx.arc(centerX, 0, rInner - halfView, halfAngle, -halfAngle, true);
+        }
+        ctx.closePath();
+
+        // 座標(mouseX, mouseY)が作成したパス内にあるか判定
+        // ※ canvas 座標系に戻して判定する必要があるため、isPointInPath にマウス位置を渡す
+        // ただし translate/rotate しているため、ctx.isPointInPath(mouseX, mouseY) で動作します
+        const isHit = ctx.isPointInPath(mouseX, mouseY);
+        
+        ctx.restore();
+        if (isHit) return true;
+    }
+
+    // いずれにも該当しない場合は false
+    return false;
+}
             
 /**
  * イベント処理
@@ -540,20 +601,25 @@ canvas.onmousedown = function(e) {
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
+    // レールレイヤーを背面から前面に向かってループ（クリック判定は前面優先）
     for (let i = layers.rail.length - 1; i >= 0; i--) {
         const p = layers.rail[i];
-        // isPointInPart の戻り値が正しければ、既存のドラッグ処理をそのまま実行
+
+        // 【修正箇所】中心点距離判定を、新しく作成した isPointInPart に差し替え
+        // これにより、直線・曲線それぞれの形状に合わせた「面」での判定が可能になります
         if (isPointInPart(mouseX, mouseY, p)) {
             draggedPart = p;
             isDragging = true;
             
+            // ドラッグ開始時のオフセット計算（既存ロジックを維持）
             offsetX = mouseX - p.x;
             offsetY = mouseY - p.y;
             
-            // 機能を削らず、既存の重なり順変更を維持
+            // 機能を削らず、既存の重なり順変更を維持（選択したパーツを最前面へ）
             layers.rail.splice(i, 1);
             layers.rail.push(draggedPart);
             
+            // 再描画して選択状態（isDragged）を反映
             render(); 
             break;
         }

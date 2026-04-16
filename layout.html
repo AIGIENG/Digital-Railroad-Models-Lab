@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0105r</title>
+    <title>Railroad Models Layout Designer v.0106</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -291,13 +291,18 @@ function drawStraightRail(ctx, p) {
     const mainColor = p.sColor || '#333';
 
     // 1. 道床（バラスト）の描画
-    ctx.fillStyle = (p.sColor || '#999') + "33";
+    const originalAlpha = ctx.globalAlpha; // 現在の透明度を保存
+    ctx.globalAlpha = 0.3;                 // 半透明に設定（0.3 = 30%）
+    ctx.fillStyle = p.sColor || '#999';    // 色名(Green等)をそのまま代入
+    
     ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
     ctx.lineWidth = isDragged ? 3 : 1;
 
     ctx.beginPath();
     ctx.rect(-halfLen, -halfView, p.nLength, p.nViewWidth);
     ctx.fill();
+    
+    ctx.globalAlpha = originalAlpha;       // 透明度を元に戻す（枠線とレール描画のため）
     ctx.stroke();
 
     // 2. レールの描画

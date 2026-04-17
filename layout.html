@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0123</title>
+    <title>Railroad Models Layout Designer v.0124</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -501,28 +501,29 @@ function isPointInPart(mouseX, mouseY, p) {
     const ctx = canvas.getContext('2d');
     ctx.save();
 
-    // 1. マウス座標をパーツのローカル座標に手動で逆変換
-    // 角度は p.nRot、座標は p.x, p.y を使用
+    // 1. 実データ(rotation)に基づいた座標変換
     const dx = mouseX - p.x;
     const dy = mouseY - p.y;
-    const rad = -((p.nRot || 0) * Math.PI / 180); // 逆回転
+    // rotation プロパティをそのまま使用
+    const rad = -((p.rotation || 0) * Math.PI / 180); 
     
+    // マウス位置をレールのローカル座標に変換
     const localX = dx * Math.cos(rad) - dy * Math.sin(rad);
     const localY = dx * Math.sin(rad) + dy * Math.cos(rad);
 
-    // 2. 判定用のパス作成（描画関数 drawCurveRail 等のロジックに完全準拠）
     ctx.beginPath();
     
+    // 2. sRole に基づいたパス作成
     if (p.sRole === 'straight') {
-        // 直線：道床幅全体で判定
-        const halfLen = (p.nLen || 0) / 2;
+        // 直線：nLength と nViewWidth を使用
+        const halfLen = (p.nLength || 0) / 2;
         const halfView = (p.nViewWidth || 25) / 2;
-        ctx.rect(-halfLen, -halfView, p.nLen, p.nViewWidth);
+        ctx.rect(-halfLen, -halfView, p.nLength, p.nViewWidth);
     } 
-    else if (p.nRad !== undefined) {
-        // 曲線・複線：nRad (半径), nDeg (角度) を使用
-        const R = p.nRad;
-        const angleRad = (p.nDeg * Math.PI) / 180;
+    else if (p.nRadius > 0) {
+        // 曲線・複線：nRadius (半径), nAngle (角度) を使用
+        const R = p.nRadius;
+        const angleRad = (p.nAngle * Math.PI) / 180;
         const halfAngle = angleRad / 2;
         const halfView = (p.nViewWidth || 25) / 2;
         const centerX = -R * Math.cos(halfAngle);
@@ -541,7 +542,7 @@ function isPointInPart(mouseX, mouseY, p) {
             ctx.arc(centerX, 0, rInner - halfView, endAngle, startAngle, true);
         }
     } else {
-        // ポイント等：半径がない場合は中心付近 30px
+        // ポイント等：その他は中心付近 30px
         ctx.arc(0, 0, 30, 0, Math.PI * 2);
     }
     

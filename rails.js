@@ -250,7 +250,7 @@ const railData = {
         nTrackGap: 37,
         junctionCount: 2,
         sDirection: "none",
-        nViewWidth: 37.5,
+        nViewWidth: 18,
         nHeight: 0,
         nGauge: 9,
         sColor: "blue",

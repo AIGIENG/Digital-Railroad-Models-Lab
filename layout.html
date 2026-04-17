@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0120r</title>
+    <title>Railroad Models Layout Designer v.0121</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -494,34 +494,29 @@ function drawDoubleCurveRail(ctx, p) {
 }
             
 /**
- * パーツの選択判定（回転・複線対応版）
+ * パーツの選択判定（座標変換バグ修正版）
  */
 function isPointInPart(mouseX, mouseY, p) {
     const ctx = canvas.getContext('2d');
+    
+    // 1. 判定用の仮想キャンバス状態を作る
     ctx.save();
-
-    // 1. マウス座標をパーツのローカル座標系に変換する（逆変換）
-    // これにより、パーツが何分回転していても、計算上は「回転していない状態」として判定できます
+    
+    // パーツの中心に移動し、回転をかける
     ctx.translate(p.x, p.y);
     ctx.rotate((p.nRotation || 0) * Math.PI / 180);
 
-    // Canvas上の絶対座標(mouseX, mouseY)を、現在の行列の「逆」を使って変換
-    // これでどんな回転角度でも、常にパーツの見た目通りの位置を判定可能になります
-    const transform = ctx.getTransform();
-    const invMat = transform.inverse();
-    const localP = new DOMPoint(mouseX, mouseY).matrixTransform(invMat);
-
+    // 2. パスを作成（描画ロジックと1ピクセルも違わないように定義）
     ctx.beginPath();
     
-    // --- 直線判定（sRole === 'straight'） ---
     if (p.sRole === 'straight') {
+        // 直線：道床の幅全体（nViewWidth）で判定
         const halfLen = p.nLength / 2;
         const halfView = p.nViewWidth / 2;
-        // 面判定に拡張：中心から20pxではなく、道床の幅（halfView）全体で判定
         ctx.rect(-halfLen, -halfView, p.nLength, p.nViewWidth);
     } 
-    // --- 曲線・複線判定 ---
     else if (p.nRadius !== undefined) {
+        // 曲線・複線曲線
         const R = p.nRadius;
         const angleRad = (p.nAngle * Math.PI) / 180;
         const halfAngle = angleRad / 2;
@@ -531,27 +526,38 @@ function isPointInPart(mouseX, mouseY, p) {
         const endAngle = halfAngle;
 
         if (p.sRole !== 'double-curve') {
-            // 単線曲線：外側と内側の弧を正確に結ぶ
+            // 単線曲線
             ctx.arc(centerX, 0, R + halfView, startAngle, endAngle);
             ctx.arc(centerX, 0, R - halfView, endAngle, startAngle, true);
         } else {
-            // 複線曲線：外側レールの端から、内側レールの端までを一つの「面」として定義
+            // 複線曲線
             const gap = p.nTrackGap || 33;
             const rInner = R - gap;
             ctx.arc(centerX, 0, R + halfView, startAngle, endAngle);
             ctx.arc(centerX, 0, rInner - halfView, endAngle, startAngle, true);
         }
-    } 
-    // --- その他（ポイント等） ---
-    else {
-        // デフォルトの矩形/円形判定
-        ctx.arc(0, 0, 20, 0, Math.PI * 2);
+    } else {
+        // ポイント等、Radiusがない場合は中心付近（30px）を判定
+        ctx.arc(0, 0, 30, 0, Math.PI * 2);
     }
-
+    
     ctx.closePath();
 
-    // ローカル座標(localP)が、作成したパス内にあるか判定
-    const isHit = ctx.isPointInPath(localP.x, localP.y);
+    // 3. 【最重要】判定の実行
+    // ブラウザの互換性を考慮し、引数なしの isPointInPath を使うため、
+    // 「マウス座標をローカル座標に手動で逆変換」します。
+    
+    // マウスの相対位置を計算
+    const dx = mouseX - p.x;
+    const dy = mouseY - p.y;
+    const rad = -(p.nRotation || 0) * Math.PI / 180; // 逆回転
+    
+    // 回転行列の公式でローカル座標を算出
+    const localX = dx * Math.cos(rad) - dy * Math.sin(rad);
+    const localY = dx * Math.sin(rad) + dy * Math.cos(rad);
+
+    // 作成したパス（ローカル座標系）に対して、変換後の座標でヒットテスト
+    const isHit = ctx.isPointInPath(localX, localY);
 
     ctx.restore();
     return isHit;

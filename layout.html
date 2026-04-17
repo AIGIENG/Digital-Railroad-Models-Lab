@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0122</title>
+    <title>Railroad Models Layout Designer v.0123</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -585,6 +585,9 @@ canvas.onmousedown = function(e) {
 
     for (let i = layers.rail.length - 1; i >= 0; i--) {
         const p = layers.rail[i];
+
+        console.log("クリック判定中のパーツ:", p);
+        
         // isPointInPart の戻り値が正しければ、既存のドラッグ処理をそのまま実行
         if (isPointInPart(mouseX, mouseY, p)) {
             draggedPart = p;

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0132r</title>
+    <title>Railroad Models Layout Designer v.0131r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -403,7 +403,7 @@ function drawCurveRail(ctx, p) {
 }
 
 /**
- * 複線曲線レールの描画（幅をnViewWidthに合わせた修正版）
+ * 複線曲線レールの描画（ループ不使用・一括描画版）
  */
 function drawDoubleCurveRail(ctx, p) {
     const rOuter = p.nRadius;
@@ -412,38 +412,35 @@ function drawDoubleCurveRail(ctx, p) {
     const angleRad = (angleDeg * Math.PI) / 180;
     const halfAngle = angleRad / 2;
     const halfGauge = (p.nGauge || 9) / 2;
-    const halfView = (p.nViewWidth || 25) / 2; // 道床の半分幅
+    const halfView = (p.nViewWidth || 25) / 2;
 
     const mainColor = p.sColor || '#333';
     const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
     
+    // 【修正】中心点をY軸方向へ
     const centerX = 0;
     const centerY = -rOuter * Math.cos(halfAngle);
     const startAngle = (Math.PI / 2) - halfAngle;
     const endAngle = (Math.PI / 2) + halfAngle;
 
-    // 1. 道床（バラスト）の描画
-    // 外側レールの外端(rOuter + halfView)から、内側レールの内端(rInner - halfView)までを囲う
+    // 1. 道床（バラスト）
     ctx.beginPath();
     ctx.arc(centerX, centerY, rOuter + halfView, startAngle, endAngle);
     ctx.arc(centerX, centerY, rInner - halfView, endAngle, startAngle, true);
     ctx.closePath();
-    
     const originalAlpha = ctx.globalAlpha;
     ctx.globalAlpha = 0.3;
     ctx.fillStyle = p.sColor || '#999';
     ctx.fill();
-
     ctx.globalAlpha = originalAlpha;
     
     ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
     ctx.lineWidth = isDragged ? 3 : 1;
     ctx.stroke();
 
-    // 2. レールの描画（4本）
+    // 2. レールの描画
     ctx.lineWidth = 1;
     ctx.strokeStyle = mainColor;
-
     ctx.beginPath();
     ctx.arc(centerX, centerY, rOuter + halfGauge, startAngle, endAngle);
     ctx.stroke();
@@ -461,16 +458,14 @@ function drawDoubleCurveRail(ctx, p) {
     if (p.junctionCount) {
         const jValOuter = rOuter * Math.sin(halfAngle);
         const jValInner = rInner * Math.sin(halfAngle);
-        const jDiff = (rOuter - rInner) * Math.cos(halfAngle);
-
         p.junctions = [
-            { x: -jValOuter, y: 0 },
-            { x: jValOuter, y: 0 },
-            { x: -jValInner, y: jDiff },
-            { x: jValInner, y: jDiff }
+            { x: -jValOuter, y: 0 }, // 外側左：Yは0
+            { x: jValOuter, y: 0 },  // 外側右：Yは0
+            { x: -jValInner, y: 0 }, // 内側左：ここを jDiff ではなく 0 にする
+            { x: jValInner, y: 0 }   // 内側右：ここを jDiff ではなく 0 にする
         ];
-        p.junctions = p.junctions.slice(0, p.junctionCount);
-        p.innerCenter = { x: 0, y: rOuter - rInner };
+        // 内側基準点（Rキー回転用などの中心）も端点に合わせるなら 0
+        p.innerCenter = { x: 0, y: 0 }; 
     }
 }
             
@@ -524,7 +519,6 @@ function isPointInPart(mouseX, mouseY, p) {
             // 複線曲線
             const gap = p.nTrackGap || 33;
             const rInner = R - gap;
-            const halfView = (p.nViewWidth || 25) / 2; // ここを追加
             ctx.arc(centerX, centerY, R + halfView, startAngle, endAngle);
             ctx.arc(centerX, centerY, rInner - halfView, endAngle, startAngle, true);
         }

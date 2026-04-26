@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0134</title>
+    <title>Railroad Models Layout Designer v.0133r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -403,35 +403,31 @@ function drawCurveRail(ctx, p) {
 }
 
 /**
- * 複線曲線レールの描画（直線レールと同じ中央基準オフセット方式）
+ * 複線曲線レールの描画（複線全体を一つの道床として描画）
  */
 function drawDoubleCurveRail(ctx, p) {
+    const rOuter = p.nRadius;
+    const rInner = p.nRadius - (p.nTrackGap || 33);
     const angleDeg = p.nAngle;
     const angleRad = (angleDeg * Math.PI) / 180;
     const halfAngle = angleRad / 2;
     const halfGauge = (p.nGauge || 9) / 2;
     const halfView = (p.nViewWidth || 25) / 2;
 
-    // 直線レールと同じく、中心からのオフセットを算出
-    const halfGap = (p.nTrackGap || 33) / 2;
-    const trackOffsets = [-halfGap, halfGap]; // [内側寄り, 外側寄り]
-
-    // パーツの中心（複線の真ん中）の半径を基準にする
-    const R = p.nRadius; 
-    
     const mainColor = p.sColor || '#333';
     const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
     
-    // 中心点は「複線全体の中心半径」を基準に計算
     const centerX = 0;
-    const centerY = -R * Math.cos(halfAngle);
+    const centerY = -rOuter * Math.cos(halfAngle);
     const startAngle = (Math.PI / 2) - halfAngle;
     const endAngle = (Math.PI / 2) + halfAngle;
 
     // --- 1. 道床（バラスト）の描画 ---
-    // 複線全体を一つの道床として描画（最も外側のレールの端から、最も内側のレールの端まで）
-    const ballastMax = R + halfGap + halfView;
-    const ballastMin = R - halfGap - halfView;
+    // 複線全体を一つのパスで塗りつぶす
+    // 最大半径：外側レールの中心(rOuter) + 単線分の道床半幅(halfView)
+    // 最小半径：内側レールの中心(rInner) - 単線分の道床半幅(halfView)
+    const ballastMax = rOuter + halfView;
+    const ballastMin = rInner - halfView;
 
     ctx.beginPath();
     ctx.arc(centerX, centerY, ballastMax, startAngle, endAngle);
@@ -442,43 +438,41 @@ function drawDoubleCurveRail(ctx, p) {
     ctx.globalAlpha = 0.3;
     ctx.fillStyle = p.sColor || '#999';
     ctx.fill();
+
     ctx.globalAlpha = originalAlpha;
     
+    // 縁取り（ドラッグ状態等の反映）
     ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
     ctx.lineWidth = isDragged ? 3 : 1;
     ctx.stroke();
 
-    // --- 2. レールの描画（trackOffsets を使用） ---
+    // --- 2. レールの描画（4本） ---
+    // ここは走行軸(rOuter, rInner)を基準とした既存のロジックを維持
     ctx.lineWidth = 1;
     ctx.strokeStyle = mainColor;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, rOuter + halfGauge, startAngle, endAngle);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, rOuter - halfGauge, startAngle, endAngle);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, rInner + halfGauge, startAngle, endAngle);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, rInner - halfGauge, startAngle, endAngle);
+    ctx.stroke();
 
-    trackOffsets.forEach(offset => {
-        // 各軌道の中心半径
-        const rTrack = R + offset; 
-        
-        // 外側レール
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, rTrack + halfGauge, startAngle, endAngle);
-        ctx.stroke();
-        
-        // 内側レール
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, rTrack - halfGauge, startAngle, endAngle);
-        ctx.stroke();
-    });
-
-    // --- 3. 接続点（Junctions）の更新 ---
+    // --- 3. 接続点および基準点の更新 ---
     if (p.junctionCount) {
-        // 直線と同じく trackOffsets に基づいて接点を配置
-        const jCoords = trackOffsets.map(offset => {
-            return (R + offset) * Math.sin(halfAngle);
-        });
+        const jValOuter = rOuter * Math.sin(halfAngle);
+        const jValInner = rInner * Math.sin(halfAngle);
 
         p.junctions = [
-            { x: -jCoords[1], y: 0 }, // 外左
-            { x: jCoords[1], y: 0 },  // 外右
-            { x: -jCoords[0], y: 0 }, // 内左
-            { x: jCoords[0], y: 0 }   // 内右
+            { x: -jValOuter, y: 0 },
+            { x: jValOuter, y: 0 },
+            { x: -jValInner, y: 0 }, 
+            { x: jValInner, y: 0 }
         ];
         p.junctions = p.junctions.slice(0, p.junctionCount);
         p.innerCenter = { x: 0, y: 0 }; 

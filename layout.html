@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0128</title>
+    <title>Railroad Models Layout Designer v.0124r2</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -167,16 +167,10 @@ function getConnectorPoints(p, x, y, rotation) {
     const rad = (rotation * Math.PI) / 180;
 
     // ローカル座標(中央基準)をグローバル座標に変換する関数
-    // 第3引数 localAng (その接点の向き) を受け取るように拡張
-    const transform = (rx, ry, localAng) => {
+    const transform = (rx, ry) => {
         const tx = rx * Math.cos(rad) - ry * Math.sin(rad);
         const ty = rx * Math.sin(rad) + ry * Math.cos(rad);
-        // 座標(x, y)に加えて、その地点のグローバルな向き(ang)を返す
-        return { 
-            x: x + tx, 
-            y: y + ty, 
-            ang: (rotation + localAng + 360) % 360 
-        };
+        return { x: x + tx, y: y + ty };
     };
 
     const jCount = p.junctionCount || 2;
@@ -185,42 +179,50 @@ function getConnectorPoints(p, x, y, rotation) {
     if (p.sRole === "straight") {
         if (!p.bIsDouble) {
             // --- 単線直線 ---
-            // 左端は180度、右端は0度の向きを持つ
-            points.push(transform(-halfLen, 0, 180)); 
-            points.push(transform(halfLen, 0, 0));  
+            points.push(transform(-halfLen, 0)); 
+            points.push(transform(halfLen, 0));  
         } else {
             // --- 複線直線 ---
             const halfGap = (p.nTrackGap || 33) / 2;
-            points.push(transform(-halfLen, -halfGap, 180)); 
-            points.push(transform(-halfLen, halfGap, 180));  
-            points.push(transform(halfLen, -halfGap, 0));  
-            points.push(transform(halfLen, halfGap, 0));   
+            points.push(transform(-halfLen, -halfGap)); 
+            points.push(transform(-halfLen, halfGap));  
+            points.push(transform(halfLen, -halfGap));  
+            points.push(transform(halfLen, halfGap));   
         }
     } else if (p.sRole === "curve") {
-        const halfDeg = (p.nAngle || 0) / 2;
         const halfAngle = (p.nAngle * Math.PI) / 360; 
         
         if (!p.bIsDouble) {
+            // --- 単線曲線 ---
             const R = p.nRadius;
             const jY = R * Math.sin(halfAngle);
-            // 接線方向（レールが伸びる向き）の定義に戻す
-            // これにより、パーツが0度のとき、上端は -halfDeg、下端は +halfDeg を向く
-            points.push(transform(0, -jY, -halfDeg)); 
-            points.push(transform(0, jY, halfDeg));
+            points.push(transform(0, -jY));
+            points.push(transform(0, jY));
         } else {
+            // --- 複線曲線 ---
             const rOuter = p.nRadius;
             const rInner = p.nRadius - (p.nTrackGap || 33);
+            
+            // 外側レールの接点（x=0）
             const jYOuter = rOuter * Math.sin(halfAngle);
+            
+            // 【修正】内側レールの接点X座標
+            // 中心点 centerX = -rOuter * cos(halfAngle) から、
+            // 半径 rInner で角度 halfAngle の位置にある点の相対座標を算出
+            // const jXInner = (rOuter - rInner) * Math.cos(halfAngle);
             const jXInner = (rInner - rOuter) * Math.cos(halfAngle);
             const jYInner = rInner * Math.sin(halfAngle);
 
-            points.push(transform(0, -jYOuter, -halfDeg));
-            points.push(transform(0, jYOuter, halfDeg));
-            points.push(transform(jXInner, -jYInner, -halfDeg));
-            points.push(transform(jXInner, jYInner, halfDeg));
+            // [外上, 外下, 内上, 内下] の順で追加
+            points.push(transform(0, -jYOuter));         // 外側・上
+            points.push(transform(0, jYOuter));          // 外側・下
+            points.push(transform(jXInner, -jYInner));   // 内側・上
+            points.push(transform(jXInner, jYInner));    // 内側・下
         }
     }
-    return points;
+
+    // 指示通りの junctionCount 数だけ返す
+    return points.slice(0, jCount);
 }
 
 /**
@@ -605,66 +607,37 @@ canvas.onmousedown = function(e) {
     }
 };
 
-canvas.onmousemove = function(e) {
-    if (!isDragging || !draggedPart) return;
-    const rect = canvas.getBoundingClientRect();
-    
-    // マウス位置に合わせてパーツを移動（基本位置）
-    draggedPart.x = (e.clientX - rect.left) - offsetX;
-    draggedPart.y = (e.clientY - rect.top) - offsetY;
+    canvas.onmousemove = function(e) {
+        if (!isDragging || !draggedPart) return;
+        const rect = canvas.getBoundingClientRect();
+        draggedPart.x = (e.clientX - rect.left) - offsetX;
+        draggedPart.y = (e.clientY - rect.top) - offsetY;
 
-    let minDistance = 20;
-    let targetPoint = null; // 座標だけでなくangも保持するため名称変更
-    let myPointIdx = -1;
+        let minDistance = 20;
+        let targetCoords = null;
+        let myPointIdx = -1;
 
-    // 現在の座標・角度における自分の接点を取得
-    const myPoints = getConnectorPoints(draggedPart, draggedPart.x, draggedPart.y, draggedPart.rotation);
+        const myPoints = getConnectorPoints(draggedPart, draggedPart.x, draggedPart.y, draggedPart.rotation);
 
-    // 全てのパーツに対して一番近い接点を探索
-    layers.rail.forEach(t => {
-        if (t === draggedPart) return;
-        const tPoints = getConnectorPoints(t, t.x, t.y, t.rotation);
-        myPoints.forEach((p1, i) => {
-            tPoints.forEach(p2 => {
-                const d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
-                if (d < minDistance) { 
-                    minDistance = d; 
-                    myPointIdx = i; 
-                    targetPoint = p2; // 相手の接点(angプロパティを含む)を保存
-                }
+        layers.rail.forEach(t => {
+            if (t === draggedPart) return;
+            const tPoints = getConnectorPoints(t, t.x, t.y, t.rotation);
+            myPoints.forEach((p1, i) => {
+                tPoints.forEach(p2 => {
+                    const d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+                    if (d < minDistance) { minDistance = d; myPointIdx = i; targetCoords = p2; }
+                });
             });
         });
-    });
-    if (targetPoint) {
-        // --- 1. 角度の吸着 ---
-        // 接続相手の向き(targetPoint.ang)に対して、「背中合わせ(180度)」になる角度を求める
-        const targetAng = (targetPoint.ang + 180) % 360;
-        
-        // 「自分が今向いているコネクタの向き」と「目標」の差分だけ、本体(rotation)を回す
-        let diffAng = targetAng - myPoints[myPointIdx].ang;
-        
-        // 最短回転補正
-        while (diffAng > 180) diffAng -= 360;
-        while (diffAng < -180) diffAng += 360;
 
-        // 角度を適用
-        draggedPart.rotation = (draggedPart.rotation + diffAng + 360) % 360;
-
-        // --- 2. 座標の吸着（ズレ防止） ---
-        // 重要：角度が変わったので、「新しい角度での中心からコネクタへの相対距離」を再取得する
-        // 基準点は中央(0, 0)のままで、そこからのズレ(relPoints)を引くことで中心座標(x, y)を決定
-        const relPoints = getConnectorPoints(draggedPart, 0, 0, draggedPart.rotation);
-        
-        // 吸着先の座標から、新しい角度での相対座標を引く
-        draggedPart.x = targetPoint.x - relPoints[myPointIdx].x;
-        draggedPart.y = targetPoint.y - relPoints[myPointIdx].y;
-        
-        isSnapped = true;
-    } else { 
-        isSnapped = false; 
-    }
-    render();
-};
+        if (targetCoords) {
+            const relPoints = getConnectorPoints(draggedPart, 0, 0, draggedPart.rotation);
+            draggedPart.x = targetCoords.x - relPoints[myPointIdx].x;
+            draggedPart.y = targetCoords.y - relPoints[myPointIdx].y;
+            isSnapped = true;
+        } else { isSnapped = false; }
+        render();
+    };
 
     window.onmouseup = () => { isDragging = false; draggedPart = null; render(); };
 }

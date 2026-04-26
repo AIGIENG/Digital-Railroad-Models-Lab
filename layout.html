@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0127r</title>
+    <title>Railroad Models Layout Designer v.0129</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -353,67 +353,56 @@ function drawCurveRail(ctx, p) {
     const halfGauge = p.nGauge / 2;
     const halfView = p.nViewWidth / 2;
 
-    const centerX = -R * Math.cos(halfAngle);
-    const centerY = 0; 
+    // 【修正】中心点をY軸方向へ配置（横向きの円弧にするため）
+    const centerX = 0;
+    const centerY = -R * Math.cos(halfAngle); 
 
-    const startAngle = -halfAngle;
-    const endAngle = halfAngle;
+    // 【修正】角度基準を90度シフト（下側を中心に描画）
+    const startAngle = (Math.PI / 2) - halfAngle;
+    const endAngle = (Math.PI / 2) + halfAngle;
 
     const mainColor = p.sColor || '#333';
-    // ドラッグ状態のスタイル判定（親関数 drawPart の変数を参照していると想定）
     const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
 
-    // 1. 道床（バラスト）の塗りつぶしと縁取り
+    // 1. 道床（バラスト）
     ctx.beginPath();
-    // 外側の弧（時計回り）
     ctx.arc(centerX, centerY, R + halfView, startAngle, endAngle);
-    // 内側の弧（反時計回りで戻ることでパスを閉じる）
     ctx.arc(centerX, centerY, R - halfView, endAngle, startAngle, true);
     ctx.closePath();
 
-    // 塗りつぶし（透過）
     const prevAlpha = ctx.globalAlpha; 
-
-    // 塗りつぶし実行（色名が Green 等でも globalAlpha を使えば確実に半透明になります）
-    ctx.globalAlpha = 0.3;              // 透明度を指定（0.0〜1.0）
-    ctx.fillStyle = p.sColor || '#999'; // 文字列結合 "+ 33" を削除
+    ctx.globalAlpha = 0.3; 
+    ctx.fillStyle = p.sColor || '#999';
     ctx.fill();
-
-    // 縁取りの前に透明度を戻す（枠線をくっきりさせるため）
     ctx.globalAlpha = prevAlpha; 
 
-    // 縁取り（輪郭線）
     ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
     ctx.lineWidth = isDragged ? 3 : 1;
     ctx.stroke();
 
-    // 縁取り（輪郭線）
+    // 重複していた縁取りコードを整理（既存機能の維持）
     ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
     ctx.lineWidth = isDragged ? 3 : 1;
     ctx.stroke();
 
-    // 2. レール（2本の円弧）の描画
+    // 2. レール（2本の円弧）
     ctx.lineWidth = 1;
     ctx.strokeStyle = mainColor;
-
-    // 外側レール
     ctx.beginPath();
     ctx.arc(centerX, centerY, R + halfGauge, startAngle, endAngle);
     ctx.stroke();
-
-    // 内側レール
     ctx.beginPath();
     ctx.arc(centerX, centerY, R - halfGauge, startAngle, endAngle);
     ctx.stroke();
 
     // 3. 吸着点（Junction）の座標更新
     if (p.junctionCount) {
-        const jX = 0; 
-        const jY = R * Math.sin(halfAngle);
+        // 元の jY 計算（R * sin）を X座標として利用
+        const jCoord = R * Math.sin(halfAngle);
         
         p.junctions = [
-            { x: jX, y: -jY }, // 始点側
-            { x: jX, y: jY }   // 終点側
+            { x: -jCoord, y: 0 }, // 左端
+            { x: jCoord, y: 0 }    // 右端
         ];
         p.junctions = p.junctions.slice(0, p.junctionCount);
     }
@@ -434,68 +423,59 @@ function drawDoubleCurveRail(ctx, p) {
     const mainColor = p.sColor || '#333';
     const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
     
-    // 中心点は外側レールの頂点(0,0)を基準に算出
-    const centerX = -rOuter * Math.cos(halfAngle);
-    const centerY = 0;
-    const startAngle = -halfAngle;
-    const endAngle = halfAngle;
+    // 【修正】中心点をY軸方向へ
+    const centerX = 0;
+    const centerY = -rOuter * Math.cos(halfAngle);
+    const startAngle = (Math.PI / 2) - halfAngle;
+    const endAngle = (Math.PI / 2) + halfAngle;
 
-    // 1. 道床（バラスト）の一括描画
+    // 1. 道床（バラスト）
     ctx.beginPath();
     ctx.arc(centerX, centerY, rOuter + halfView, startAngle, endAngle);
     ctx.arc(centerX, centerY, rInner - halfView, endAngle, startAngle, true);
     ctx.closePath();
-    const originalAlpha = ctx.globalAlpha; // 現在の透明度を保存
-    ctx.globalAlpha = 0.3;                 // 半透明に設定
-    ctx.fillStyle = p.sColor || '#999';    // 色名(Green等)を適用
-    ctx.fill();                            // 塗りつぶし実行
-
-    ctx.globalAlpha = originalAlpha;       // 透明度を元に戻す
+    const originalAlpha = ctx.globalAlpha;
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = p.sColor || '#999';
+    ctx.fill();
+    ctx.globalAlpha = originalAlpha;
     
-    // 縁取り（輪郭線）
     ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
     ctx.lineWidth = isDragged ? 3 : 1;
     ctx.stroke();
 
-    // 2. レールの描画（ループを使わず4本個別に記述）
+    // 2. レールの描画
     ctx.lineWidth = 1;
     ctx.strokeStyle = mainColor;
-
-    // 外側線・外レール
     ctx.beginPath();
     ctx.arc(centerX, centerY, rOuter + halfGauge, startAngle, endAngle);
     ctx.stroke();
-    // 外側線・内レール
     ctx.beginPath();
     ctx.arc(centerX, centerY, rOuter - halfGauge, startAngle, endAngle);
     ctx.stroke();
-    // 内側線・外レール
     ctx.beginPath();
     ctx.arc(centerX, centerY, rInner + halfGauge, startAngle, endAngle);
     ctx.stroke();
-    // 内側線・内レール
     ctx.beginPath();
     ctx.arc(centerX, centerY, rInner - halfGauge, startAngle, endAngle);
     ctx.stroke();
 
     // 3. 接続点および内側基準点の更新
     if (p.junctionCount) {
-        const jYOuter = rOuter * Math.sin(halfAngle);
-        const jYInner = rInner * Math.sin(halfAngle);
-        // 内側端点のX座標（外側頂点からの相対距離）
-        const jXInner = (rOuter - rInner) * Math.cos(halfAngle);
+        const jValOuter = rOuter * Math.sin(halfAngle);
+        const jValInner = rInner * Math.sin(halfAngle);
+        const jDiff = (rOuter - rInner) * Math.cos(halfAngle);
 
         p.junctions = [
-            { x: 0, y: -jYOuter },
-            { x: 0, y: jYOuter },
-            { x: jXInner, y: -jYInner },
-            { x: jXInner, y: jYInner }
+            { x: -jValOuter, y: 0 },
+            { x: jValOuter, y: 0 },
+            { x: -jValInner, y: jDiff },
+            { x: jValInner, y: jDiff }
         ];
         p.junctions = p.junctions.slice(0, p.junctionCount);
 
-        // 【修正】内側レールの基準点。
-        // 外側頂点(0,0)から、中心(centerX)との差分だけ右（プラス方向）に配置
-        p.innerCenter = { x: rOuter - rInner, y: 0 };
+        // 内側基準点もY軸方向へスライド
+        p.innerCenter = { x: 0, y: rOuter - rInner };
     }
 }
             

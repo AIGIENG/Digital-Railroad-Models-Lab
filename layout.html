@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0142</title>
+    <title>Railroad Models Layout Designer v.0143</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -203,18 +203,18 @@ function getConnectorPoints(p, x, y, rotation) {
             points.push(transform(-jCoord, 0, 180 + halfDeg)); 
             points.push(transform(jCoord, 0, 0 - halfDeg));
         } else {
-            // --- 複線曲線 (描画側の y: 0 に完全同期) ---
             const rOuter = p.nRadius;
             const rInner = p.nRadius - (p.nTrackGap || 33);
             
             const jValOuter = rOuter * Math.sin(halfAngleRad);
             const jValInner = rInner * Math.sin(halfAngleRad);
-
-            // 全ての接点の ty (第2引数) を 0 にすることで、描画位置と判定位置を一致させます
-            points.push(transform(-jValOuter, 0, 180 + halfDeg)); // index 0 (外左)
-            points.push(transform(jValOuter, 0, 0 - halfDeg));    // index 1 (外右)
-            points.push(transform(-jValInner, 0, 180 + halfDeg)); // index 2 (内左) 
-            points.push(transform(jValInner, 0, 0 - halfDeg));   // index 3 (内右)
+            // 描画(drawDoubleCurveRail)の定義に合わせ、内側レールの垂直オフセットを計算
+            const jDiff = (rOuter - rInner) * Math.cos(halfAngleRad);
+        
+            points.push(transform(-jValOuter, 0, 180 + halfDeg));     // index 0
+            points.push(transform(jValOuter, 0, 0 - halfDeg));       // index 1
+            points.push(transform(-jValInner, jDiff, 180 + halfDeg)); // index 2 (内側左)
+            points.push(transform(jValInner, jDiff, 0 - halfDeg));   // index 3 (内側右)
         }
     }
     return points;
@@ -321,12 +321,17 @@ function drawStraightRail(ctx, p) {
     // 3. 吸着点（Junction）の座標更新（相対座標）
     // junctionCountに基づいて配列を再生成
     if (p.junctionCount) {
-        p.junctions = [];
-        trackOffsets.forEach(offsetY => {
-            p.junctions.push({ x: -halfLen, y: offsetY }); // 始点側
-            p.junctions.push({ x: halfLen, y: offsetY });  // 終点側
-        });
-        // 指定された数(junctionCount)に制限
+        const jValOuter = rOuter * Math.sin(halfAngle);
+        const jValInner = rInner * Math.sin(halfAngle);
+        // centerX/Y の定義に基づき、上端（外側）を 0 とした時の内側の相対位置を算出
+        const jDiff = (rOuter - rInner) * Math.cos(halfAngle);
+    
+        p.junctions = [
+            { x: -jValOuter, y: 0 },      // 外側左
+            { x: jValOuter, y: 0 },       // 外側右
+            { x: -jValInner, y: jDiff },  // 内側左（yをjDiffに）
+            { x: jValInner, y: jDiff }   // 内側右（yをjDiffに）
+        ];
         p.junctions = p.junctions.slice(0, p.junctionCount);
     }
 }

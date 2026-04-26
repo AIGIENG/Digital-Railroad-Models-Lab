@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0141</title>
+    <title>Railroad Models Layout Designer v.0142</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -185,18 +185,12 @@ function getConnectorPoints(p, x, y, rotation) {
             points.push(transform(-halfLen, 0, 180)); 
             points.push(transform(halfLen, 0, 0));  
         } else {
-            // --- 複線曲線 ---
-            const rOuter = p.nRadius;
-            const rInner = p.nRadius - (p.nTrackGap || 33);
-            
-            const jValOuter = rOuter * Math.sin(halfAngleRad);
-            const jValInner = rInner * Math.sin(halfAngleRad);
-
-            // 描画側の y: 0 に合わせるため、第2引数をすべて 0 に修正
-            points.push(transform(-jValOuter, 0, 180 + halfDeg)); // index 0 (外左)
-            points.push(transform(jValOuter, 0, 0 - halfDeg));    // index 1 (外右)
-            points.push(transform(-jValInner, 0, 180 + halfDeg)); // index 2 (内左) - ここを0に
-            points.push(transform(jValInner, 0, 0 - halfDeg));   // index 3 (内右) - ここを0に
+            // --- 複線直線 (ここが混濁していました) ---
+            const halfGap = (p.nTrackGap || 33) / 2;
+            points.push(transform(-halfLen, -halfGap, 180)); // index 0: 外(上)左
+            points.push(transform(halfLen, -halfGap, 0));    // index 1: 外(上)右
+            points.push(transform(-halfLen, halfGap, 180));  // index 2: 内(下)左
+            points.push(transform(halfLen, halfGap, 0));     // index 3: 内(下)右
         }
     } else if (p.sRole === "curve" || p.sRole === "double-curve") {
         const halfDeg = (p.nAngle || 0) / 2;
@@ -206,26 +200,21 @@ function getConnectorPoints(p, x, y, rotation) {
             // --- 単線曲線 ---
             const R = p.nRadius;
             const jCoord = R * Math.sin(halfAngleRad);
-            
-            // 描画(drawCurveRail)の junctions = [{x: -jCoord, y: 0}, {x: jCoord, y: 0}] に完全準拠
-            // 角度は水平基準(180/0)から円弧の傾き(halfDeg)を考慮
             points.push(transform(-jCoord, 0, 180 + halfDeg)); 
             points.push(transform(jCoord, 0, 0 - halfDeg));
         } else {
-            // --- 複線曲線 ---
+            // --- 複線曲線 (描画側の y: 0 に完全同期) ---
             const rOuter = p.nRadius;
             const rInner = p.nRadius - (p.nTrackGap || 33);
             
             const jValOuter = rOuter * Math.sin(halfAngleRad);
             const jValInner = rInner * Math.sin(halfAngleRad);
-            const jDiff = (rOuter - rInner) * Math.cos(halfAngleRad);
 
-            // 描画(drawDoubleCurveRail)の junctions 配列順序を厳守
-            // [外左, 外右, 内左, 内右]
-            points.push(transform(-jValOuter, 0, 180 + halfDeg));      // index 0
-            points.push(transform(jValOuter, 0, 0 - halfDeg));        // index 1
-            points.push(transform(-jValInner, jDiff, 180 + halfDeg)); // index 2
-            points.push(transform(jValInner, jDiff, 0 - halfDeg));   // index 3
+            // 全ての接点の ty (第2引数) を 0 にすることで、描画位置と判定位置を一致させます
+            points.push(transform(-jValOuter, 0, 180 + halfDeg)); // index 0 (外左)
+            points.push(transform(jValOuter, 0, 0 - halfDeg));    // index 1 (外右)
+            points.push(transform(-jValInner, 0, 180 + halfDeg)); // index 2 (内左) 
+            points.push(transform(jValInner, 0, 0 - halfDeg));   // index 3 (内右)
         }
     }
     return points;

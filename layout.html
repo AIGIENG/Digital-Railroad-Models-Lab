@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0129</title>
+    <title>Railroad Models Layout Designer v.0130</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -507,25 +507,30 @@ function isPointInPart(mouseX, mouseY, p) {
         ctx.rect(-halfLen, -halfView, p.nLength, p.nViewWidth);
     } 
     else if (p.nRadius > 0) {
-        // 曲線・複線：nRadius (半径), nAngle (角度) を使用
+        // 曲線・複線：描画関数 drawCurveRail と同じ座標系に合わせる
         const R = p.nRadius;
         const angleRad = (p.nAngle * Math.PI) / 180;
         const halfAngle = angleRad / 2;
         const halfView = (p.nViewWidth || 25) / 2;
-        const centerX = -R * Math.cos(halfAngle);
-        const startAngle = -halfAngle;
-        const endAngle = halfAngle;
+
+        // 【修正】中心点をY軸方向へ配置（横向き円弧の描画に合わせる）
+        const centerX = 0;
+        const centerY = -R * Math.cos(halfAngle); 
+        
+        // 【修正】角度基準を90度シフト（下側を中心に描画）
+        const startAngle = (Math.PI / 2) - halfAngle;
+        const endAngle = (Math.PI / 2) + halfAngle;
 
         if (p.sRole !== 'double-curve') {
             // 単線曲線
-            ctx.arc(centerX, 0, R + halfView, startAngle, endAngle);
-            ctx.arc(centerX, 0, R - halfView, endAngle, startAngle, true);
+            ctx.arc(centerX, centerY, R + halfView, startAngle, endAngle);
+            ctx.arc(centerX, centerY, R - halfView, endAngle, startAngle, true);
         } else {
             // 複線曲線
             const gap = p.nTrackGap || 33;
             const rInner = R - gap;
-            ctx.arc(centerX, 0, R + halfView, startAngle, endAngle);
-            ctx.arc(centerX, 0, rInner - halfView, endAngle, startAngle, true);
+            ctx.arc(centerX, centerY, R + halfView, startAngle, endAngle);
+            ctx.arc(centerX, centerY, rInner - halfView, endAngle, startAngle, true);
         }
     } else {
         // ポイント等：その他は中心付近 30px

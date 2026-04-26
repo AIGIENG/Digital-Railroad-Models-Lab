@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0131r</title>
+    <title>Railroad Models Layout Designer v.0130r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -160,17 +160,18 @@ function initSidebar() {
 }
             
 /**
- * 接点計算ロジック (横向き配置・水平基準対応版)
- * 既存の Junctions 配列の順序および計算式を維持しつつ、座標軸のみを現行の描画に合わせます。
+ * 接点計算ロジック (中央基準・単線直線対応版 + 複線曲線対応)
  */
 function getConnectorPoints(p, x, y, rotation) {
     const points = [];
     const rad = (rotation * Math.PI) / 180;
 
-    // 座標変換関数
+    // ローカル座標(中央基準)をグローバル座標に変換する関数
+    // 第3引数 localAng (その接点の向き) を受け取るように拡張
     const transform = (rx, ry, localAng) => {
         const tx = rx * Math.cos(rad) - ry * Math.sin(rad);
         const ty = rx * Math.sin(rad) + ry * Math.cos(rad);
+        // 座標(x, y)に加えて、その地点のグローバルな向き(ang)を返す
         return { 
             x: x + tx, 
             y: y + ty, 
@@ -178,53 +179,58 @@ function getConnectorPoints(p, x, y, rotation) {
         };
     };
 
+    const jCount = p.junctionCount || 2;
+    const halfLen = (p.nLength || 0) / 2;
+
     if (p.sRole === "straight") {
-        const halfLen = (p.nLength || 0) / 2;
         if (!p.bIsDouble) {
-            // 単線直線
+            // --- 単線直線 ---
+            // 左端は180度、右端は0度の向きを持つ
             points.push(transform(-halfLen, 0, 180)); 
             points.push(transform(halfLen, 0, 0));  
         } else {
-            // 複線直線
+            // --- 複線直線 ---
             const halfGap = (p.nTrackGap || 33) / 2;
             points.push(transform(-halfLen, -halfGap, 180)); 
             points.push(transform(-halfLen, halfGap, 180));  
             points.push(transform(halfLen, -halfGap, 0));  
             points.push(transform(halfLen, halfGap, 0));   
         }
-    } else if (p.sRole === "curve" || p.sRole === "double-curve") {
+    } else if (p.sRole === "curve") {
+        // 度数法での半分（向きの計算用）
         const halfDeg = (p.nAngle || 0) / 2;
-        const halfAngleRad = (halfDeg * Math.PI) / 180;
+        // 弧の座標計算用（ラジアン）
+        const halfAngle = (p.nAngle * Math.PI) / 360; 
         
-        if (p.sRole !== "double-curve") {
+        if (!p.bIsDouble) {
             // --- 単線曲線 ---
             const R = p.nRadius;
-            const jCoord = R * Math.sin(halfAngleRad);
+            const jY = R * Math.sin(halfAngle);
             
-            // 描画(drawCurveRail)の junctions = [{x: -jCoord, y: 0}, {x: jCoord, y: 0}] に完全準拠
-            // 角度は水平基準(180/0)から円弧の傾き(halfDeg)を考慮
-            points.push(transform(-jCoord, 0, 180 + halfDeg)); 
-            points.push(transform(jCoord, 0, 0 - halfDeg));
+            // 【修正ポイント】
+            // これまでは -halfDeg でしたが、直線レールの端面と合わせるために
+            // 「180度から半角を引いた向き」と「半角そのものの向き」に定義し直します。
+            points.push(transform(0, -jY, 180 - halfDeg)); // 上端
+            points.push(transform(0, jY, halfDeg));       // 下端
         } else {
             // --- 複線曲線 ---
             const rOuter = p.nRadius;
             const rInner = p.nRadius - (p.nTrackGap || 33);
             
-            const jValOuter = rOuter * Math.sin(halfAngleRad);
-            const jValInner = rInner * Math.sin(halfAngleRad);
-            const jDiff = (rOuter - rInner) * Math.cos(halfAngleRad);
+            const jYOuter = rOuter * Math.sin(halfAngle);
+            const jXInner = (rInner - rOuter) * Math.cos(halfAngle);
+            const jYInner = rInner * Math.sin(halfAngle);
 
-            // 描画(drawDoubleCurveRail)の junctions 配列順序を厳守
-            // [外左, 外右, 内左, 内右]
-            points.push(transform(-jValOuter, 0, 180 + halfDeg));      // index 0
-            points.push(transform(jValOuter, 0, 0 - halfDeg));        // index 1
-            points.push(transform(-jValInner, jDiff, 180 + halfDeg)); // index 2
-            points.push(transform(jValInner, jDiff, 0 - halfDeg));   // index 3
+            // 複線も同様に向きを修正
+            points.push(transform(0, -jYOuter, 180 - halfDeg));      // 外側・上
+            points.push(transform(0, jYOuter, halfDeg));            // 外側・下
+            points.push(transform(jXInner, -jYInner, 180 - halfDeg)); // 内側・上
+            points.push(transform(jXInner, jYInner, halfDeg));       // 内側・下
         }
     }
     return points;
 }
-            
+
 /**
  * 描画処理
  */
@@ -393,10 +399,10 @@ function drawCurveRail(ctx, p) {
     if (p.junctionCount) {
         // 元の jY 計算（R * sin）を X座標として利用
         const jCoord = R * Math.sin(halfAngle);
-        const jX = R * Math.sin(halfAngle); 
+        
         p.junctions = [
-            { x: -jX, y: 0 }, // 正解
-            { x: jX, y: 0 }   // 正解
+            { x: -jCoord, y: 0 }, // 左端
+            { x: jCoord, y: 0 }    // 右端
         ];
         p.junctions = p.junctions.slice(0, p.junctionCount);
     }
@@ -458,14 +464,18 @@ function drawDoubleCurveRail(ctx, p) {
     if (p.junctionCount) {
         const jValOuter = rOuter * Math.sin(halfAngle);
         const jValInner = rInner * Math.sin(halfAngle);
+        const jDiff = (rOuter - rInner) * Math.cos(halfAngle);
+
         p.junctions = [
-            { x: -jValOuter, y: 0 }, // 外側左：Yは0
-            { x: jValOuter, y: 0 },  // 外側右：Yは0
-            { x: -jValInner, y: 0 }, // 内側左：ここを jDiff ではなく 0 にする
-            { x: jValInner, y: 0 }   // 内側右：ここを jDiff ではなく 0 にする
+            { x: -jValOuter, y: 0 },
+            { x: jValOuter, y: 0 },
+            { x: -jValInner, y: jDiff },
+            { x: jValInner, y: jDiff }
         ];
-        // 内側基準点（Rキー回転用などの中心）も端点に合わせるなら 0
-        p.innerCenter = { x: 0, y: 0 }; 
+        p.junctions = p.junctions.slice(0, p.junctionCount);
+
+        // 内側基準点もY軸方向へスライド
+        p.innerCenter = { x: 0, y: rOuter - rInner };
     }
 }
             

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0127</title>
+    <title>Railroad Models Layout Designer v.0128</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -197,35 +197,27 @@ function getConnectorPoints(p, x, y, rotation) {
             points.push(transform(halfLen, halfGap, 0));   
         }
     } else if (p.sRole === "curve") {
-        // 度数法での半分（向きの計算用）
         const halfDeg = (p.nAngle || 0) / 2;
-        // 弧の座標計算用（ラジアン）
         const halfAngle = (p.nAngle * Math.PI) / 360; 
         
         if (!p.bIsDouble) {
-            // --- 単線曲線 ---
             const R = p.nRadius;
             const jY = R * Math.sin(halfAngle);
-            
-            // 【修正ポイント】
-            // これまでは -halfDeg でしたが、直線レールの端面と合わせるために
-            // 「180度から半角を引いた向き」と「半角そのものの向き」に定義し直します。
-            points.push(transform(0, -jY, 180 - halfDeg)); // 上端
-            points.push(transform(0, jY, halfDeg));       // 下端
+            // 接線方向（レールが伸びる向き）の定義に戻す
+            // これにより、パーツが0度のとき、上端は -halfDeg、下端は +halfDeg を向く
+            points.push(transform(0, -jY, -halfDeg)); 
+            points.push(transform(0, jY, halfDeg));
         } else {
-            // --- 複線曲線 ---
             const rOuter = p.nRadius;
             const rInner = p.nRadius - (p.nTrackGap || 33);
-            
             const jYOuter = rOuter * Math.sin(halfAngle);
             const jXInner = (rInner - rOuter) * Math.cos(halfAngle);
             const jYInner = rInner * Math.sin(halfAngle);
 
-            // 複線も同様に向きを修正
-            points.push(transform(0, -jYOuter, 180 - halfDeg));      // 外側・上
-            points.push(transform(0, jYOuter, halfDeg));            // 外側・下
-            points.push(transform(jXInner, -jYInner, 180 - halfDeg)); // 内側・上
-            points.push(transform(jXInner, jYInner, halfDeg));       // 内側・下
+            points.push(transform(0, -jYOuter, -halfDeg));
+            points.push(transform(0, jYOuter, halfDeg));
+            points.push(transform(jXInner, -jYInner, -halfDeg));
+            points.push(transform(jXInner, jYInner, halfDeg));
         }
     }
     return points;
@@ -643,25 +635,27 @@ canvas.onmousemove = function(e) {
             });
         });
     });
-
     if (targetPoint) {
         // --- 1. 角度の吸着 ---
-        // 相手の向き(targetPoint.ang)の180度反対が、自分の向くべき目標角度
+        // 接続相手の向き(targetPoint.ang)に対して、「背中合わせ(180度)」になる角度を求める
         const targetAng = (targetPoint.ang + 180) % 360;
         
-        // 自分の現在のコネクタ角度(myPoints[myPointIdx].ang)との差分
+        // 「自分が今向いているコネクタの向き」と「目標」の差分だけ、本体(rotation)を回す
         let diffAng = targetAng - myPoints[myPointIdx].ang;
         
-        // 最短距離で回転させるための補正（一番近い回転方向を選ぶ）
+        // 最短回転補正
         while (diffAng > 180) diffAng -= 360;
         while (diffAng < -180) diffAng += 360;
 
-        // 現在の rotation に最短の差分を足して更新
+        // 角度を適用
         draggedPart.rotation = (draggedPart.rotation + diffAng + 360) % 360;
 
-        // --- 2. 座標の吸着 ---
-        // 角度が変わったので、新しい rotation に基づいて接点相対位置を再取得して固定
+        // --- 2. 座標の吸着（ズレ防止） ---
+        // 重要：角度が変わったので、「新しい角度での中心からコネクタへの相対距離」を再取得する
+        // 基準点は中央(0, 0)のままで、そこからのズレ(relPoints)を引くことで中心座標(x, y)を決定
         const relPoints = getConnectorPoints(draggedPart, 0, 0, draggedPart.rotation);
+        
+        // 吸着先の座標から、新しい角度での相対座標を引く
         draggedPart.x = targetPoint.x - relPoints[myPointIdx].x;
         draggedPart.y = targetPoint.y - relPoints[myPointIdx].y;
         

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0142r</title>
+    <title>Railroad Models Layout Designer v.0144</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -203,18 +203,19 @@ function getConnectorPoints(p, x, y, rotation) {
             points.push(transform(-jCoord, 0, 180 + halfDeg)); 
             points.push(transform(jCoord, 0, 0 - halfDeg));
         } else {
-            // --- 複線曲線 (描画側の y: 0 に完全同期) ---
             const rOuter = p.nRadius;
-            const rInner = p.nRadius - (p.nTrackGap || 33);
+            const rInner = rOuter - (p.nTrackGap || 33);
+            const halfRad = ((p.nAngle / 2) * Math.PI) / 180;
             
-            const jValOuter = rOuter * Math.sin(halfAngleRad);
-            const jValInner = rInner * Math.sin(halfAngleRad);
-
-            // 全ての接点の ty (第2引数) を 0 にすることで、描画位置と判定位置を一致させます
-            points.push(transform(-jValOuter, 0, 180 + halfDeg)); // index 0 (外左)
-            points.push(transform(jValOuter, 0, 0 - halfDeg));    // index 1 (外右)
-            points.push(transform(-jValInner, 0, 180 + halfDeg)); // index 2 (内左) 
-            points.push(transform(jValInner, 0, 0 - halfDeg));   // index 3 (内右)
+            const jXOuter = rOuter * Math.sin(halfRad);
+            const jXInner = rInner * Math.sin(halfRad);
+            // 描画の centerY 定義から導かれる垂直方向のズレ
+            const jDiff = (rOuter - rInner) * Math.cos(halfRad);
+        
+            points.push(transform(-jXOuter, 0, 180 + (p.nAngle / 2)));
+            points.push(transform(jXOuter, 0, 0 - (p.nAngle / 2)));
+            points.push(transform(-jXInner, jDiff, 180 + (p.nAngle / 2))); // 0 から jDiff へ
+            points.push(transform(jXInner, jDiff, 0 - (p.nAngle / 2)));   // 0 から jDiff へ
         }
     }
     return points;
@@ -449,23 +450,18 @@ function drawDoubleCurveRail(ctx, p) {
 
     // 3. 接続点（Junctions）の復活
     if (p.junctionCount) {
-        // 各半径に基づいた正確なX座標（端点の位置）を計算
         const jValOuter = rOuter * Math.sin(halfAngle);
         const jValInner = rInner * Math.sin(halfAngle);
-        
-        // 横向き配置なので Y はすべて 0 で統一（吸着バグ防止）
+        // 外側と内側の端点の高さの差を算出
+        const jDiff = (rOuter - rInner) * Math.cos(halfAngle);
+    
         p.junctions = [
-            { x: -jValOuter, y: 0 }, // 0: 外側左
-            { x: jValOuter, y: 0 },  // 1: 外側右
-            { x: -jValInner, y: 0 }, // 2: 内側左（復活）
-            { x: jValInner, y: 0 }   // 3: 内側右（復活）
+            { x: -jValOuter, y: 0 },
+            { x: jValOuter, y: 0 },
+            { x: -jValInner, y: jDiff }, // 0 から jDiff へ変更
+            { x: jValInner, y: jDiff }  // 0 から jDiff へ変更
         ];
-        
-        // junctionCount に基づいて切り出し（通常は4）
         p.junctions = p.junctions.slice(0, p.junctionCount);
-        
-        // 回転基準点
-        p.innerCenter = { x: 0, y: 0 }; 
     }
 }
             

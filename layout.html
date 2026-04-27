@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0155</title>
+    <title>Railroad Models Layout Designer v.0156</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -208,6 +208,8 @@ function getConnectorPoints(p, x, y, rotation) {
 
         // CASE 4: 複線曲線（ここが吸着判定の心臓部です）
         if (p.sRole === "curve" && p.bIsDouble) {
+            return []; // 空の配列を返す
+
             const rOuter = p.nRadius;
             const nGap = p.nTrackGap || 33;
             const rInner = rOuter - nGap;

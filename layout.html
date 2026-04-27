@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0148</title>
+    <title>Railroad Models Layout Designer v.0149</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -194,24 +194,30 @@ function getConnectorPoints(p, x, y, rotation) {
         const halfRad = (halfDeg * Math.PI) / 180;
     
         if (p.bIsDouble) {
-            // --- 複線曲線 ---
-            const rOuter = p.nRadius;
-            const rInner = rOuter - (p.nTrackGap || 33);
-            const jXOuter = rOuter * Math.sin(halfRad);
-            const jXInner = rInner * Math.sin(halfRad);
-            // yのズレ（jDiff）を算出
-            const jDiff = (rOuter * Math.cos(halfRad)) - (rInner * Math.cos(halfRad));
-    
-            // 0: 外側左 (y=0, 左端)
-            points.push(transform(-jXOuter, 0, 180 + halfDeg)); 
-            // 1: 外側右 (y=0, 右端)
-            points.push(transform(jXOuter, 0, -halfDeg));       
-    
-            // --- 内側：あなたが指摘された「ズレ」を解消する配置 ---
-            // 2: 内側左 (Xをマイナス、Yをプラス(下)へ、角度は左向き)
-            points.push(transform(-jXInner, jDiff, 180 + halfDeg)); 
-            // 3: 内側右 (Xをプラス、Yをプラス(下)へ、角度は右向き)
-            points.push(transform(jXInner, jDiff, -halfDeg));    
+            // --- 1. データ定義から直接取得 ---
+            const halfDeg = (p.nAngle || 0) / 2;
+            const halfRad = (halfDeg * Math.PI) / 180;
+            
+            const R_out = p.nRadius;
+            // データ定義にある nTrackGap をそのまま使用。無ければ 0 (単線扱い) とする
+            const trackGap = p.nTrackGap || 0; 
+            const R_in  = R_out - trackGap;
+        
+            // --- 2. y軸のズレ（オフセット）の算出 ---
+            // R_out と R_in の差ではなく、それぞれの cos 成分の差を正しく計算
+            const jDiff = (R_out * Math.cos(halfRad)) - (R_in * Math.cos(halfRad));
+        
+            // --- 3. 接点座標の算出 ---
+            const jX_out = R_out * Math.sin(halfRad);
+            const jX_in  = R_in * Math.sin(halfRad);
+        
+            // index 0, 1: 外側 (半径 R_out を使用)
+            points.push(transform(-jX_out, 0, 180 + halfDeg)); 
+            points.push(transform(jX_out, 0, -halfDeg));      
+        
+            // index 2, 3: 内側 (半径 R_in を使用し、高さは算出した jDiff を適用)
+            points.push(transform(-jX_in, jDiff, 180 + halfDeg)); 
+            points.push(transform(jX_in, jDiff, -halfDeg));
         } else {
             // --- 単線曲線 (既存維持) ---
             const jX = p.nRadius * Math.sin(halfRad);

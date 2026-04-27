@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0146r</title>
+    <title>Railroad Models Layout Designer v.0146r2</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -177,53 +177,42 @@ function getConnectorPoints(p, x, y, rotation) {
         };
     };
 
-    // --- CASE 1: 単線直線 ---
-    if (p.sRole === "straight" && !p.bIsDouble) {
+    if (p.sRole === "straight") {
         const halfLen = (p.nLength || 0) / 2;
-        points.push(transform(-halfLen, 0, 180)); 
-        points.push(transform(halfLen, 0, 0));  
-        return points;
-    }
-
-    // --- CASE 2: 複線直線 ---
-    if (p.sRole === "straight" && p.bIsDouble) {
-        const halfLen = (p.nLength || 0) / 2;
-        const halfGap = (p.nTrackGap || 0) / 2;
-        points.push(transform(-halfLen, -halfGap, 180));
-        points.push(transform(halfLen, -halfGap, 0)); 
-        points.push(transform(-halfLen, halfGap, 180)); 
-        points.push(transform(halfLen, halfGap, 0));    
-        return points;
-    }
-
-    // --- CASE 3: 単線曲線 ---
-    if (p.sRole === "curve" && !p.bIsDouble) {
+        if (!p.bIsDouble) {
+            points.push(transform(-halfLen, 0, 180)); 
+            points.push(transform(halfLen, 0, 0));  
+        } else {
+            const halfGap = (p.nTrackGap || 33) / 2;
+            points.push(transform(-halfLen, -halfGap, 180));
+            points.push(transform(halfLen, -halfGap, 0)); 
+            points.push(transform(-halfLen, halfGap, 180)); 
+            points.push(transform(halfLen, halfGap, 0));   
+        }
+    } else if (p.sRole === "curve") { // "double-curve" の判定を削除
         const halfDeg = (p.nAngle || 0) / 2;
-        const halfRad = (halfDeg * Math.PI) / 180;
-        const jX = (p.nRadius || 0) * Math.sin(halfRad);
-        points.push(transform(-jX, 0, 180 + halfDeg)); 
-        points.push(transform(jX, 0, -halfDeg));
-        return points;
-    }
-
-    // --- CASE 4: 複線曲線 ---
-    if (p.sRole === "curve" && p.bIsDouble) {
-        const halfDeg = (p.nAngle || 0) / 2;
-        const halfRad = (halfDeg * Math.PI) / 180;
-        const rOuter = p.nRadius || 0;
-        const rInner = rOuter - (p.nTrackGap || 0);
+        const halfAngleRad = (halfDeg * Math.PI) / 180;
         
-        const jXOuter = rOuter * Math.sin(halfRad);
-        const jXInner = rInner * Math.sin(halfRad);
-        const jDiff = (rOuter * Math.cos(halfRad)) - (rInner * Math.cos(halfRad));
+        if (!p.bIsDouble) { // フラグで単線判定
+            const R = p.nRadius;
+            const jCoord = R * Math.sin(halfAngleRad);
+            points.push(transform(-jCoord, 0, 180 + halfDeg)); 
+            points.push(transform(jCoord, 0, 0 - halfDeg));
+        } else { // フラグで複線判定
+            const rOuter = p.nRadius;
+            const rInner = rOuter - (p.nTrackGap || 33);
+            const halfRad = ((p.nAngle / 2) * Math.PI) / 180;
+            
+            const jXOuter = rOuter * Math.sin(halfRad);
+            const jXInner = rInner * Math.sin(halfRad);
+            const jDiff = (rOuter - rInner) * Math.cos(halfRad);
 
-        points.push(transform(-jXOuter, 0, 180 + halfDeg)); 
-        points.push(transform(jXOuter, 0, -halfDeg));       
-        points.push(transform(-jXInner, jDiff, 180 + halfDeg)); 
-        points.push(transform(jXInner, jDiff, -halfDeg));    
-        return points;
+            points.push(transform(-jXOuter, 0, 180 + (p.nAngle / 2))); // 0: 外左
+            points.push(transform(jXOuter, 0, 0 - (p.nAngle / 2)));   // 1: 外右
+            points.push(transform(jXInner, jDiff, 180 + (p.nAngle / 2))); // 2: 内左（正負を反転）
+            points.push(transform(-jXInner, jDiff, 0 - (p.nAngle / 2)));  // 3: 内右（正負を反転）
+        }
     }
-
     return points;
 }
 

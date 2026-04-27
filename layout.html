@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0147r2</title>
+    <title>Railroad Models Layout Designer v.0148r2</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -253,15 +253,22 @@ function drawPart(ctx, p) {
     ctx.translate(p.x, p.y);
     ctx.rotate((p.rotation * Math.PI) / 180);
 
-    if (p.sRole === "straight") {
-        drawStraightRail(ctx, p);
-    } else if (p.sRole === "curve") {
-        if (p.bIsDouble) {
-            drawDoubleCurveRail(ctx, p);
-        } else {
-            drawCurveRail(ctx, p);
-        }
-    }
+    switch (p.sRole) {
+        case "straight":
+            drawStraightRail(ctx, p);
+            break;
+        case "curve":
+            if (p.bIsDouble) {
+                drawDoubleCurveRail(ctx, p);
+            } else {
+                drawCurveRail(ctx, p);
+            }
+        break;
+        // 今後ポイントなどを追加する場合もここに追加しやすくなります
+        default:
+        // 必要に応じてデフォルトの処理を記述
+        break;
+}
 
     // 基準点マーカーの描画制御
     if (p.sRole === "straight" || p.sRole === "curve") {

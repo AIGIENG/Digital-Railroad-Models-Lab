@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0156</title>
+    <title>Railroad Models Layout Designer v.0157</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -208,8 +208,6 @@ function getConnectorPoints(p, x, y, rotation) {
 
         // CASE 4: 複線曲線（ここが吸着判定の心臓部です）
         if (p.sRole === "curve" && p.bIsDouble) {
-            return []; // 空の配列を返す
-
             const rOuter = p.nRadius;
             const nGap = p.nTrackGap || 33;
             const rInner = rOuter - nGap;
@@ -218,14 +216,15 @@ function getConnectorPoints(p, x, y, rotation) {
         
             const jValOuter = rOuter * Math.sin(halfRad);
             const jValInner = rInner * Math.sin(halfRad);
+            // 描画コードの centerY = -rOuter * cos(halfAngle) と同期
             const jDiff = (rOuter - rInner) * Math.cos(halfRad);
         
-            // 【最重要】ここで返す順番と座標が、マウス操作時の吸着位置を決定します
-            // 描画と合わせるため、内側(0,1)・外側(2,3)の順で返します
-            points.push(transform(-jValInner, jDiff, 180 + halfDeg)); // 内左
-            points.push(transform(jValInner, jDiff, -halfDeg));       // 内右
-            points.push(transform(-jValOuter, 0, 180 + halfDeg));    // 外左
-            points.push(transform(jValOuter, 0, -halfDeg));          // 外右
+            // 判定順序を「外側(0,1)」を先にする。
+            // システムが「近い順」で選ぶなら、これで外側は外側を優先します。
+            points.push(transform(-jValOuter, 0, 180 + halfDeg));     // 0:外左
+            points.push(transform(jValOuter, 0, -halfDeg));          // 1:外右
+            points.push(transform(-jValInner, jDiff, 180 + halfDeg)); // 2:内左
+            points.push(transform(jValInner, jDiff, -halfDeg));      // 3:内右
             
             return points;
         }
@@ -333,12 +332,16 @@ function drawStraightRail(ctx, p) {
     // 3. 吸着点（Junction）の座標更新（相対座標）
     // junctionCountに基づいて配列を再生成
     if (p.junctionCount) {
-        p.junctions = [];
-        trackOffsets.forEach(offsetY => {
-            p.junctions.push({ x: -halfLen, y: offsetY }); // 始点側
-            p.junctions.push({ x: halfLen, y: offsetY });  // 終点側
-        });
-        // 指定された数(junctionCount)に制限
+        const jValOuter = rOuter * Math.sin(halfAngle);
+        const jValInner = rInner * Math.sin(halfAngle);
+        const jDiff = (rOuter - rInner) * Math.cos(halfAngle);
+    
+        p.junctions = [
+            { x: -jValOuter, y: 0 },     // 0: 外左
+            { x: jValOuter, y: 0 },      // 1: 外右
+            { x: -jValInner, y: jDiff }, // 2: 内左
+            { x: jValInner, y: jDiff }   // 3: 内右
+        ];
         p.junctions = p.junctions.slice(0, p.junctionCount);
     }
 }

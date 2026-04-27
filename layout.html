@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0154r2</title>
+    <title>Railroad Models Layout Designer v.0155r2</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -305,7 +305,7 @@ function drawPart(ctx, p) {
 }
 
 /**
- * 直線レール（単線・複線）の計算および描画
+ * 直線レール（単線・複線）の描画
  */
 function drawStraightRail(ctx, p) {
     const halfLen = p.nLength / 2;
@@ -318,10 +318,10 @@ function drawStraightRail(ctx, p) {
     const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
     const mainColor = p.sColor || '#333';
 
-    // 1. 道床（バラスト）の描画
-    const originalAlpha = ctx.globalAlpha; // 現在の透明度を保存
-    ctx.globalAlpha = 0.3;                 // 半透明に設定（0.3 = 30%）
-    ctx.fillStyle = p.sColor || '#999';    // 色名(Green等)をそのまま代入
+    // 1. 道床（バラスト）
+    const originalAlpha = ctx.globalAlpha;
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = p.sColor || '#999';
     
     ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
     ctx.lineWidth = isDragged ? 3 : 1;
@@ -330,38 +330,24 @@ function drawStraightRail(ctx, p) {
     ctx.rect(-halfLen, -halfView, p.nLength, p.nViewWidth);
     ctx.fill();
     
-    ctx.globalAlpha = originalAlpha;       // 透明度を元に戻す（枠線とレール描画のため）
+    ctx.globalAlpha = originalAlpha;
     ctx.stroke();
 
     // 2. レールの描画
     ctx.beginPath();
     ctx.strokeStyle = mainColor;
     ctx.lineWidth = 1;
-
-    // 軌道のオフセット位置を決定
     const trackOffsets = isDouble ? [-halfGap, halfGap] : [0];
-
     trackOffsets.forEach(offsetY => {
-        // 各軌道の上側レール
         ctx.moveTo(-halfLen, offsetY - halfGauge);
         ctx.lineTo(halfLen, offsetY - halfGauge);
-        // 各軌道の下側レール
         ctx.moveTo(-halfLen, offsetY + halfGauge);
         ctx.lineTo(halfLen, offsetY + halfGauge);
     });
     ctx.stroke();
 
-    // 3. 吸着点（Junction）の座標更新（相対座標）
-    // junctionCountに基づいて配列を再生成
-    if (p.junctionCount) {
-        p.junctions = [];
-        trackOffsets.forEach(offsetY => {
-            p.junctions.push({ x: -halfLen, y: offsetY }); // 始点側
-            p.junctions.push({ x: halfLen, y: offsetY });  // 終点側
-        });
-        // 指定された数(junctionCount)に制限
-        p.junctions = p.junctions.slice(0, p.junctionCount);
-    }
+    // 【削除】p.junctions = ... のブロックを削除しました
+    // 接点計算は getConnectorPoints に一本化するため、描画関数内での更新は不要です。
 }
 
 /**
@@ -375,23 +361,19 @@ function drawCurveRail(ctx, p) {
     const halfGauge = p.nGauge / 2;
     const halfView = p.nViewWidth / 2;
 
-    // 【修正】中心点をY軸方向へ配置（横向きの円弧にするため）
     const centerX = 0;
     const centerY = -R * Math.cos(halfAngle); 
-
-    // 【修正】角度基準を90度シフト（下側を中心に描画）
     const startAngle = (Math.PI / 2) - halfAngle;
     const endAngle = (Math.PI / 2) + halfAngle;
 
     const mainColor = p.sColor || '#333';
     const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
 
-    // 1. 道床（バラスト）
+    // 1. 道床
     ctx.beginPath();
     ctx.arc(centerX, centerY, R + halfView, startAngle, endAngle);
     ctx.arc(centerX, centerY, R - halfView, endAngle, startAngle, true);
     ctx.closePath();
-
     const prevAlpha = ctx.globalAlpha; 
     ctx.globalAlpha = 0.3; 
     ctx.fillStyle = p.sColor || '#999';
@@ -402,12 +384,7 @@ function drawCurveRail(ctx, p) {
     ctx.lineWidth = isDragged ? 3 : 1;
     ctx.stroke();
 
-    // 重複していた縁取りコードを整理（既存機能の維持）
-    ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
-    ctx.lineWidth = isDragged ? 3 : 1;
-    ctx.stroke();
-
-    // 2. レール（2本の円弧）
+    // 2. レール
     ctx.lineWidth = 1;
     ctx.strokeStyle = mainColor;
     ctx.beginPath();
@@ -417,33 +394,20 @@ function drawCurveRail(ctx, p) {
     ctx.arc(centerX, centerY, R - halfGauge, startAngle, endAngle);
     ctx.stroke();
 
-    // 3. 吸着点（Junction）の座標更新
-    if (p.junctionCount) {
-        // 元の jY 計算（R * sin）を X座標として利用
-        const jCoord = R * Math.sin(halfAngle);
-        const jX = R * Math.sin(halfAngle); 
-        p.junctions = [
-            { x: -jX, y: 0 }, // 正解
-            { x: jX, y: 0 }   // 正解
-        ];
-        p.junctions = p.junctions.slice(0, p.junctionCount);
-    }
+    // 【削除】p.junctions = ... のブロックを削除しました
 }
 
 /**
- * 複線曲線レールの描画（横向き・タイトな道床幅・全接点復活版）
+ * 複線曲線レールの描画
  */
 function drawDoubleCurveRail(ctx, p) {
     const rOuter = p.nRadius;
-    const nGap = p.nTrackGap || 33; // 複線間隔
-    const rInner = rOuter - nGap;   // 内側レールの半径を確実に算出
-    
+    const nGap = p.nTrackGap || 33;
+    const rInner = rOuter - nGap;
     const angleDeg = p.nAngle;
     const angleRad = (angleDeg * Math.PI) / 180;
     const halfAngle = angleRad / 2;
     const halfGauge = (p.nGauge || 9) / 2;
-    
-    // 【ユーザー修正採用】複線用に道床のハミ出しを半分に抑える
     const halfView = (p.nViewWidth / 4) || 0; 
 
     const mainColor = p.sColor || '#333';
@@ -454,47 +418,29 @@ function drawDoubleCurveRail(ctx, p) {
     const startAngle = (Math.PI / 2) - halfAngle;
     const endAngle = (Math.PI / 2) + halfAngle;
 
-    // 1. 道床（バラスト）
+    // 1. 道床
     ctx.beginPath();
     ctx.arc(centerX, centerY, rOuter + halfView, startAngle, endAngle);
     ctx.arc(centerX, centerY, rInner - halfView, endAngle, startAngle, true);
     ctx.closePath();
-    
     const originalAlpha = ctx.globalAlpha;
     ctx.globalAlpha = 0.3;
     ctx.fillStyle = p.sColor || '#999';
     ctx.fill();
     ctx.globalAlpha = originalAlpha;
-    
     ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
     ctx.lineWidth = isDragged ? 3 : 1;
     ctx.stroke();
 
-    // 2. レールの描画（4本すべて）
+    // 2. レール（4本）
     ctx.lineWidth = 1;
     ctx.strokeStyle = mainColor;
-    // 外側
     ctx.beginPath(); ctx.arc(centerX, centerY, rOuter + halfGauge, startAngle, endAngle); ctx.stroke();
     ctx.beginPath(); ctx.arc(centerX, centerY, rOuter - halfGauge, startAngle, endAngle); ctx.stroke();
-    // 内側
     ctx.beginPath(); ctx.arc(centerX, centerY, rInner + halfGauge, startAngle, endAngle); ctx.stroke();
     ctx.beginPath(); ctx.arc(centerX, centerY, rInner - halfGauge, startAngle, endAngle); ctx.stroke();
 
-    // 3. 接続点（Junctions）の復活
-    if (p.junctionCount) {
-        const jValOuter = rOuter * Math.sin(halfAngle);
-        const jValInner = rInner * Math.sin(halfAngle);
-        // 外側と内側の端点の高さの差を算出
-        const jDiff = (rOuter - rInner) * Math.cos(halfAngle);
-    
-        p.junctions = [
-            { x: -jValOuter, y: 0 },
-            { x: jValOuter, y: 0 },
-            { x: -jValInner, y: jDiff }, // 0 から jDiff へ変更
-            { x: jValInner, y: jDiff }  // 0 から jDiff へ変更
-        ];
-        p.junctions = p.junctions.slice(0, p.junctionCount);
-    }
+    // 【削除】p.junctions = ... のブロックを削除しました
 }
             
 /**

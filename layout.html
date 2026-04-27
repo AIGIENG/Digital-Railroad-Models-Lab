@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0157</title>
+    <title>Railroad Models Layout Designer v.0158</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -163,71 +163,29 @@ function initSidebar() {
  * 接点計算ロジック (横向き配置・水平基準対応版)
  * 既存の Junctions 配列の順序および計算式を維持しつつ、座標軸のみを現行の描画に合わせます。
  */
-function getConnectorPoints(p, x, y, rotation) {
-    const points = [];
-    const rad = (rotation * Math.PI) / 180;
+fif (p.sRole === "curve" && p.bIsDouble) {
+    const rOuter = p.nRadius;
+    const nGap = p.nTrackGap || 0; // ハードコーディングを排除
+    const halfGap = nGap / 2;
+    const angle = p.nAngle || 0;
+    const halfRad = (angle * Math.PI) / 360;
 
-    const transform = (rx, ry, localAng) => {
-        const tx = rx * Math.cos(rad) - ry * Math.sin(rad);
-        const ty = rx * Math.sin(rad) + ry * Math.cos(rad);
-        return { 
-            x: x + tx, 
-            y: y + ty, 
-            ang: (rotation + localAng + 360) % 360 
-        };
-    };
+    // 外側と内側の計算
+    const jValOuter = rOuter * Math.sin(halfRad);
+    const jValInner = (rOuter - nGap) * Math.sin(halfRad);
+    
+    // 基準点を「複線の中心」に置くためのオフセット
+    // 単線(y=0)がこの中心線に吸着しに来るようになります
+    const yCenterOffset = halfGap * Math.cos(halfRad);
 
-    // --- CASE 1: 単線直線 ---
-    if (p.sRole === "straight" && !p.bIsDouble) {
-        const halfLen = (p.nLength || 0) / 2;
-        points.push(transform(-halfLen, 0, 180)); 
-        points.push(transform(halfLen, 0, 0));  
-        return points;
-    }
-
-    // --- CASE 2: 複線直線 ---
-    if (p.sRole === "straight" && p.bIsDouble) {
-        const halfLen = (p.nLength || 0) / 2;
-        const halfGap = (p.nTrackGap || 33) / 2;
-        points.push(transform(-halfLen, -halfGap, 180));
-        points.push(transform(halfLen, -halfGap, 0)); 
-        points.push(transform(-halfLen, halfGap, 180)); 
-        points.push(transform(halfLen, halfGap, 0));    
-        return points;
-    }
-
-    // --- CASE 3: 単線曲線 ---
-    if (p.sRole === "curve" && !p.bIsDouble) {
-        const halfDeg = (p.nAngle || 0) / 2;
-        const halfRad = (halfDeg * Math.PI) / 180;
-        const jX = (p.nRadius || 0) * Math.sin(halfRad);
-        points.push(transform(-jX, 0, 180 + halfDeg)); 
-        points.push(transform(jX, 0, -halfDeg));
-        return points;
-    }
-
-        // CASE 4: 複線曲線（ここが吸着判定の心臓部です）
-        if (p.sRole === "curve" && p.bIsDouble) {
-            const rOuter = p.nRadius;
-            const nGap = p.nTrackGap || 33;
-            const rInner = rOuter - nGap;
-            const halfDeg = (p.nAngle || 0) / 2;
-            const halfRad = (halfDeg * Math.PI) / 180;
-        
-            const jValOuter = rOuter * Math.sin(halfRad);
-            const jValInner = rInner * Math.sin(halfRad);
-            // 描画コードの centerY = -rOuter * cos(halfAngle) と同期
-            const jDiff = (rOuter - rInner) * Math.cos(halfRad);
-        
-            // 判定順序を「外側(0,1)」を先にする。
-            // システムが「近い順」で選ぶなら、これで外側は外側を優先します。
-            points.push(transform(-jValOuter, 0, 180 + halfDeg));     // 0:外左
-            points.push(transform(jValOuter, 0, -halfDeg));          // 1:外右
-            points.push(transform(-jValInner, jDiff, 180 + halfDeg)); // 2:内左
-            points.push(transform(jValInner, jDiff, -halfDeg));      // 3:内右
-            
-            return points;
-        }
+    // 外側(0,1): 中心より「上」に offset 分ずらす
+    points.push(transform(-jValOuter, -yCenterOffset, 180 + angle / 2));
+    points.push(transform(jValOuter, -yCenterOffset, -angle / 2));
+    
+    // 内側(2,3): 中心より「下」に offset 分ずらす
+    points.push(transform(-jValInner, yCenterOffset, 180 + angle / 2));
+    points.push(transform(jValInner, yCenterOffset, -angle / 2));
+    
     return points;
 }
 
@@ -417,24 +375,23 @@ function drawCurveRail(ctx, p) {
  */
 function drawDoubleCurveRail(ctx, p) {
     const rOuter = p.nRadius;
-    const nGap = p.nTrackGap || 33;
+    const nGap = p.nTrackGap || 0;
     const rInner = rOuter - nGap;
+    const halfGap = nGap / 2;
+    const rCenter = rOuter - halfGap; // 複線の中心を通る半径
     
     const angleDeg = p.nAngle;
-    const angleRad = (angleDeg * Math.PI) / 180;
-    const halfAngle = angleRad / 2;
-    const halfGauge = (p.nGauge || 9) / 2;
+    const halfRad = (angleDeg * Math.PI) / 360;
     
-    const halfView = (p.nViewWidth / 4) || 0; 
-    const mainColor = p.sColor || '#333';
-    const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
-    
+    // 回転の中心を「外側円弧」ではなく「複線の中心線」に設定
     const centerX = 0;
-    const centerY = -rOuter * Math.cos(halfAngle);
-    const startAngle = (Math.PI / 2) - halfAngle;
-    const endAngle = (Math.PI / 2) + halfAngle;
+    const centerY = -rCenter * Math.cos(halfRad);
 
-    // --- 1. 道床（バラスト）の描画 ---
+    const startAngle = (Math.PI / 2) - halfRad;
+    const endAngle = (Math.PI / 2) + halfRad;
+
+    // --- 道床（バラスト）の描画 ---
+    const halfView = (p.nViewWidth / 4) || 0;
     ctx.beginPath();
     ctx.arc(centerX, centerY, rOuter + halfView, startAngle, endAngle);
     ctx.arc(centerX, centerY, rInner - halfView, endAngle, startAngle, true);
@@ -446,13 +403,10 @@ function drawDoubleCurveRail(ctx, p) {
     ctx.fill();
     ctx.globalAlpha = originalAlpha;
     
-    ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
-    ctx.lineWidth = isDragged ? 3 : 1;
-    ctx.stroke();
-
-    // --- 2. レールの描画（4本） ---
+    // --- レールの描画（p.nGauge を使用） ---
+    const halfGauge = (p.nGauge || 9) / 2;
     ctx.lineWidth = 1;
-    ctx.strokeStyle = mainColor;
+    ctx.strokeStyle = p.sColor || '#333';
     // 外側
     ctx.beginPath(); ctx.arc(centerX, centerY, rOuter + halfGauge, startAngle, endAngle); ctx.stroke();
     ctx.beginPath(); ctx.arc(centerX, centerY, rOuter - halfGauge, startAngle, endAngle); ctx.stroke();
@@ -460,20 +414,18 @@ function drawDoubleCurveRail(ctx, p) {
     ctx.beginPath(); ctx.arc(centerX, centerY, rInner + halfGauge, startAngle, endAngle); ctx.stroke();
     ctx.beginPath(); ctx.arc(centerX, centerY, rInner - halfGauge, startAngle, endAngle); ctx.stroke();
 
-    // --- 3. 接続点（Junctions）の定義（描画後に実行し影響を遮断） ---
+    // --- Junctions の更新（判定用データ） ---
     if (p.junctionCount) {
-        const jValOuter = rOuter * Math.sin(halfAngle);
-        const jValInner = rInner * Math.sin(halfAngle);
-        const jDiff = (rOuter - rInner) * Math.cos(halfAngle);
-    
-        // getConnectorPoints と順番を完全に一致させる（内側優先）
+        const yCenterOffset = halfGap * Math.cos(halfRad);
+        const jValOuter = rOuter * Math.sin(halfRad);
+        const jValInner = rInner * Math.sin(halfRad);
+
         p.junctions = [
-            { x: -jValInner, y: jDiff }, // index 0: 内左
-            { x: jValInner, y: jDiff },  // index 1: 内右
-            { x: -jValOuter, y: 0 },     // index 2: 外左
-            { x: jValOuter, y: 0 }       // index 3: 外右
-        ];
-        p.junctions = p.junctions.slice(0, p.junctionCount);
+            { x: -jValOuter, y: -yCenterOffset },
+            { x: jValOuter, y: -yCenterOffset },
+            { x: -jValInner, y: yCenterOffset },
+            { x: jValInner, y: yCenterOffset }
+        ].slice(0, p.junctionCount);
     }
 }
             

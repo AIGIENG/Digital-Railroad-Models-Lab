@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0151</title>
+    <title>Railroad Models Layout Designer v.0152</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -188,7 +188,7 @@ function getConnectorPoints(p, x, y, rotation) {
     // --- CASE 2: 複線直線 ---
     if (p.sRole === "straight" && p.bIsDouble) {
         const halfLen = (p.nLength || 0) / 2;
-        const halfGap = (p.nTrackGap || 0) / 2;
+        const halfGap = (p.nTrackGap || 33) / 2; // 直線は中央振り分けのため halfGap
         points.push(transform(-halfLen, -halfGap, 180));
         points.push(transform(halfLen, -halfGap, 0)); 
         points.push(transform(-halfLen, halfGap, 180)); 
@@ -206,24 +206,29 @@ function getConnectorPoints(p, x, y, rotation) {
         return points;
     }
 
-    // --- CASE 4: 複線曲線 ---
+    // --- CASE 4: 複線曲線 (ロールバック版描画コードと完全同期) ---
     if (p.sRole === "curve" && p.bIsDouble) {
+        const rOuter = p.nRadius;
+        const nGap = p.nTrackGap || 33;
+        const rInner = rOuter - nGap;
+        
         const halfDeg = (p.nAngle || 0) / 2;
         const halfRad = (halfDeg * Math.PI) / 180;
-        const rOuter = p.nRadius || 0;
-        const rInner = rOuter - (p.nTrackGap || 0);
-        
-        const jXOuter = rOuter * Math.sin(halfRad);
-        const jXInner = rInner * Math.sin(halfRad);
-        // 外側の端点(y=0)からの垂直方向のズレを算出
-        const jDiff = (rOuter * Math.cos(halfRad)) - (rInner * Math.cos(halfRad));
 
-        // インデックス 0,1 は外側 / 2,3 は内側
-        // 角度を左側(180+...)と右側(-...)で統一し、反転を防止
-        points.push(transform(-jXOuter, 0, 180 + halfDeg)); 
-        points.push(transform(jXOuter, 0, -halfDeg));       
-        points.push(transform(-jXInner, jDiff, 180 + halfDeg)); 
-        points.push(transform(jXInner, jDiff, -halfDeg));    
+        const jValOuter = rOuter * Math.sin(halfRad);
+        const jValInner = rInner * Math.sin(halfRad);
+        
+        // ロールバック版の jDiff 計算式: (rOuter - rInner) * cos(halfAngle)
+        // これにより「描画されている端点」と「判定」がミリ単位で重なります
+        const jDiff = (rOuter - rInner) * Math.cos(halfRad);
+
+        // 0, 1: 外側 (y=0)
+        points.push(transform(-jValOuter, 0, 180 + halfDeg)); 
+        points.push(transform(jValOuter, 0, -halfDeg));       
+        
+        // 2, 3: 内側 (y=jDiff)
+        points.push(transform(-jValInner, jDiff, 180 + halfDeg)); 
+        points.push(transform(jValInner, jDiff, -halfDeg));    
         return points;
     }
 

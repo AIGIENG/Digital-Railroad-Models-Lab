@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0153</title>
+    <title>Railroad Models Layout Designer v.0154</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -188,7 +188,7 @@ function getConnectorPoints(p, x, y, rotation) {
     // --- CASE 2: 複線直線 ---
     if (p.sRole === "straight" && p.bIsDouble) {
         const halfLen = (p.nLength || 0) / 2;
-        const halfGap = (p.nTrackGap || 33) / 2; // 直線は中央振り分けのため halfGap
+        const halfGap = (p.nTrackGap || 33) / 2;
         points.push(transform(-halfLen, -halfGap, 180));
         points.push(transform(halfLen, -halfGap, 0)); 
         points.push(transform(-halfLen, halfGap, 180)); 
@@ -209,9 +209,8 @@ function getConnectorPoints(p, x, y, rotation) {
     // --- CASE 4: 複線曲線 ---
     if (p.sRole === "curve" && p.bIsDouble) {
         const rOuter = p.nRadius;
-        const nGap = p.nTrackGap || 0;
+        const nGap = p.nTrackGap || 33;
         const rInner = rOuter - nGap;
-        
         const halfDeg = (p.nAngle || 0) / 2;
         const halfRad = (halfDeg * Math.PI) / 180;
 
@@ -219,17 +218,13 @@ function getConnectorPoints(p, x, y, rotation) {
         const jValInner = rInner * Math.sin(halfRad);
         const jDiff = (rOuter - rInner) * Math.cos(halfRad);
 
-        // 【重要】内側(2, 3だったもの)を 0, 1 番目に持ってくる
-        points.push(transform(-jValInner, jDiff, 180 + halfDeg)); // index 0: 内左
-        points.push(transform(jValInner, jDiff, -halfDeg));       // index 1: 内右
-        
-        // 外側(0, 1だったもの)を 2, 3 番目に下げる
-        points.push(transform(-jValOuter, 0, 180 + halfDeg));    // index 2: 外左
-        points.push(transform(jValOuter, 0, -halfDeg));          // index 3: 外右
-        
+        // 吸着順序を入れ替え：内側(0,1) → 外側(2,3)
+        points.push(transform(-jValInner, jDiff, 180 + halfDeg)); 
+        points.push(transform(jValInner, jDiff, -halfDeg));       
+        points.push(transform(-jValOuter, 0, 180 + halfDeg)); 
+        points.push(transform(jValOuter, 0, -halfDeg));    
         return points;
     }
-
     return points;
 }
 
@@ -415,17 +410,15 @@ function drawCurveRail(ctx, p) {
  */
 function drawDoubleCurveRail(ctx, p) {
     const rOuter = p.nRadius;
-    const nGap = p.nTrackGap || 33; // 複線間隔
-    const rInner = rOuter - nGap;   // 内側レールの半径を確実に算出
+    const nGap = p.nTrackGap || 33;
+    const rInner = rOuter - nGap;
     
     const angleDeg = p.nAngle;
     const angleRad = (angleDeg * Math.PI) / 180;
     const halfAngle = angleRad / 2;
     const halfGauge = (p.nGauge || 9) / 2;
     
-    // 【ユーザー修正採用】複線用に道床のハミ出しを半分に抑える
     const halfView = (p.nViewWidth / 4) || 0; 
-
     const mainColor = p.sColor || '#333';
     const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
     
@@ -434,7 +427,7 @@ function drawDoubleCurveRail(ctx, p) {
     const startAngle = (Math.PI / 2) - halfAngle;
     const endAngle = (Math.PI / 2) + halfAngle;
 
-    // 1. 道床（バラスト）
+    // --- 1. 道床（バラスト）の描画 ---
     ctx.beginPath();
     ctx.arc(centerX, centerY, rOuter + halfView, startAngle, endAngle);
     ctx.arc(centerX, centerY, rInner - halfView, endAngle, startAngle, true);
@@ -450,7 +443,7 @@ function drawDoubleCurveRail(ctx, p) {
     ctx.lineWidth = isDragged ? 3 : 1;
     ctx.stroke();
 
-    // 2. レールの描画（4本すべて）
+    // --- 2. レールの描画（4本） ---
     ctx.lineWidth = 1;
     ctx.strokeStyle = mainColor;
     // 外側
@@ -460,9 +453,13 @@ function drawDoubleCurveRail(ctx, p) {
     ctx.beginPath(); ctx.arc(centerX, centerY, rInner + halfGauge, startAngle, endAngle); ctx.stroke();
     ctx.beginPath(); ctx.arc(centerX, centerY, rInner - halfGauge, startAngle, endAngle); ctx.stroke();
 
-    // 3. 接続点（Junctions）の復活
+    // --- 3. 接続点（Junctions）の定義（描画後に実行し影響を遮断） ---
     if (p.junctionCount) {
-        // getConnectorPoints と順番を完全に一致させる
+        const jValOuter = rOuter * Math.sin(halfAngle);
+        const jValInner = rInner * Math.sin(halfAngle);
+        const jDiff = (rOuter - rInner) * Math.cos(halfAngle);
+    
+        // getConnectorPoints と順番を完全に一致させる（内側優先）
         p.junctions = [
             { x: -jValInner, y: jDiff }, // index 0: 内左
             { x: jValInner, y: jDiff },  // index 1: 内右

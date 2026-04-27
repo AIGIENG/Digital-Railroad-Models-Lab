@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0150r2</title>
+    <title>Railroad Models Layout Designer v.0151r2</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -265,41 +265,45 @@ function drawPart(ctx, p) {
             break;
     }
 
-// --- マーカーマーカー描画ロジックの修正 ---
+// drawPart 関数内のマーカー描画部分のみ
     if (isCtrlPressed) {
         const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
         
         let markerX = 0;
-        let markerY = 0; // デフォルト(直線などはそのまま)
-
-        // 曲線の場合のみ、重心を計算する
+        let markerY = 0;
+    
         if (p.sRole === "curve" && p.nRadius > 0) {
-            // プロパティが存在しない場合のデフォルト値を設定 (NaN崩壊防止)
             const R = p.nRadius;
-            const gap = p.nTrackGap || 0;
             const angleDeg = p.nAngle || 0;
-            const halfRad = (angleDeg * Math.PI) / 360; // θ/2
-
-            // バラスト幅も含めた「道床全体の中心を通る仮想半径」を算出する
+            const halfRad = (angleDeg * Math.PI) / 360;
+            
+            // --- 1. 「見た目の中心」を通る半径 (rCenter) を決定 ---
             let rCenter;
             if (!p.bIsDouble) {
-                rCenter = R; // 単線はそのままR
+                // 単線：そのままレールの半径
+                rCenter = R;
             } else {
-                rCenter = R - (gap / 2); // 複線は外と内の中心
+                // 複線：外側(R) と 内側(R - nTrackGap) のちょうど中間
+                const gap = p.nTrackGap || 33;
+                rCenter = R - (gap / 2);
             }
-
-            // 回転の中心(centerY)は「外側円弧の凸側」に置く
-            const centerY = -rCenter * Math.cos(halfRad);
-
-            // マーカーの位置(y)は、その中心から「仮想半径」分だけ円弧の頂点方向(0,0)へ戻した場所
-            // 道床のバラストの厚みも含めた見た目の中心
-            markerY = centerY + rCenter; 
+    
+            // --- 2. nViewWidth を考慮した重心オフセットの計算 ---
+            // ロールバック版の drawDoubleCurveRail の centerY = -rOuter * cos(halfAngle) に準拠
+            // 描画の回転軸 (軸心) を算出
+            const centerY = -R * Math.cos(halfRad);
+    
+            // 軸心から rCenter 分だけ「戻した」位置が、レールの道床中央の高さ
+            // ここに配置することで、単線・複線問わず見た目の中心に合います
+            markerY = centerY + (rCenter * Math.cos(0)); // 頂点位置なので cos(0)=1
+            
+            // ※ 厳密には、円弧の「腹」の突き出し量を考慮する場合：
+            // markerY = centerY + rCenter; 
+            // とすると、画像 a3759d.png のように円弧の頂点（一番膨らんだ所）に配置されます。
         }
-
+    
         ctx.beginPath();
         ctx.arc(markerX, markerY, 7.5, 0, Math.PI * 2); 
-        
-        // --- 塗りつぶし・枠線の色制御 ---
         ctx.fillStyle = isDragged ? "rgba(0, 86, 179, 1.0)" : "blue";
         ctx.fill();
         ctx.strokeStyle = isDragged ? "#003d80" : "#333";
@@ -308,6 +312,7 @@ function drawPart(ctx, p) {
     }
     ctx.restore();
 }
+
 /**
  * 直線レール（単線・複線）の計算および描画
  */

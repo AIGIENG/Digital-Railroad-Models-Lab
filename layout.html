@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0148r2</title>
+    <title>Railroad Models Layout Designer v.0149r2</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -246,53 +246,69 @@ function render() {
 /**
  * レール描画のエントリーポイント
  */
+/**
+ * レール描画のエントリーポイント (マーカー位置修正版)
+ */
 function drawPart(ctx, p) {
     ctx.save();
     
-    // 基準点(中央)への座標変換
+    // 基準点(パーツの原点)への座標変換
     ctx.translate(p.x, p.y);
     ctx.rotate((p.rotation * Math.PI) / 180);
 
+    // Switch文による分岐 (変更なし)
     switch (p.sRole) {
-        case "straight":
-            drawStraightRail(ctx, p);
-            break;
+        // ... (直線の描画はそのまま)
         case "curve":
-            if (p.bIsDouble) {
-                drawDoubleCurveRail(ctx, p);
-            } else {
-                drawCurveRail(ctx, p);
-            }
-        break;
-        // 今後ポイントなどを追加する場合もここに追加しやすくなります
-        default:
-        // 必要に応じてデフォルトの処理を記述
-        break;
-}
+            if (p.bIsDouble) { drawDoubleCurveRail(ctx, p); } 
+            else { drawCurveRail(ctx, p); }
+            break;
+    }
 
-    // 基準点マーカーの描画制御
-    if (p.sRole === "straight" || p.sRole === "curve") {
-        if (isCtrlPressed) {
-            const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
-            
-            ctx.beginPath();
-            // 複線曲線かつ統合マーカー座標がある場合はその位置、そうでなければ(0,0)
-            const markerX = (p.bIsDouble && p.combinedCenter) ? p.combinedCenter.x : 0;
-            const markerY = (p.bIsDouble && p.combinedCenter) ? p.combinedCenter.y : 0;
-            
-            ctx.arc(markerX, markerY, 7.5, 0, Math.PI * 2); 
-            
-            ctx.fillStyle = isDragged ? "rgba(0, 86, 179, 1.0)" : "blue";
-            ctx.fill();
-            ctx.strokeStyle = isDragged ? "#003d80" : "#333";
-            ctx.lineWidth = 1;
-            ctx.stroke();
+    // --- マーカーマーカー描画ロジックの修正 ---
+    if (isCtrlPressed) {
+        const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
+        
+        let markerX = 0;
+        let markerY = 0; // デフォルト(直線などはそのまま)
+
+        // 曲線の場合のみ、重心を計算する
+        if (p.sRole === "curve" && p.nRadius > 0) {
+            // プロパティが存在しない場合のデフォルト値を設定 (NaN崩壊防止)
+            const R = p.nRadius;
+            const gap = p.nTrackGap || 0;
+            const angleDeg = p.nAngle || 0;
+            const halfRad = (angleDeg * Math.PI) / 360; // θ/2
+
+            // バラスト幅も含めた「道床全体の中心を通る仮想半径」を算出する
+            let rCenter;
+            if (!p.bIsDouble) {
+                rCenter = R; // 単線はそのままR
+            } else {
+                rCenter = R - (gap / 2); // 複線は外と内の中心
+            }
+
+            // 回転の中心(centerY)は「外側円弧の凸側」に置く
+            const centerY = -rCenter * Math.cos(halfRad);
+
+            // マーカーの位置(y)は、その中心から「仮想半径」分だけ円弧の頂点方向(0,0)へ戻した場所
+            // 道床のバラストの厚みも含めた見た目の中心
+            markerY = centerY + rCenter; 
         }
+
+        ctx.beginPath();
+        ctx.arc(markerX, markerY, 7.5, 0, Math.PI * 2); 
+        
+        // --- 塗りつぶし・枠線の色制御 ---
+        ctx.fillStyle = isDragged ? "rgba(0, 86, 179, 1.0)" : "blue";
+        ctx.fill();
+        ctx.strokeStyle = isDragged ? "#003d80" : "#333";
+        ctx.lineWidth = 1;
+        ctx.stroke();
     }
 
     ctx.restore();
 }
-
 /**
  * 直線レール（単線・複線）の計算および描画
  */

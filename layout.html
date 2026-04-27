@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0147</title>
+    <title>Railroad Models Layout Designer v.0148</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -194,30 +194,30 @@ function getConnectorPoints(p, x, y, rotation) {
         const halfRad = (halfDeg * Math.PI) / 180;
     
         if (p.bIsDouble) {
-            // --- 複線曲線の修正 ---
+            // --- 複線曲線 ---
             const rOuter = p.nRadius;
             const rInner = rOuter - (p.nTrackGap || 33);
-        
-            // 描画(centerY)と完全に同期させるためのXとYの算出
             const jXOuter = rOuter * Math.sin(halfRad);
             const jXInner = rInner * Math.sin(halfRad);
-            // y座標のズレ：外側のcos成分から内側のcos成分を引いた差分
+            // yのズレ（jDiff）を算出
             const jDiff = (rOuter * Math.cos(halfRad)) - (rInner * Math.cos(halfRad));
-
-            // index 0: 外左, 1: 外右
+    
+            // 0: 外側左 (y=0, 左端)
             points.push(transform(-jXOuter, 0, 180 + halfDeg)); 
+            // 1: 外側右 (y=0, 右端)
             points.push(transform(jXOuter, 0, -halfDeg));       
-
-            // index 2: 内左, 3: 内右
-            // jXInnerは絶対値としてOuterより小さいため、符号は外側と揃えるのが正解です
+    
+            // --- 内側：あなたが指摘された「ズレ」を解消する配置 ---
+            // 2: 内側左 (Xをマイナス、Yをプラス(下)へ、角度は左向き)
             points.push(transform(-jXInner, jDiff, 180 + halfDeg)); 
+            // 3: 内側右 (Xをプラス、Yをプラス(下)へ、角度は右向き)
             points.push(transform(jXInner, jDiff, -halfDeg));    
         } else {
             // --- 単線曲線 (既存維持) ---
             const jX = p.nRadius * Math.sin(halfRad);
             points.push(transform(-jX, 0, 180 + halfDeg)); 
             points.push(transform(jX, 0, -halfDeg));
-        }
+          }
     }
     return points;
 }

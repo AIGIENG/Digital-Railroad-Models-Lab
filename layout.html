@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0145</title>
+    <title>Railroad Models Layout Designer v.0146</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -206,11 +206,11 @@ function getConnectorPoints(p, x, y, rotation) {
             const jXOuter = rOuter * Math.sin(halfRad);
             const jXInner = rInner * Math.sin(halfRad);
             const jDiff = (rOuter - rInner) * Math.cos(halfRad);
-        
-            points.push(transform(-jXOuter, 0, 180 + (p.nAngle / 2)));
-            points.push(transform(jXOuter, 0, 0 - (p.nAngle / 2)));
-            points.push(transform(-jXInner, jDiff, 180 + (p.nAngle / 2)));
-            points.push(transform(jXInner, jDiff, 0 - (p.nAngle / 2)));
+
+            points.push(transform(-jXOuter, 0, 180 + (p.nAngle / 2))); // 0: 外左
+            points.push(transform(jXOuter, 0, 0 - (p.nAngle / 2)));   // 1: 外右
+            points.push(transform(jXInner, jDiff, 180 + (p.nAngle / 2))); // 2: 内左（正負を反転）
+            points.push(transform(-jXInner, jDiff, 0 - (p.nAngle / 2)));  // 3: 内右（正負を反転）
         }
     }
     return points;

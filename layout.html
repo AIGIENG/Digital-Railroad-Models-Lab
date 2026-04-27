@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0151r2</title>
+    <title>Railroad Models Layout Designer v.0152r2</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -167,12 +167,25 @@ function getConnectorPoints(p, x, y, rotation) {
     const points = [];
     const rad = (rotation * Math.PI) / 180;
 
+    // --- drawPart と同じ重心を算出 ---
+    let cX = 0, cY = 0;
+    if (p.sRole === "curve" && p.nRadius > 0) {
+        const R = p.nRadius;
+        const halfRad = ((p.nAngle || 0) * Math.PI) / 360;
+        const rVisual = p.bIsDouble ? (R - (p.nTrackGap || 33) / 2) : R;
+        cY = (-R * Math.cos(halfRad)) + rVisual;
+    }
+
     const transform = (rx, ry, localAng) => {
-        const tx = rx * Math.cos(rad) - ry * Math.sin(rad);
-        const ty = rx * Math.sin(rad) + ry * Math.cos(rad);
+        // 重心を軸とした回転行列の計算
+        const dx = rx - cX;
+        const dy = ry - cY;
+        const tx = dx * Math.cos(rad) - dy * Math.sin(rad);
+        const ty = dx * Math.sin(rad) + dy * Math.cos(rad);
+        
         return { 
-            x: x + tx, 
-            y: y + ty, 
+            x: x + cX + tx, 
+            y: y + cY + ty, 
             ang: (rotation + localAng + 360) % 360 
         };
     };
@@ -244,72 +257,51 @@ function render() {
 }
             
 /**
- * レール描画のエントリーポイント
- */
-/**
  * レール描画のエントリーポイント (マーカー位置修正版)
  */
 function drawPart(ctx, p) {
     ctx.save();
     
-    // 基準点(パーツの原点)への座標変換
-    ctx.translate(p.x, p.y);
-    ctx.rotate((p.rotation * Math.PI) / 180);
+    // --- 追加: 見た目の中心（重心）を算出 ---
+    let centerX = 0;
+    let centerY = 0;
+    if (p.sRole === "curve" && p.nRadius > 0) {
+        const R = p.nRadius;
+        const halfRad = ((p.nAngle || 0) * Math.PI) / 360;
+        const rVisual = p.bIsDouble ? (R - (p.nTrackGap || 33) / 2) : R;
+        const arcCenterY = -R * Math.cos(halfRad); 
+        // このパーツの「見た目の重心」のローカル座標
+        centerY = arcCenterY + rVisual; 
+    }
 
-    // Switch文による分岐 (変更なし)
+    // 1. まずパーツの配置座標 (p.x, p.y) へ移動
+    ctx.translate(p.x, p.y);
+    
+    // 2. 「見た目の中心」を回転の軸にするための座標変換
+    ctx.translate(centerX, centerY);
+    ctx.rotate((p.rotation * Math.PI) / 180);
+    // 回転後、描画位置を元の原点に戻す
+    ctx.translate(-centerX, -centerY);
+
+    // --- 以降の描画処理 ---
     switch (p.sRole) {
-        // ... (直線の描画はそのまま)
+        case "straight": drawStraightRail(ctx, p); break;
         case "curve":
             if (p.bIsDouble) { drawDoubleCurveRail(ctx, p); } 
             else { drawCurveRail(ctx, p); }
             break;
     }
 
-// drawPart 関数内のマーカー描画部分のみ
+    // Ctrl押下時のマーカー（常に新中心点に表示）
     if (isCtrlPressed) {
         const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
-        
-        let markerX = 0;
-        let markerY = 0;
-    
-        if (p.sRole === "curve" && p.nRadius > 0) {
-            const R = p.nRadius;
-            const angleDeg = p.nAngle || 0;
-            const halfRad = (angleDeg * Math.PI) / 360;
-            
-            // --- 1. 「見た目の中心」を通る半径 (rCenter) を決定 ---
-            let rCenter;
-            if (!p.bIsDouble) {
-                // 単線：そのままレールの半径
-                rCenter = R;
-            } else {
-                // 複線：外側(R) と 内側(R - nTrackGap) のちょうど中間
-                const gap = p.nTrackGap || 33;
-                rCenter = R - (gap / 2);
-            }
-    
-            // --- 2. nViewWidth を考慮した重心オフセットの計算 ---
-            // ロールバック版の drawDoubleCurveRail の centerY = -rOuter * cos(halfAngle) に準拠
-            // 描画の回転軸 (軸心) を算出
-            const centerY = -R * Math.cos(halfRad);
-    
-            // 軸心から rCenter 分だけ「戻した」位置が、レールの道床中央の高さ
-            // ここに配置することで、単線・複線問わず見た目の中心に合います
-            markerY = centerY + (rCenter * Math.cos(0)); // 頂点位置なので cos(0)=1
-            
-            // ※ 厳密には、円弧の「腹」の突き出し量を考慮する場合：
-            // markerY = centerY + rCenter; 
-            // とすると、画像 a3759d.png のように円弧の頂点（一番膨らんだ所）に配置されます。
-        }
-    
         ctx.beginPath();
-        ctx.arc(markerX, markerY, 7.5, 0, Math.PI * 2); 
+        ctx.arc(centerX, centerY, 7.5, 0, Math.PI * 2); 
         ctx.fillStyle = isDragged ? "rgba(0, 86, 179, 1.0)" : "blue";
         ctx.fill();
-        ctx.strokeStyle = isDragged ? "#003d80" : "#333";
-        ctx.lineWidth = 1;
         ctx.stroke();
     }
+
     ctx.restore();
 }
 
@@ -514,26 +506,43 @@ function isPointInPart(mouseX, mouseY, p) {
     const ctx = canvas.getContext('2d');
     ctx.save();
 
-    const dx = mouseX - p.x;
-    const dy = mouseY - p.y;
+    // --- 1. 回転軸（重心）の算出 (drawPart / getConnectorPoints と完全同期) ---
+    let cX = 0;
+    let cY = 0;
+    if (p.sRole === "curve" && p.nRadius > 0) {
+        const R = p.nRadius;
+        const halfAngle = ((p.nAngle || 0) * Math.PI) / 360;
+        // 単線ならR、複線なら内外レールの中間半径
+        const rVisual = p.bIsDouble ? (R - (p.nTrackGap || 33) / 2) : R;
+        // 描画上の円弧の軸心（中心角の根元）
+        const arcCenterY = -R * Math.cos(halfAngle); 
+        // 軸心から見た目の半径分だけ戻した位置が重心
+        cY = arcCenterY + rVisual; 
+    }
+
+    // --- 2. ローカル座標への変換（重心を原点として回転） ---
+    const dx = mouseX - (p.x + cX);
+    const dy = mouseY - (p.y + cY);
     const rad = -((p.rotation || 0) * Math.PI / 180); 
     
-    const localX = dx * Math.cos(rad) - dy * Math.sin(rad);
-    const localY = dx * Math.sin(rad) + dy * Math.cos(rad);
+    // 回転行列を適用し、パーツの元の座標系（重心オフセット前）へ戻す
+    const localX = (dx * Math.cos(rad) - dy * Math.sin(rad)) + cX;
+    const localY = (dx * Math.sin(rad) + dy * Math.cos(rad)) + cY;
 
     ctx.beginPath();
     
+    // --- 3. 形状判定 ---
     if (p.sRole === 'straight') {
         const halfLen = (p.nLength || 0) / 2;
         const halfView = (p.nViewWidth || 25) / 2;
         ctx.rect(-halfLen, -halfView, p.nLength, p.nViewWidth);
     } 
-    else if (p.sRole === 'curve' && p.nRadius > 0) { // sRole を curve に統一
+    else if (p.sRole === 'curve' && p.nRadius > 0) {
         const R = p.nRadius;
         const angleRad = (p.nAngle * Math.PI) / 180;
         const halfAngle = angleRad / 2;
         
-        // ユーザー様の修正案を適用：複線時は道床のハミ出しを抑える
+        // 既存の道床幅ロジックを維持
         const halfView = p.bIsDouble ? ((p.nViewWidth / 4) || 0) : ((p.nViewWidth || 25) / 2);
 
         const centerX = 0;
@@ -542,16 +551,17 @@ function isPointInPart(mouseX, mouseY, p) {
         const startAngle = (Math.PI / 2) - halfAngle;
         const endAngle = (Math.PI / 2) + halfAngle;
 
-        if (!p.bIsDouble) { // フラグで単線判定
+        if (!p.bIsDouble) {
             ctx.arc(centerX, centerY, R + halfView, startAngle, endAngle);
             ctx.arc(centerX, centerY, R - halfView, endAngle, startAngle, true);
-        } else { // フラグで複線判定
+        } else {
             const gap = p.nTrackGap || 33;
             const rInner = R - gap;
             ctx.arc(centerX, centerY, R + halfView, startAngle, endAngle);
             ctx.arc(centerX, centerY, rInner - halfView, endAngle, startAngle, true);
         }
     } else {
+        // フォールバック（ポイント等の特殊形状用）
         ctx.arc(0, 0, 30, 0, Math.PI * 2);
     }
     

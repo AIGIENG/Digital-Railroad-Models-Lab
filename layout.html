@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0152r2</title>
+    <title>Railroad Models Layout Designer v.0153r2</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -160,24 +160,26 @@ function initSidebar() {
 }
             
 /**
- * 接点計算ロジック (横向き配置・水平基準対応版)
- * 既存の Junctions 配列の順序および計算式を維持しつつ、座標軸のみを現行の描画に合わせます。
+ * 接点計算ロジック (重心回転軸・段差解消版)
  */
 function getConnectorPoints(p, x, y, rotation) {
     const points = [];
     const rad = (rotation * Math.PI) / 180;
 
-    // --- drawPart と同じ重心を算出 ---
-    let cX = 0, cY = 0;
+    // --- 1. 重心（回転軸）を算出 (isPointInPart / drawPart と完全同期) ---
+    let cX = 0;
+    let cY = 0;
     if (p.sRole === "curve" && p.nRadius > 0) {
         const R = p.nRadius;
-        const halfRad = ((p.nAngle || 0) * Math.PI) / 360;
+        const halfAngle = ((p.nAngle || 0) * Math.PI) / 360;
         const rVisual = p.bIsDouble ? (R - (p.nTrackGap || 33) / 2) : R;
-        cY = (-R * Math.cos(halfRad)) + rVisual;
+        cY = (-R * Math.cos(halfAngle)) + rVisual;
     }
 
+    // 重心を軸としたトランスフォーム関数
     const transform = (rx, ry, localAng) => {
-        // 重心を軸とした回転行列の計算
+        // rx, ry は「パーツ本来の原点」からの座標
+        // そこから重心(cX, cY)を引いて、回転させる
         const dx = rx - cX;
         const dy = ry - cY;
         const tx = dx * Math.cos(rad) - dy * Math.sin(rad);
@@ -201,11 +203,12 @@ function getConnectorPoints(p, x, y, rotation) {
     // --- CASE 2: 複線直線 ---
     if (p.sRole === "straight" && p.bIsDouble) {
         const halfLen = (p.nLength || 0) / 2;
-        const halfGap = (p.nTrackGap || 33) / 2; // 直線は中央振り分けのため halfGap
+        const halfGap = (p.nTrackGap || 33) / 2;
+        // y座標を -halfGap と +halfGap にすることで、y=0(重心)を挟んで対称にする
         points.push(transform(-halfLen, -halfGap, 180));
         points.push(transform(halfLen, -halfGap, 0)); 
         points.push(transform(-halfLen, halfGap, 180)); 
-        points.push(transform(halfLen, halfGap, 0));    
+        points.push(transform(halfLen, halfGap, 0));     
         return points;
     }
 
@@ -214,32 +217,28 @@ function getConnectorPoints(p, x, y, rotation) {
         const halfDeg = (p.nAngle || 0) / 2;
         const halfRad = (halfDeg * Math.PI) / 180;
         const jX = (p.nRadius || 0) * Math.sin(halfRad);
+        // 単線曲線は y=0 が重心なのでそのまま
         points.push(transform(-jX, 0, 180 + halfDeg)); 
         points.push(transform(jX, 0, -halfDeg));
         return points;
     }
 
-    // --- CASE 4: 複線曲線 (ロールバック版描画コードと完全同期) ---
+    // --- CASE 4: 複線曲線 ---
     if (p.sRole === "curve" && p.bIsDouble) {
         const rOuter = p.nRadius;
         const nGap = p.nTrackGap || 33;
         const rInner = rOuter - nGap;
-        
         const halfDeg = (p.nAngle || 0) / 2;
         const halfRad = (halfDeg * Math.PI) / 180;
 
         const jValOuter = rOuter * Math.sin(halfRad);
         const jValInner = rInner * Math.sin(halfRad);
-        
-        // ロールバック版の jDiff 計算式: (rOuter - rInner) * cos(halfAngle)
-        // これにより「描画されている端点」と「判定」がミリ単位で重なります
         const jDiff = (rOuter - rInner) * Math.cos(halfRad);
 
-        // 0, 1: 外側 (y=0)
+        // 外側(y=0) と 内側(y=jDiff) の座標をそのまま transform に渡す
+        // transform 関数内で cY を引くため、自動的に「重心からの相対距離」に補正される
         points.push(transform(-jValOuter, 0, 180 + halfDeg)); 
         points.push(transform(jValOuter, 0, -halfDeg));       
-        
-        // 2, 3: 内側 (y=jDiff)
         points.push(transform(-jValInner, jDiff, 180 + halfDeg)); 
         points.push(transform(jValInner, jDiff, -halfDeg));    
         return points;

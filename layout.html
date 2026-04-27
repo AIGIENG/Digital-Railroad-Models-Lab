@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0146r2</title>
+    <title>Railroad Models Layout Designer v.0147r2</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -177,42 +177,61 @@ function getConnectorPoints(p, x, y, rotation) {
         };
     };
 
-    if (p.sRole === "straight") {
+    // --- CASE 1: 単線直線 ---
+    if (p.sRole === "straight" && !p.bIsDouble) {
         const halfLen = (p.nLength || 0) / 2;
-        if (!p.bIsDouble) {
-            points.push(transform(-halfLen, 0, 180)); 
-            points.push(transform(halfLen, 0, 0));  
-        } else {
-            const halfGap = (p.nTrackGap || 33) / 2;
-            points.push(transform(-halfLen, -halfGap, 180));
-            points.push(transform(halfLen, -halfGap, 0)); 
-            points.push(transform(-halfLen, halfGap, 180)); 
-            points.push(transform(halfLen, halfGap, 0));   
-        }
-    } else if (p.sRole === "curve") { // "double-curve" の判定を削除
-        const halfDeg = (p.nAngle || 0) / 2;
-        const halfAngleRad = (halfDeg * Math.PI) / 180;
-        
-        if (!p.bIsDouble) { // フラグで単線判定
-            const R = p.nRadius;
-            const jCoord = R * Math.sin(halfAngleRad);
-            points.push(transform(-jCoord, 0, 180 + halfDeg)); 
-            points.push(transform(jCoord, 0, 0 - halfDeg));
-        } else { // フラグで複線判定
-            const rOuter = p.nRadius;
-            const rInner = rOuter - (p.nTrackGap || 33);
-            const halfRad = ((p.nAngle / 2) * Math.PI) / 180;
-            
-            const jXOuter = rOuter * Math.sin(halfRad);
-            const jXInner = rInner * Math.sin(halfRad);
-            const jDiff = (rOuter - rInner) * Math.cos(halfRad);
-
-            points.push(transform(-jXOuter, 0, 180 + (p.nAngle / 2))); // 0: 外左
-            points.push(transform(jXOuter, 0, 0 - (p.nAngle / 2)));   // 1: 外右
-            points.push(transform(jXInner, jDiff, 180 + (p.nAngle / 2))); // 2: 内左（正負を反転）
-            points.push(transform(-jXInner, jDiff, 0 - (p.nAngle / 2)));  // 3: 内右（正負を反転）
-        }
+        points.push(transform(-halfLen, 0, 180)); 
+        points.push(transform(halfLen, 0, 0));  
+        return points;
     }
+
+    // --- CASE 2: 複線直線 ---
+    if (p.sRole === "straight" && p.bIsDouble) {
+        const halfLen = (p.nLength || 0) / 2;
+        const halfGap = (p.nTrackGap || 33) / 2; // 直線は中央振り分けのため halfGap
+        points.push(transform(-halfLen, -halfGap, 180));
+        points.push(transform(halfLen, -halfGap, 0)); 
+        points.push(transform(-halfLen, halfGap, 180)); 
+        points.push(transform(halfLen, halfGap, 0));    
+        return points;
+    }
+
+    // --- CASE 3: 単線曲線 ---
+    if (p.sRole === "curve" && !p.bIsDouble) {
+        const halfDeg = (p.nAngle || 0) / 2;
+        const halfRad = (halfDeg * Math.PI) / 180;
+        const jX = (p.nRadius || 0) * Math.sin(halfRad);
+        points.push(transform(-jX, 0, 180 + halfDeg)); 
+        points.push(transform(jX, 0, -halfDeg));
+        return points;
+    }
+
+    // --- CASE 4: 複線曲線 (ロールバック版描画コードと完全同期) ---
+    if (p.sRole === "curve" && p.bIsDouble) {
+        const rOuter = p.nRadius;
+        const nGap = p.nTrackGap || 33;
+        const rInner = rOuter - nGap;
+        
+        const halfDeg = (p.nAngle || 0) / 2;
+        const halfRad = (halfDeg * Math.PI) / 180;
+
+        const jValOuter = rOuter * Math.sin(halfRad);
+        const jValInner = rInner * Math.sin(halfRad);
+        
+        // ロールバック版の jDiff 計算式: (rOuter - rInner) * cos(halfAngle)
+        // これにより「描画されている端点」と「判定」がミリ単位で重なります
+        const jDiff = (rOuter - rInner) * Math.cos(halfRad);
+
+        // 0, 1: 外側 (y=0)
+        points.push(transform(-jValOuter, 0, 180 + halfDeg)); 
+        points.push(transform(jValOuter, 0, -halfDeg));       
+        
+        // 2, 3: 内側 (y=jDiff)
+        points.push(transform(-jValInner, jDiff, 180 + halfDeg)); 
+        points.push(transform(jValInner, jDiff, -halfDeg));    
+        return points;
+    }
+
     return points;
 }
 

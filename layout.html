@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0154</title>
+    <title>Railroad Models Layout Designer v.0155</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -206,25 +206,27 @@ function getConnectorPoints(p, x, y, rotation) {
         return points;
     }
 
-    // --- CASE 4: 複線曲線 ---
-    if (p.sRole === "curve" && p.bIsDouble) {
-        const rOuter = p.nRadius;
-        const nGap = p.nTrackGap || 33;
-        const rInner = rOuter - nGap;
-        const halfDeg = (p.nAngle || 0) / 2;
-        const halfRad = (halfDeg * Math.PI) / 180;
-
-        const jValOuter = rOuter * Math.sin(halfRad);
-        const jValInner = rInner * Math.sin(halfRad);
-        const jDiff = (rOuter - rInner) * Math.cos(halfRad);
-
-        // 吸着順序を入れ替え：内側(0,1) → 外側(2,3)
-        points.push(transform(-jValInner, jDiff, 180 + halfDeg)); 
-        points.push(transform(jValInner, jDiff, -halfDeg));       
-        points.push(transform(-jValOuter, 0, 180 + halfDeg)); 
-        points.push(transform(jValOuter, 0, -halfDeg));    
-        return points;
-    }
+        // CASE 4: 複線曲線（ここが吸着判定の心臓部です）
+        if (p.sRole === "curve" && p.bIsDouble) {
+            const rOuter = p.nRadius;
+            const nGap = p.nTrackGap || 33;
+            const rInner = rOuter - nGap;
+            const halfDeg = (p.nAngle || 0) / 2;
+            const halfRad = (halfDeg * Math.PI) / 180;
+        
+            const jValOuter = rOuter * Math.sin(halfRad);
+            const jValInner = rInner * Math.sin(halfRad);
+            const jDiff = (rOuter - rInner) * Math.cos(halfRad);
+        
+            // 【最重要】ここで返す順番と座標が、マウス操作時の吸着位置を決定します
+            // 描画と合わせるため、内側(0,1)・外側(2,3)の順で返します
+            points.push(transform(-jValInner, jDiff, 180 + halfDeg)); // 内左
+            points.push(transform(jValInner, jDiff, -halfDeg));       // 内右
+            points.push(transform(-jValOuter, 0, 180 + halfDeg));    // 外左
+            points.push(transform(jValOuter, 0, -halfDeg));          // 外右
+            
+            return points;
+        }
     return points;
 }
 

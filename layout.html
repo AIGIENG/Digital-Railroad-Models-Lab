@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0149</title>
+    <title>Railroad Models Layout Designer v.0150</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -177,54 +177,56 @@ function getConnectorPoints(p, x, y, rotation) {
         };
     };
 
-    if (p.sRole === "straight") {
+    // --- CASE 1: 単線直線 ---
+    if (p.sRole === "straight" && !p.bIsDouble) {
         const halfLen = (p.nLength || 0) / 2;
-        if (!p.bIsDouble) {
-            points.push(transform(-halfLen, 0, 180)); 
-            points.push(transform(halfLen, 0, 0));  
-        } else {
-            const halfGap = (p.nTrackGap || 33) / 2;
-            points.push(transform(-halfLen, -halfGap, 180));
-            points.push(transform(halfLen, -halfGap, 0)); 
-            points.push(transform(-halfLen, halfGap, 180)); 
-            points.push(transform(halfLen, halfGap, 0));   
-        }
-    } else if (p.sRole === "curve") {
+        points.push(transform(-halfLen, 0, 180)); 
+        points.push(transform(halfLen, 0, 0));  
+        return points;
+    }
+
+    // --- CASE 2: 複線直線 ---
+    if (p.sRole === "straight" && p.bIsDouble) {
+        const halfLen = (p.nLength || 0) / 2;
+        const halfGap = (p.nTrackGap || 0) / 2;
+        points.push(transform(-halfLen, -halfGap, 180));
+        points.push(transform(halfLen, -halfGap, 0)); 
+        points.push(transform(-halfLen, halfGap, 180)); 
+        points.push(transform(halfLen, halfGap, 0));    
+        return points;
+    }
+
+    // --- CASE 3: 単線曲線 ---
+    if (p.sRole === "curve" && !p.bIsDouble) {
         const halfDeg = (p.nAngle || 0) / 2;
         const halfRad = (halfDeg * Math.PI) / 180;
-    
-        if (p.bIsDouble) {
-            // --- 1. データ定義から直接取得 ---
-            const halfDeg = (p.nAngle || 0) / 2;
-            const halfRad = (halfDeg * Math.PI) / 180;
-            
-            const R_out = p.nRadius;
-            // データ定義にある nTrackGap をそのまま使用。無ければ 0 (単線扱い) とする
-            const trackGap = p.nTrackGap || 0; 
-            const R_in  = R_out - trackGap;
-        
-            // --- 2. y軸のズレ（オフセット）の算出 ---
-            // R_out と R_in の差ではなく、それぞれの cos 成分の差を正しく計算
-            const jDiff = (R_out * Math.cos(halfRad)) - (R_in * Math.cos(halfRad));
-        
-            // --- 3. 接点座標の算出 ---
-            const jX_out = R_out * Math.sin(halfRad);
-            const jX_in  = R_in * Math.sin(halfRad);
-        
-            // index 0, 1: 外側 (半径 R_out を使用)
-            points.push(transform(-jX_out, 0, 180 + halfDeg)); 
-            points.push(transform(jX_out, 0, -halfDeg));      
-        
-            // index 2, 3: 内側 (半径 R_in を使用し、高さは算出した jDiff を適用)
-            points.push(transform(-jX_in, jDiff, 180 + halfDeg)); 
-            points.push(transform(jX_in, jDiff, -halfDeg));
-        } else {
-            // --- 単線曲線 (既存維持) ---
-            const jX = p.nRadius * Math.sin(halfRad);
-            points.push(transform(-jX, 0, 180 + halfDeg)); 
-            points.push(transform(jX, 0, -halfDeg));
-          }
+        const jX = (p.nRadius || 0) * Math.sin(halfRad);
+        points.push(transform(-jX, 0, 180 + halfDeg)); 
+        points.push(transform(jX, 0, -halfDeg));
+        return points;
     }
+
+    // --- CASE 4: 複線曲線 ---
+    if (p.sRole === "curve" && p.bIsDouble) {
+        const halfDeg = (p.nAngle || 0) / 2;
+        const halfRad = (halfDeg * Math.PI) / 180;
+        const rOuter = p.nRadius || 0;
+        const rInner = rOuter - (p.nTrackGap || 0);
+        
+        const jXOuter = rOuter * Math.sin(halfRad);
+        const jXInner = rInner * Math.sin(halfRad);
+        // 外側の端点(y=0)からの垂直方向のズレを算出
+        const jDiff = (rOuter * Math.cos(halfRad)) - (rInner * Math.cos(halfRad));
+
+        // インデックス 0,1 は外側 / 2,3 は内側
+        // 角度を左側(180+...)と右側(-...)で統一し、反転を防止
+        points.push(transform(-jXOuter, 0, 180 + halfDeg)); 
+        points.push(transform(jXOuter, 0, -halfDeg));       
+        points.push(transform(-jXInner, jDiff, 180 + halfDeg)); 
+        points.push(transform(jXInner, jDiff, -halfDeg));    
+        return points;
+    }
+
     return points;
 }
 
@@ -409,67 +411,48 @@ function drawCurveRail(ctx, p) {
  * 複線曲線レールの描画（横向き・タイトな道床幅・全接点復活版）
  */
 function drawDoubleCurveRail(ctx, p) {
-    const rOuter = p.nRadius;
-    const nGap = p.nTrackGap || 33; // 複線間隔
-    const rInner = rOuter - nGap;   // 内側レールの半径を確実に算出
+    const halfDeg = (p.nAngle || 0) / 2;
+    const halfRad = (halfDeg * Math.PI) / 180;
+    const rOuter = p.nRadius || 0;
+    const rInner = rOuter - (p.nTrackGap || 0);
     
-    const angleDeg = p.nAngle;
-    const angleRad = (angleDeg * Math.PI) / 180;
-    const halfAngle = angleRad / 2;
-    const halfGauge = (p.nGauge || 9) / 2;
-    
-    // 【ユーザー修正採用】複線用に道床のハミ出しを半分に抑える
-    const halfView = (p.nViewWidth / 4) || 0; 
+    const jXOuter = rOuter * Math.sin(halfRad);
+    const jXInner = rInner * Math.sin(halfRad);
+    const jDiff = (rOuter * Math.cos(halfRad)) - (rInner * Math.cos(halfRad));
 
-    const mainColor = p.sColor || '#333';
-    const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
-    
-    const centerX = 0;
-    const centerY = -rOuter * Math.cos(halfAngle);
-    const startAngle = (Math.PI / 2) - halfAngle;
-    const endAngle = (Math.PI / 2) + halfAngle;
+    // 1. 接点（Junction）の定義
+    // getConnectorPoints の CASE 4 と完全に同期
+    if (p.junctionCount) {
+        p.junctions = [
+            { x: -jXOuter, y: 0 },     // 0: 外左
+            { x: jXOuter, y: 0 },      // 1: 外右
+            { x: -jXInner, y: jDiff }, // 2: 内左
+            { x: jXInner, y: jDiff }   // 3: 内右
+        ];
+    }
 
-    // 1. 道床（バラスト）
+    // 2. 描画の基準座標算出
+    // 外側レールの端点が y=0 になるように設定
+    const centerY = -rOuter * Math.cos(halfRad);
+    const startRad = (90 - halfDeg) * Math.PI / 180;
+    const endRad = (90 + halfDeg) * Math.PI / 180;
+
+    // 3. 描画実行
+    ctx.save();
+    ctx.strokeStyle = p.sColor || "#666";
+    ctx.lineWidth = 2;
+
+    // --- 外側レールの描画 ---
     ctx.beginPath();
-    ctx.arc(centerX, centerY, rOuter + halfView, startAngle, endAngle);
-    ctx.arc(centerX, centerY, rInner - halfView, endAngle, startAngle, true);
-    ctx.closePath();
-    
-    const originalAlpha = ctx.globalAlpha;
-    ctx.globalAlpha = 0.3;
-    ctx.fillStyle = p.sColor || '#999';
-    ctx.fill();
-    ctx.globalAlpha = originalAlpha;
-    
-    ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
-    ctx.lineWidth = isDragged ? 3 : 1;
+    ctx.arc(0, centerY, rOuter, startRad, endRad, false);
     ctx.stroke();
 
-    // 2. レールの描画（4本すべて）
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = mainColor;
-    // 外側
-    ctx.beginPath(); ctx.arc(centerX, centerY, rOuter + halfGauge, startAngle, endAngle); ctx.stroke();
-    ctx.beginPath(); ctx.arc(centerX, centerY, rOuter - halfGauge, startAngle, endAngle); ctx.stroke();
-    // 内側
-    ctx.beginPath(); ctx.arc(centerX, centerY, rInner + halfGauge, startAngle, endAngle); ctx.stroke();
-    ctx.beginPath(); ctx.arc(centerX, centerY, rInner - halfGauge, startAngle, endAngle); ctx.stroke();
+    // --- 内側レールの描画 ---
+    ctx.beginPath();
+    ctx.arc(0, centerY, rInner, startRad, endRad, false);
+    ctx.stroke();
 
-    // 3. 接続点（Junctions）の復活
-    if (p.junctionCount) {
-        const jValOuter = rOuter * Math.sin(halfAngle);
-        const jValInner = rInner * Math.sin(halfAngle);
-        // 外側と内側の端点の高さの差を算出
-        const jDiff = (rOuter - rInner) * Math.cos(halfAngle);
-    
-        p.junctions = [
-            { x: -jValOuter, y: 0 },
-            { x: jValOuter, y: 0 },
-            { x: -jValInner, y: jDiff }, // 0 から jDiff へ変更
-            { x: jValInner, y: jDiff }  // 0 から jDiff へ変更
-        ];
-        p.junctions = p.junctions.slice(0, p.junctionCount);
-    }
+    ctx.restore();
 }
             
 /**

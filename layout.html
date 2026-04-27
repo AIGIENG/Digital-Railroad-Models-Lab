@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0153r2</title>
+    <title>Railroad Models Layout Designer v.0154r2</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -653,26 +653,22 @@ canvas.onmousemove = function(e) {
         });
     });
 
-    if (targetPoint) {
-        // --- 1. 角度の吸着 ---
-        // 相手の向き(targetPoint.ang)の180度反対が、自分の向くべき目標角度
+if (targetPoint) {
+        // --- 1. 角度の吸着 --- (ここは現状でOK)
         const targetAng = (targetPoint.ang + 180) % 360;
-        
-        // 自分の現在のコネクタ角度(myPoints[myPointIdx].ang)との差分
         let diffAng = targetAng - myPoints[myPointIdx].ang;
-        
-        // 最短距離で回転させるための補正（一番近い回転方向を選ぶ）
         while (diffAng > 180) diffAng -= 360;
         while (diffAng < -180) diffAng += 360;
-
-        // 現在の rotation に最短の差分を足して更新
         draggedPart.rotation = (draggedPart.rotation + diffAng + 360) % 360;
 
-        // --- 2. 座標の吸着 ---
-        // 角度が変わったので、新しい rotation に基づいて接点相対位置を再取得して固定
-        const relPoints = getConnectorPoints(draggedPart, 0, 0, draggedPart.rotation);
-        draggedPart.x = targetPoint.x - relPoints[myPointIdx].x;
-        draggedPart.y = targetPoint.y - relPoints[myPointIdx].y;
+        // --- 2. 座標の吸着 (ここを修正) ---
+        // 「パーツの現在の(x,y)」ではなく、「パーツの現在の接点」がどこにあるかを再計算
+        const currentPoints = getConnectorPoints(draggedPart, draggedPart.x, draggedPart.y, draggedPart.rotation);
+        const snappedPoint = currentPoints[myPointIdx];
+
+        // 実際の接点(snappedPoint)とターゲット(targetPoint)のズレを、パーツの座標に反映
+        draggedPart.x += (targetPoint.x - snappedPoint.x);
+        draggedPart.y += (targetPoint.y - snappedPoint.y);
         
         isSnapped = true;
     } else { 

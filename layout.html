@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0152</title>
+    <title>Railroad Models Layout Designer v.0153</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -206,10 +206,10 @@ function getConnectorPoints(p, x, y, rotation) {
         return points;
     }
 
-    // --- CASE 4: 複線曲線 (ロールバック版描画コードと完全同期) ---
+    // --- CASE 4: 複線曲線 ---
     if (p.sRole === "curve" && p.bIsDouble) {
         const rOuter = p.nRadius;
-        const nGap = p.nTrackGap || 33;
+        const nGap = p.nTrackGap || 0;
         const rInner = rOuter - nGap;
         
         const halfDeg = (p.nAngle || 0) / 2;
@@ -217,18 +217,16 @@ function getConnectorPoints(p, x, y, rotation) {
 
         const jValOuter = rOuter * Math.sin(halfRad);
         const jValInner = rInner * Math.sin(halfRad);
-        
-        // ロールバック版の jDiff 計算式: (rOuter - rInner) * cos(halfAngle)
-        // これにより「描画されている端点」と「判定」がミリ単位で重なります
         const jDiff = (rOuter - rInner) * Math.cos(halfRad);
 
-        // 0, 1: 外側 (y=0)
-        points.push(transform(-jValOuter, 0, 180 + halfDeg)); 
-        points.push(transform(jValOuter, 0, -halfDeg));       
+        // 【重要】内側(2, 3だったもの)を 0, 1 番目に持ってくる
+        points.push(transform(-jValInner, jDiff, 180 + halfDeg)); // index 0: 内左
+        points.push(transform(jValInner, jDiff, -halfDeg));       // index 1: 内右
         
-        // 2, 3: 内側 (y=jDiff)
-        points.push(transform(-jValInner, jDiff, 180 + halfDeg)); 
-        points.push(transform(jValInner, jDiff, -halfDeg));    
+        // 外側(0, 1だったもの)を 2, 3 番目に下げる
+        points.push(transform(-jValOuter, 0, 180 + halfDeg));    // index 2: 外左
+        points.push(transform(jValOuter, 0, -halfDeg));          // index 3: 外右
+        
         return points;
     }
 
@@ -464,16 +462,12 @@ function drawDoubleCurveRail(ctx, p) {
 
     // 3. 接続点（Junctions）の復活
     if (p.junctionCount) {
-        const jValOuter = rOuter * Math.sin(halfAngle);
-        const jValInner = rInner * Math.sin(halfAngle);
-        // 外側と内側の端点の高さの差を算出
-        const jDiff = (rOuter - rInner) * Math.cos(halfAngle);
-    
+        // getConnectorPoints と順番を完全に一致させる
         p.junctions = [
-            { x: -jValOuter, y: 0 },
-            { x: jValOuter, y: 0 },
-            { x: -jValInner, y: jDiff }, // 0 から jDiff へ変更
-            { x: jValInner, y: jDiff }  // 0 から jDiff へ変更
+            { x: -jValInner, y: jDiff }, // index 0: 内左
+            { x: jValInner, y: jDiff },  // index 1: 内右
+            { x: -jValOuter, y: 0 },     // index 2: 外左
+            { x: jValOuter, y: 0 }       // index 3: 外右
         ];
         p.junctions = p.junctions.slice(0, p.junctionCount);
     }

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0144</title>
+    <title>Railroad Models Layout Designer v.0142r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         /* サイドバー */
@@ -166,46 +166,55 @@ function initSidebar() {
 function getConnectorPoints(p, x, y, rotation) {
     const points = [];
     const rad = (rotation * Math.PI) / 180;
+
+    // 座標変換関数
     const transform = (rx, ry, localAng) => {
         const tx = rx * Math.cos(rad) - ry * Math.sin(rad);
         const ty = rx * Math.sin(rad) + ry * Math.cos(rad);
-        return { x: x + tx, y: y + ty, ang: (rotation + localAng + 360) % 360 };
+        return { 
+            x: x + tx, 
+            y: y + ty, 
+            ang: (rotation + localAng + 360) % 360 
+        };
     };
 
     if (p.sRole === "straight") {
         const halfLen = (p.nLength || 0) / 2;
         if (!p.bIsDouble) {
+            // 単線直線
             points.push(transform(-halfLen, 0, 180)); 
             points.push(transform(halfLen, 0, 0));  
         } else {
-            // 複線直線のロールバック（正常動作していた頃の形式）
+            // --- 複線直線 (ここが混濁していました) ---
             const halfGap = (p.nTrackGap || 33) / 2;
-            points.push(transform(-halfLen, -halfGap, 180));
-            points.push(transform(halfLen, -halfGap, 0));
-            points.push(transform(-halfLen, halfGap, 180));
-            points.push(transform(halfLen, halfGap, 0));
+            points.push(transform(-halfLen, -halfGap, 180)); // index 0: 外(上)左
+            points.push(transform(halfLen, -halfGap, 0));    // index 1: 外(上)右
+            points.push(transform(-halfLen, halfGap, 180));  // index 2: 内(下)左
+            points.push(transform(halfLen, halfGap, 0));     // index 3: 内(下)右
         }
     } else if (p.sRole === "curve" || p.sRole === "double-curve") {
         const halfDeg = (p.nAngle || 0) / 2;
-        const halfRad = (halfDeg * Math.PI) / 180;
+        const halfAngleRad = (halfDeg * Math.PI) / 180;
         
         if (p.sRole !== "double-curve") {
+            // --- 単線曲線 ---
             const R = p.nRadius;
-            const jX = R * Math.sin(halfRad);
-            points.push(transform(-jX, 0, 180 + halfDeg)); 
-            points.push(transform(jX, 0, 0 - halfDeg));
+            const jCoord = R * Math.sin(halfAngleRad);
+            points.push(transform(-jCoord, 0, 180 + halfDeg)); 
+            points.push(transform(jCoord, 0, 0 - halfDeg));
         } else {
-            // 複線曲線の修正：描画側の centerY オフセットと完全に一致させる
+            // --- 複線曲線 (描画側の y: 0 に完全同期) ---
             const rOuter = p.nRadius;
-            const rInner = rOuter - (p.nTrackGap || 33);
-            const jXOuter = rOuter * Math.sin(halfRad);
-            const jXInner = rInner * Math.sin(halfRad);
-            const jDiff = (rOuter - rInner) * Math.cos(halfRad);
+            const rInner = p.nRadius - (p.nTrackGap || 33);
+            
+            const jValOuter = rOuter * Math.sin(halfAngleRad);
+            const jValInner = rInner * Math.sin(halfAngleRad);
 
-            points.push(transform(-jXOuter, 0, 180 + halfDeg));     // 外左
-            points.push(transform(jXOuter, 0, 0 - halfDeg));       // 外右
-            points.push(transform(-jXInner, jDiff, 180 + halfDeg)); // 内左（jDiffを適用）
-            points.push(transform(jXInner, jDiff, 0 - halfDeg));   // 内右（jDiffを適用）
+            // 全ての接点の ty (第2引数) を 0 にすることで、描画位置と判定位置を一致させます
+            points.push(transform(-jValOuter, 0, 180 + halfDeg)); // index 0 (外左)
+            points.push(transform(jValOuter, 0, 0 - halfDeg));    // index 1 (外右)
+            points.push(transform(-jValInner, 0, 180 + halfDeg)); // index 2 (内左) 
+            points.push(transform(jValInner, 0, 0 - halfDeg));   // index 3 (内右)
         }
     }
     return points;
@@ -312,17 +321,12 @@ function drawStraightRail(ctx, p) {
     // 3. 吸着点（Junction）の座標更新（相対座標）
     // junctionCountに基づいて配列を再生成
     if (p.junctionCount) {
-        const jValOuter = rOuter * Math.sin(halfAngle);
-        const jValInner = rInner * Math.sin(halfAngle);
-        // centerX/Y の定義に基づき、上端（外側）を 0 とした時の内側の相対位置を算出
-        const jDiff = (rOuter - rInner) * Math.cos(halfAngle);
-    
-        p.junctions = [
-            { x: -jValOuter, y: 0 },      // 外側左
-            { x: jValOuter, y: 0 },       // 外側右
-            { x: -jValInner, y: jDiff },  // 内側左（yをjDiffに）
-            { x: jValInner, y: jDiff }   // 内側右（yをjDiffに）
-        ];
+        p.junctions = [];
+        trackOffsets.forEach(offsetY => {
+            p.junctions.push({ x: -halfLen, y: offsetY }); // 始点側
+            p.junctions.push({ x: halfLen, y: offsetY });  // 終点側
+        });
+        // 指定された数(junctionCount)に制限
         p.junctions = p.junctions.slice(0, p.junctionCount);
     }
 }
@@ -330,64 +334,66 @@ function drawStraightRail(ctx, p) {
 /**
  * 曲線レールの計算および描画（単線専用）
  */
-function drawDoubleCurveRail(ctx, p) {
-    const rOuter = p.nRadius;
-    const nGap = p.nTrackGap || 33;
-    const rInner = rOuter - nGap;
+function drawCurveRail(ctx, p) {
+    const R = p.nRadius;
     const angleDeg = p.nAngle;
     const angleRad = (angleDeg * Math.PI) / 180;
     const halfAngle = angleRad / 2;
-    const halfGauge = (p.nGauge || 9) / 2;
-    // 見た目の太さをタイトにする修正のみ維持
-    const halfView = (p.nViewWidth / 4) || 6.25; 
+    const halfGauge = p.nGauge / 2;
+    const halfView = p.nViewWidth / 2;
 
-    const mainColor = p.sColor || '#333';
-    const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
-    
+    // 【修正】中心点をY軸方向へ配置（横向きの円弧にするため）
     const centerX = 0;
-    const centerY = -rOuter * Math.cos(halfAngle);
+    const centerY = -R * Math.cos(halfAngle); 
+
+    // 【修正】角度基準を90度シフト（下側を中心に描画）
     const startAngle = (Math.PI / 2) - halfAngle;
     const endAngle = (Math.PI / 2) + halfAngle;
 
+    const mainColor = p.sColor || '#333';
+    const isDragged = (typeof draggedPart !== 'undefined' && p === draggedPart);
+
     // 1. 道床（バラスト）
     ctx.beginPath();
-    ctx.arc(centerX, centerY, rOuter + halfView, startAngle, endAngle);
-    ctx.arc(centerX, centerY, rInner - halfView, endAngle, startAngle, true);
+    ctx.arc(centerX, centerY, R + halfView, startAngle, endAngle);
+    ctx.arc(centerX, centerY, R - halfView, endAngle, startAngle, true);
     ctx.closePath();
-    const originalAlpha = ctx.globalAlpha;
-    ctx.globalAlpha = 0.3;
+
+    const prevAlpha = ctx.globalAlpha; 
+    ctx.globalAlpha = 0.3; 
     ctx.fillStyle = p.sColor || '#999';
     ctx.fill();
-    ctx.globalAlpha = originalAlpha;
-    
+    ctx.globalAlpha = prevAlpha; 
+
     ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
     ctx.lineWidth = isDragged ? 3 : 1;
     ctx.stroke();
 
-    // 2. レール（4本）
+    // 重複していた縁取りコードを整理（既存機能の維持）
+    ctx.strokeStyle = isDragged ? (typeof isSnapped !== 'undefined' && isSnapped ? '#007bff' : '#ff4757') : mainColor;
+    ctx.lineWidth = isDragged ? 3 : 1;
+    ctx.stroke();
+
+    // 2. レール（2本の円弧）
     ctx.lineWidth = 1;
     ctx.strokeStyle = mainColor;
-    [rOuter + halfGauge, rOuter - halfGauge, rInner + halfGauge, rInner - halfGauge].forEach(r => {
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, r, startAngle, endAngle);
-        ctx.stroke();
-    });
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, R + halfGauge, startAngle, endAngle);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, R - halfGauge, startAngle, endAngle);
+    ctx.stroke();
 
-    // 3. Junctions（接点データ）の同期
+    // 3. 吸着点（Junction）の座標更新
     if (p.junctionCount) {
-        const jValOuter = rOuter * Math.sin(halfAngle);
-        const jValInner = rInner * Math.sin(halfAngle);
-        // 吸着しない原因だった Y 座標の不一致を、明示的な jDiff で解消
-        const jDiff = (rOuter - rInner) * Math.cos(halfAngle);
-
+        // 元の jY 計算（R * sin）を X座標として利用
+        const jCoord = R * Math.sin(halfAngle);
+        const jX = R * Math.sin(halfAngle); 
         p.junctions = [
-            { x: -jValOuter, y: 0 },
-            { x: jValOuter, y: 0 },
-            { x: -jValInner, y: jDiff },
-            { x: jValInner, y: jDiff }
+            { x: -jX, y: 0 }, // 正解
+            { x: jX, y: 0 }   // 正解
         ];
         p.junctions = p.junctions.slice(0, p.junctionCount);
-        p.innerCenter = { x: 0, y: 0 }; 
     }
 }
 

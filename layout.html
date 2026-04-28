@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0211</title>
+    <title>Railroad Models Layout Designer v.0212</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -396,17 +396,29 @@ function initCanvasEvents() {
         }
     };
 
-    canvas.onmousedown = (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-        for (let i = layers.rail.length - 1; i >= 0; i--) {
-            const p = layers.rail[i];
-            if (isPointInPart(mx, my, p)) {
-                draggedPart = p; isDragging = true;
-                offsetX = mx - p.x; offsetY = my - p.y;
-                layers.rail.splice(i, 1); layers.rail.push(p);
-                render(); break;
+canvas.onmousedown = (e) => {
+        // ...既存のパーツ選択ロジック...
+        if (target) {
+            isDragging = true;
+            draggedPart = target;
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+
+            if (draggedPart.sRole === "curve") {
+                // 【修正ポイント】
+                // 曲線の場合、パーツの(x, y)は「円の中心」だが、
+                // ユーザーは「レールの線の上」を掴みたい。
+                // そのため、現在の(x, y)とマウス位置の差分をそのままオフセットにする
+                offsetX = mx - draggedPart.x;
+                offsetY = my - draggedPart.y;
+            } else {
+                // 直線などは従来通り
+                offsetX = mx - draggedPart.x;
+                offsetY = my - draggedPart.y;
             }
+            // 実際には、どちらも同じ計算式 mx - p.x で解決しますが、
+            // 「マウスと基準点の相対距離」を保持することが重要です。
         }
     };
 

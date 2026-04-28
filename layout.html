@@ -77,43 +77,88 @@ function getConnectorPoints(p) {
     return points;
 }
 
+/**
+ * サイドバーの生成（2階層ツリー表示 / sNameのみ表示）
+ */
 function initSidebar() {
     const listContainer = document.getElementById('rail-list');
-    if (!listContainer || typeof railData === 'undefined') return;
-    
+    if (!listContainer) return;
+    listContainer.innerHTML = "";
+
+    if (typeof railData === 'undefined') {
+        listContainer.innerHTML = "<p style='color:red;'>rails.js not found</p>";
+        return;
+    }
+
+    // データをツリー構造に整理 [シリーズ][役割]
     const tree = {};
     Object.entries(railData).forEach(([key, rail]) => {
-        const series = rail.sSeries || "Unknown", role = rail.sRole || "Other";
+        const series = rail.sSeries || "Unknown";
+        const role = rail.sRole || "Other";
         if (!tree[series]) tree[series] = {};
         if (!tree[series][role]) tree[series][role] = [];
-        tree[series][role].push({ ...rail, sId: key });
+        
+        // ドラッグ用IDを保持
+        const railWithKey = { ...rail, sId: key };
+        tree[series][role].push(railWithKey);
     });
 
+    // 第1階層: シリーズ名
     Object.keys(tree).sort().forEach(seriesName => {
-        const details = document.createElement("details");
-        const summary = document.createElement("summary");
-        summary.textContent = "[+] " + seriesName;
-        details.appendChild(summary);
+        const seriesDetails = document.createElement("details");
+        seriesDetails.style.marginBottom = "5px";
+        
+        const seriesSummary = document.createElement("summary");
+        seriesSummary.style.cursor = "pointer";
+        seriesSummary.style.fontWeight = "bold";
+        seriesSummary.style.padding = "3px";
+        seriesSummary.style.background = "#1a252f";
+        seriesSummary.textContent = "[+] " + seriesName;
+        
+        seriesDetails.appendChild(seriesSummary);
 
+        // 第2階層: 役割 (Role)
         Object.keys(tree[seriesName]).sort().forEach(roleName => {
-            const rDetails = document.createElement("details");
-            const rSummary = document.createElement("summary");
-            rSummary.textContent = "> " + roleName;
-            rDetails.appendChild(rSummary);
+            const roleDetails = document.createElement("details");
+            roleDetails.style.marginLeft = "10px";
+            roleDetails.style.marginTop = "2px";
+            
+            const roleSummary = document.createElement("summary");
+            roleSummary.style.cursor = "pointer";
+            roleSummary.style.fontSize = "13px";
+            roleSummary.style.color = "#1abc9c";
+            roleSummary.textContent = "> " + roleName;
+            
+            roleDetails.appendChild(roleSummary);
 
+            // パーツ一覧
             tree[seriesName][roleName].forEach(rail => {
                 const div = document.createElement("div");
                 div.className = "rail-item";
-                div.textContent = rail.sName;
+                div.style.marginLeft = "10px";
+                div.style.cursor = "grab";
                 div.draggable = true;
-                div.ondragstart = (e) => { e.dataTransfer.setData("text/plain", rail.sId); };
-                rDetails.appendChild(div);
+                // 表示を sName のみに限定
+                div.textContent = rail.sName;
+                
+                div.ondragstart = (e) => {
+                    e.dataTransfer.setData("text/plain", rail.sId);
+                    e.dataTransfer.effectAllowed = "copy";
+                };
+                roleDetails.appendChild(div);
             });
-            details.appendChild(rDetails);
+            seriesDetails.appendChild(roleDetails);
         });
-        listContainer.appendChild(details);
+
+        // 開閉時の記号切り替え
+        seriesDetails.addEventListener("toggle", () => {
+            seriesSummary.textContent = (seriesDetails.open ? "[-] " : "[+] ") + seriesName;
+        });
+
+        listContainer.appendChild(seriesDetails);
     });
 }
+
 
 function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);

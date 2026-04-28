@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0207</title>
+    <title>Railroad Models Layout Designer v.0208</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -271,7 +271,7 @@ function initCanvasEvents() {
         let minD = 20, targetP = null, myIdx = -1;
         const myPoints = getConnectorPoints(draggedPart);
 
-        // 2. 全てのパーツに対して一番近い接点を探索
+        // 2. 接点探索
         layers.rail.forEach(t => {
             if (t === draggedPart) return;
             const tPoints = getConnectorPoints(t);
@@ -293,12 +293,13 @@ function initCanvasEvents() {
             draggedPart.x += (targetP.x - currentPoints[myIdx].x);
             draggedPart.y += (targetP.y - currentPoints[myIdx].y);
 
-            // 【重要】吸着した瞬間の「新しいオフセット」で握り直す
-            // これにより、角度が変わってもマウスとの相対位置が維持され、ワープを防ぎます
-            offsetX = mx - draggedPart.x;
-            offsetY = my - draggedPart.y;
-
-            isSnapped = true;
+            // 【改善点】吸着した「瞬間」だけオフセットを同期する
+            // これによりワープを防ぎつつ、吸着中のマウス移動（引き離し動作）を許容します
+            if (!isSnapped) {
+                offsetX = mx - draggedPart.x;
+                offsetY = my - draggedPart.y;
+                isSnapped = true; 
+            }
         } else { 
             isSnapped = false; 
         }

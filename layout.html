@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0206</title>
+    <title>Railroad Models Layout Designer v.0207</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -261,12 +261,17 @@ function initCanvasEvents() {
     canvas.onmousemove = (e) => {
         if (!isDragging || !draggedPart) return;
         const rect = canvas.getBoundingClientRect();
-        draggedPart.x = (e.clientX - rect.left) - offsetX;
-        draggedPart.y = (e.clientY - rect.top) - offsetY;
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        // 1. マウス位置に合わせてパーツを移動（基本位置）
+        draggedPart.x = mx - offsetX;
+        draggedPart.y = my - offsetY;
 
         let minD = 20, targetP = null, myIdx = -1;
         const myPoints = getConnectorPoints(draggedPart);
 
+        // 2. 全てのパーツに対して一番近い接点を探索
         layers.rail.forEach(t => {
             if (t === draggedPart) return;
             const tPoints = getConnectorPoints(t);
@@ -282,12 +287,21 @@ function initCanvasEvents() {
             // 角度の吸着
             const targetAng = (targetP.ang + 180) % 360;
             draggedPart.rotation = (targetAng - (myIdx === 0 ? 0 : 180) + 360) % 360;
+
             // 座標の吸着
             const currentPoints = getConnectorPoints(draggedPart);
             draggedPart.x += (targetP.x - currentPoints[myIdx].x);
             draggedPart.y += (targetP.y - currentPoints[myIdx].y);
+
+            // 【重要】吸着した瞬間の「新しいオフセット」で握り直す
+            // これにより、角度が変わってもマウスとの相対位置が維持され、ワープを防ぎます
+            offsetX = mx - draggedPart.x;
+            offsetY = my - draggedPart.y;
+
             isSnapped = true;
-        } else { isSnapped = false; }
+        } else { 
+            isSnapped = false; 
+        }
         render();
     };
 

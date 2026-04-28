@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0205</title>
+    <title>Railroad Models Layout Designer v.0206</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -258,28 +258,15 @@ function initCanvasEvents() {
         }
     };
 
-    // --- 状態管理に追加 ---
-    let snapOriginMouseX = 0; // 吸着した瞬間のマウスX
-    let snapOriginMouseY = 0; // 吸着した瞬間のマウスY
-
-    canvas.onmousemove = function(e) {
+    canvas.onmousemove = (e) => {
         if (!isDragging || !draggedPart) return;
         const rect = canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
-    
-        // 1. 吸着していない場合の「本来あるべき位置」を計算
-        const basePosX = mx - offsetX;
-        const basePosY = my - offsetY;
-    
-        // 一旦マウス位置へ移動（判定のため）
-        draggedPart.x = basePosX;
-        draggedPart.y = basePosY;
-    
+        draggedPart.x = (e.clientX - rect.left) - offsetX;
+        draggedPart.y = (e.clientY - rect.top) - offsetY;
+
         let minD = 20, targetP = null, myIdx = -1;
         const myPoints = getConnectorPoints(draggedPart);
-    
-        // 2. 接点探索
+
         layers.rail.forEach(t => {
             if (t === draggedPart) return;
             const tPoints = getConnectorPoints(t);
@@ -290,78 +277,30 @@ function initCanvasEvents() {
                 });
             });
         });
-    
-        // 3. 吸着ロジックと遊び（デッドゾーン）の制御
+
         if (targetP) {
-            if (!isSnapped) {
-                // 【吸着した瞬間】
-                // その時のマウス位置を記録
-                snapOriginMouseX = mx;
-                snapOriginMouseY = my;
-                isSnapped = true;
-            }
-    
-            // 吸着開始点からのマウス移動距離を算出
-            const moveDist = Math.hypot(mx - snapOriginMouseX, my - snapOriginMouseY);
-            const deadZone = 30; // 30mm相当（ピクセル）の遊び
-    
-            if (moveDist < deadZone) {
-                // --- 遊びの範囲内：吸着を維持し、座標を固定する ---
-                const targetAng = (targetP.ang + 180) % 360;
-                const baseAng = (myIdx === 0) ? 0 : 180;
-                draggedPart.rotation = (targetAng - baseAng + 360) % 360;
-    
-                const currentPoints = getConnectorPoints(draggedPart);
-                draggedPart.x += (targetP.x - currentPoints[myIdx].x);
-                draggedPart.y += (targetP.y - currentPoints[myIdx].y);
-    
-                // この間、offsetX/offsetY は更新しない（マウスだけが動いている状態）
-            } else {
-                // --- 30mmを超えた：吸着を強制解除し、マウス位置へパーツをワープさせる ---
-                isSnapped = false;
-                // 解除した瞬間に「今のマウス位置」でパーツを握り直す
-                // これにより、引き離した瞬間のジャンプを防ぎ、スムーズな追従を実現
-                draggedPart.x = basePosX;
-                draggedPart.y = basePosY;
-            }
-        } else {
-            isSnapped = false;
-        }
+            // 角度の吸着
+            const targetAng = (targetP.ang + 180) % 360;
+            draggedPart.rotation = (targetAng - (myIdx === 0 ? 0 : 180) + 360) % 360;
+            // 座標の吸着
+            const currentPoints = getConnectorPoints(draggedPart);
+            draggedPart.x += (targetP.x - currentPoints[myIdx].x);
+            draggedPart.y += (targetP.y - currentPoints[myIdx].y);
+            isSnapped = true;
+        } else { isSnapped = false; }
         render();
     };
+
     window.onmouseup = () => { isDragging = false; draggedPart = null; render(); };
 }
 
 window.onkeydown = (e) => {
     if (e.key.toLowerCase() === 'r') {
         const t = draggedPart || layers.rail[layers.rail.length-1];
-        if (t) {
-            // 1. 回転前のマウス位置を保存（キャンバス相対）
-            const rect = canvas.getBoundingClientRect();
-            // 直近のmousemoveイベント等から取得するか、マウス座標を保持する変数が必要ですが、
-            // ここでは「現在のパーツ位置 + 以前のオフセット」で擬似的にマウス位置を特定します
-            const currentMouseX = t.x + offsetX;
-            const currentMouseY = t.y + offsetY;
-
-            // 2. 回転を実行
-            t.rotation = (t.rotation + 22.5) % 360;
-
-            // 3. 【重要】ドラッグ中であれば、新しい角度に基づいてオフセットを更新する
-            // これにより、回転した瞬間にパーツがマウスの下に「潜り込む」ように位置が修正されます
-            if (isDragging && t === draggedPart) {
-                // 吸着していない状態での「あるべき位置」との距離を再計算
-                // getConnectorPointsやisPointInPartのロジックと同期させ、
-                // マウスカーソルがパーツの中心から外れないようにします
-                offsetX = currentMouseX - t.x;
-                offsetY = currentMouseY - t.y;
-            }
-
-            render();
-            e.preventDefault();
-        }
+        if (t) { t.rotation = (t.rotation + 22.5) % 360; render(); }
     }
+    if (e.key === 'Control') { isCtrlPressed = true; render(); }
 };
-        
 window.onkeyup = (e) => { if (e.key === 'Control') { isCtrlPressed = false; render(); } };
 
 init();

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0217</title>
+    <title>Railroad Models Layout Designer v.0218</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -473,35 +473,32 @@ function initCanvasEvents() {
 
         if (targetP) {
             // --- 吸着圏内：座標と角度をターゲットに合わせる ---
-            
-            // 1. 相手の接点の反対方向を向く
             const targetAng = (targetP.ang + 180) % 360;
 
-            // 2. 自分の吸着した接点(myIdx)に応じてパーツ全体の回転角を計算
-            // myIdx: 0, 2... は右端（終点）、1, 3... は左端（始点）
             if (draggedPart.sRole === "curve") {
-                const halfA = draggedPart.nAngle / 2;
-                // 右端なら -halfA、左端なら +halfA 補正することで、レールの端が相手と正対する
-                const angleOffset = (myIdx % 2 === 0) ? -halfA : halfA;
-                draggedPart.rotation = (targetAng + angleOffset + 360) % 360;
+                // 1. 曲線レール専用：接点の相対角度を動的に取得して rotation を逆算
+                // 現在の角度におけるその接点の向きと、パーツの向きの差分を求める
+                const myPoints = getConnectorPoints(draggedPart);
+                const myPointAng = myPoints[myIdx].ang;
+                const angleDiff = (myPointAng - draggedPart.rotation + 360) % 360;
+                
+                draggedPart.rotation = (targetAng - angleDiff + 360) % 360;
             } else {
-                // 直線レールの場合は従来通り、端の種類によって180度反転させる
+                // 2. 直線レール：斉藤さんの元々のロジックを無修正で維持
                 draggedPart.rotation = (targetAng - (myIdx % 2 === 0 ? 0 : 180) + 360) % 360;
             }
 
-            // 3. 角度確定後に座標を再計算して位置を合わせる
+            // 座標合わせのロジックは全パーツ共通のため維持
             const currentPoints = getConnectorPoints(draggedPart);
             draggedPart.x += (targetP.x - currentPoints[myIdx].x);
             draggedPart.y += (targetP.y - currentPoints[myIdx].y);
 
-            // 吸着した「瞬間」だけオフセットを同期してワープを防止
             if (!isSnapped) {
                 offsetX = mx - draggedPart.x;
                 offsetY = my - draggedPart.y;
                 isSnapped = true; 
             }
         } else { 
-            // --- 吸着圏外：ベース座標をそのまま採用 ---
             isSnapped = false; 
         }
         render();

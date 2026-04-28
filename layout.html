@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0203</title>
+    <title>Railroad Models Layout Designer v.0204</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -316,10 +316,33 @@ function initCanvasEvents() {
 window.onkeydown = (e) => {
     if (e.key.toLowerCase() === 'r') {
         const t = draggedPart || layers.rail[layers.rail.length-1];
-        if (t) { t.rotation = (t.rotation + 22.5) % 360; render(); }
+        if (t) {
+            // 1. 回転前のマウス位置を保存（キャンバス相対）
+            const rect = canvas.getBoundingClientRect();
+            // 直近のmousemoveイベント等から取得するか、マウス座標を保持する変数が必要ですが、
+            // ここでは「現在のパーツ位置 + 以前のオフセット」で擬似的にマウス位置を特定します
+            const currentMouseX = t.x + offsetX;
+            const currentMouseY = t.y + offsetY;
+
+            // 2. 回転を実行
+            t.rotation = (t.rotation + 22.5) % 360;
+
+            // 3. 【重要】ドラッグ中であれば、新しい角度に基づいてオフセットを更新する
+            // これにより、回転した瞬間にパーツがマウスの下に「潜り込む」ように位置が修正されます
+            if (isDragging && t === draggedPart) {
+                // 吸着していない状態での「あるべき位置」との距離を再計算
+                // getConnectorPointsやisPointInPartのロジックと同期させ、
+                // マウスカーソルがパーツの中心から外れないようにします
+                offsetX = currentMouseX - t.x;
+                offsetY = currentMouseY - t.y;
+            }
+
+            render();
+            e.preventDefault();
+        }
     }
-    if (e.key === 'Control') { isCtrlPressed = true; render(); }
 };
+        
 window.onkeyup = (e) => { if (e.key === 'Control') { isCtrlPressed = false; render(); } };
 
 init();

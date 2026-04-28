@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0202</title>
+    <title>Railroad Models Layout Designer v.0203</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -264,9 +264,13 @@ function initCanvasEvents() {
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
     
-        // 1. まずはマウスに合わせて動かす（仮位置）
-        draggedPart.x = mx - offsetX;
-        draggedPart.y = my - offsetY;
+        // 1. 【本来の位置】を計算（マウスに追従するベース座標）
+        // 吸着していない場合にパーツが居るべき場所をまず決めます
+        const basePosX = mx - offsetX;
+        const basePosY = my - offsetY;
+    
+        draggedPart.x = basePosX;
+        draggedPart.y = basePosY;
     
         let minD = 20, targetP = null, myIdx = -1;
         const myPoints = getConnectorPoints(draggedPart);
@@ -283,36 +287,29 @@ function initCanvasEvents() {
             });
         });
     
-        // 3. 吸着処理（ここを強化）
+        // 3. 吸着処理（テンション維持版）
         if (targetP) {
-            // --- 角度の吸着 ---
+            // 角度の吸着
             const targetAng = (targetP.ang + 180) % 360;
-            // 接点の種類（右/左）によって180度反転させる必要があるため、相対角度で補正
             const baseAng = (myIdx === 0) ? 0 : 180;
             draggedPart.rotation = (targetAng - baseAng + 360) % 360;
     
-            // --- 座標の吸着（再計算と固定） ---
-            // 角度が変わった後の「現在の接点」を正確に取得
+            // 座標の吸着
             const currentPoints = getConnectorPoints(draggedPart);
             const snappedPoint = currentPoints[myIdx];
     
-            // ズレを補正
+            // パーツの座標を吸着位置に上書きするが、
+            // ここで offsetX/Y をリセットしないことで「マウスとのズレ」を記憶させます
             draggedPart.x += (targetP.x - snappedPoint.x);
             draggedPart.y += (targetP.y - snappedPoint.y);
-    
-            // 【重要】吸着中は offsetX/offsetY を現在の相対位置で更新し続ける
-            // これにより、吸着した瞬間にマウスとパーツの相対距離が「吸着位置基準」にリセットされ、
-            // 角度が違うパーツに引っ張られてマウスが離れていく現象を防ぎます。
-            offsetX = mx - draggedPart.x;
-            offsetY = my - draggedPart.y;
     
             isSnapped = true;
         } else { 
             isSnapped = false; 
+            // 吸着が外れたら、自動的にマウス位置（basePos）に戻る
         }
         render();
     };
-
     window.onmouseup = () => { isDragging = false; draggedPart = null; render(); };
 }
 

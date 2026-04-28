@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0209b</title>
+    <title>Railroad Models Layout Designer v.0210</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -66,14 +66,18 @@ function getConnectorPoints(p) {
     const points = [];
     if (p.sRole === "straight") {
         const halfLen = p.nLength / 2;
-        // 右端の接点 (オフセット X=halfLen, Y=0)
-        points.push(getTransformedPoint(p.x, p.y, p.rotation, halfLen, 0));
-        // 左端の接点 (オフセット X=-halfLen, Y=0)
-        const left = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, 0);
-        left.ang = (p.rotation + 180) % 360; // 左向きに補正
-        points.push(left);
+        // 複線なら上下に振り分け、単線なら中心(0)のみ
+        const offsetsY = p.bIsDouble ? [-(p.nTrackGap / 2), p.nTrackGap / 2] : [0];
+
+        offsetsY.forEach(oy => {
+            // 右端
+            points.push(getTransformedPoint(p.x, p.y, p.rotation, halfLen, oy));
+            // 左端
+            const left = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, oy);
+            left.ang = (p.rotation + 180) % 360;
+            points.push(left);
+        });
     }
-    // 曲線等は今後、同様に getTransformedPoint を使って定義可能
     return points;
 }
 
@@ -167,15 +171,19 @@ function render() {
 
 function drawPart(ctx, p) {
     ctx.save();
-    // 中心点 (p.x, p.y) で回転
     ctx.translate(p.x, p.y);
     ctx.rotate((p.rotation * Math.PI) / 180);
 
+    // ロールに応じた分岐
     if (p.sRole === "straight") {
-        drawStraightRail(ctx, p);
+        if (p.bIsDouble) {
+            drawDoubleStraightPart(ctx, p);
+        } else {
+            drawSingleStraightPart(ctx, p);
+        }
     }
 
-    // Ctrlマーカー（中心点）
+    // 共通の操作補助（Ctrlマーカーなど）
     if (isCtrlPressed) {
         ctx.beginPath();
         ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
@@ -186,30 +194,71 @@ function drawPart(ctx, p) {
     ctx.restore();
 }
 
-function drawStraightRail(ctx, p) {
+// 単線ストレートの描画実体
+function drawSingleStraightPart(ctx, p) {
     const halfLen = p.nLength / 2;
     const halfView = p.nViewWidth / 2;
-    const halfGauge = p.nGauge / 2;
-    const mainColor = p.sColor || '#333';
     const isDragged = (draggedPart === p);
+    const mainColor = p.sColor || '#333';
 
-    // 1. 道床（バラスト）
+    // 道床と外枠の描画
+    drawBallastBed(ctx, p.nLength, p.nViewWidth, isDragged, mainColor);
+
+    // 走行線の描画（オフセットなし）
+    drawStraightRail(ctx, p);
+}
+
+// 複線ストレートの描画実体
+function drawDoubleStraightPart(ctx, p) {
+    const halfLen = p.nLength / 2;
+    const halfView = p.nViewWidth / 2;
+    const isDragged = (draggedPart === p);
+    const mainColor = p.sColor || '#333';
+    const gap = p.nTrackGap / 2;
+
+    // 複線用の広い道床を一括で描画
+    drawBallastBed(ctx, p.nLength, p.nViewWidth, isDragged, mainColor);
+
+    // 既存の走行線描画を2回呼び出す
+    ctx.save();
+    ctx.translate(0, -gap);
+    drawStraightRail(ctx, p);
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(0, gap);
+    drawStraightRail(ctx, p);
+    ctx.restore();
+}
+
+// 道床（バラスト）とハイライトを描画する共通関数
+function drawBallastBed(ctx, len, viewWidth, isDragged, color) {
+    const halfL = len / 2;
+    const halfV = viewWidth / 2;
+
+    ctx.save();
     ctx.globalAlpha = 0.3;
-    ctx.fillStyle = p.sColor || '#999';
+    ctx.fillStyle = color || '#999';
     ctx.beginPath();
-    ctx.rect(-halfLen, -halfView, p.nLength, p.nViewWidth);
+    ctx.rect(-halfL, -halfV, len, viewWidth);
     ctx.fill();
     
     ctx.globalAlpha = 1.0;
-    ctx.strokeStyle = isDragged ? (isSnapped ? '#007bff' : '#ff4757') : mainColor;
+    ctx.strokeStyle = isDragged ? (isSnapped ? '#007bff' : '#ff4757') : color;
     ctx.lineWidth = isDragged ? 3 : 1;
     ctx.stroke();
+    ctx.restore();
+}
 
-    // 2. レール
+// 走行線（2本の鉄路）のみを描画する最小単位
+function drawStraightRail(ctx, p) {
+    const halfLen = p.nLength / 2;
+    const halfGauge = p.nGauge / 2;
+    const mainColor = p.sColor || '#333';
+
     ctx.beginPath();
     ctx.strokeStyle = mainColor;
     ctx.lineWidth = 1;
-    // 上下2本のレール
     ctx.moveTo(-halfLen, -halfGauge); ctx.lineTo(halfLen, -halfGauge);
     ctx.moveTo(-halfLen,  halfGauge); ctx.lineTo(halfLen,  halfGauge);
     ctx.stroke();

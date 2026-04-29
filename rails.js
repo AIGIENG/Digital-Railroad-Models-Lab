@@ -20,9 +20,9 @@
 const railData = {
 
     // KATO(N)
-    // --- 直線レール ---
+    // --- 直線線路 ---
     "KATO_S248": {
-        sName: "直線レール S248",
+        sName: "直線線路 S248",
         sProductCode: "20-000",
         sMaker: "KATO",
         sSeries: "UNITRACK",
@@ -41,10 +41,157 @@ const railData = {
         sComment: "標準的な直線レール。PC枕木版と共通で使用可能。",
         sExtra: ""
     },
-    
-    // --- 曲線レール ---
+
+    "KATO_S186": {
+        sName: "直線線路 S186",
+        sProductCode: "20-010",
+        sMaker: "KATO",
+        sSeries: "UNITRACK",
+        sRole: "straight",
+        nLength: 186,
+        nRadius: 0,
+        nAngle: 0,
+        bIsDouble: false,
+        nTrackGap: 33,
+        junctionCount: 2,
+        sDirection: "none",
+        nViewWidth: 25,
+        nHeight: 0,
+        nGauge: 9,
+        sColor: "Green",
+        sComment: "標準的な直線レール。PC枕木版と共通で使用可能。",
+        sExtra: ""
+    },
+
+     "KATO_S124": {
+        sName: "直線線路 S124",
+        sProductCode: "20-020",
+        sMaker: "KATO",
+        sSeries: "UNITRACK",
+        sRole: "straight",
+        nLength: 124,
+        nRadius: 0,
+        nAngle: 0,
+        bIsDouble: false,
+        nTrackGap: 33,
+        junctionCount: 2,
+        sDirection: "none",
+        nViewWidth: 25,
+        nHeight: 0,
+        nGauge: 9,
+        sColor: "Green",
+        sComment: "標準的な直線レール。",
+        sExtra: ""
+    },
+
+    "KATO_S124C": {
+        sName: "リレーラー線路 S124C",
+        sProductCode: "20-026",
+        sMaker: "KATO",
+        sSeries: "UNITRACK",
+        sRole: "straight",
+        nLength: 124,
+        nRadius: 0,
+        nAngle: 0,
+        bIsDouble: false,
+        nTrackGap: 33,
+        junctionCount: 2,
+        sDirection: "none",
+        nViewWidth: 25,
+        nHeight: 0,
+        nGauge: 9,
+        sColor: "Green",
+        sComment: "踏板別途。",
+        sExtra: ""
+    },
+ 
+    "KATO_S124C #2": {
+        sName: "踏切線路#2 S124C",
+        sProductCode: "20-027",
+        sMaker: "KATO",
+        sSeries: "UNITRACK",
+        sRole: "straight",
+        nLength: 124,
+        nRadius: 0,
+        nAngle: 0,
+        bIsDouble: false,
+        nTrackGap: 33,
+        junctionCount: 2,
+        sDirection: "none",
+        nViewWidth: 25,
+        nHeight: 0,
+        nGauge: 9,
+        sColor: "Green",
+        sComment: "踏切パーツ別途。",
+        sExtra: ""
+    },
+  
+    "KATO_S64": {
+        sName: "直線線路 S64",
+        sProductCode: "20-030",
+        sMaker: "KATO",
+        sSeries: "UNITRACK",
+        sRole: "straight",
+        nLength: 64,
+        nRadius: 0,
+        nAngle: 0,
+        bIsDouble: false,
+        nTrackGap: 33,
+        junctionCount: 2,
+        sDirection: "none",
+        nViewWidth: 25,
+        nHeight: 0,
+        nGauge: 9,
+        sColor: "Green",
+        sComment: "標準的な直線レール。",
+        sExtra: ""
+    },
+ 
+    "KATO_S62": {
+        sName: "直線線路 S62",
+        sProductCode: "20-040",
+        sMaker: "KATO",
+        sSeries: "UNITRACK",
+        sRole: "straight",
+        nLength: 62,
+        nRadius: 0,
+        nAngle: 0,
+        bIsDouble: false,
+        nTrackGap: 33,
+        junctionCount: 2,
+        sDirection: "none",
+        nViewWidth: 25,
+        nHeight: 0,
+        nGauge: 9,
+        sColor: "Green",
+        sComment: "標準的な直線レール。",
+        sExtra: ""
+    },
+
+    "KATO_S60": {
+        sName: "4番ポイント用補助線路60mm",
+        sProductCode: "20-220/221(付属)",
+        sMaker: "KATO",
+        sSeries: "UNITRACK",
+        sRole: "straight",
+        nLength: 60,
+        nRadius: 0,
+        nAngle: 0,
+        bIsDouble: false,
+        nTrackGap: 33,
+        junctionCount: 2,
+        sDirection: "none",
+        nViewWidth: 25,
+        nHeight: 0,
+        nGauge: 9,
+        sColor: "Green",
+        sComment: "4番ポイントで使用する60mmの補助線路。単品販売なし。",
+        sExtra: ""
+    },
+ 
+ // --- 曲線レール ---
     "KATO_R315-45": {
-        sName: "曲線レール R315-45",
+        sName: "曲線線路 R315-45",
         sProductCode: "2x-xxx",
         sMaker: "KATO",
         sSeries: "UNITRACK",
@@ -65,7 +212,7 @@ const railData = {
     },
 
     "KATO_R282-45": {
-        sName: "曲線レール R282-45",
+        sName: "曲線線路 R282-45",
         sProductCode: "2x-xxx",
         sMaker: "KATO",
         sSeries: "UNITRACK",
@@ -84,10 +231,52 @@ const railData = {
         sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。",
         sExtra: ""
     },
-    
-    // --- 複線直線レール (248mm) ---
+
+    "KATO_R481-15": {
+        sName: "曲線線路 R481-15",
+        sProductCode: "20-160",
+        sMaker: "KATO",
+        sSeries: "UNITRACK",
+        sRole: "curve",
+        nLength: 0,
+        nRadius: 481,
+        nAngle: 15,
+        bIsDouble: false,
+        nTrackGap: 33,
+        junctionCount: 2,
+        sDirection: "none",
+        nViewWidth: 25,
+        nHeight: 0,
+        nGauge: 9,
+        sColor: "Green",
+        sComment: "4番ポイントと同一半径。",
+        sExtra: ""
+    },    
+
+    "KATO_R718-15": {
+        sName: "曲線線路 R718-15",
+        sProductCode: "20-150",
+        sMaker: "KATO",
+        sSeries: "UNITRACK",
+        sRole: "curve",
+        nLength: 0,
+        nRadius: 718,
+        nAngle: 15,
+        bIsDouble: false,
+        nTrackGap: 33,
+        junctionCount: 2,
+        sDirection: "none",
+        nViewWidth: 25,
+        nHeight: 0,
+        nGauge: 9,
+        sColor: "Green",
+        sComment: "6番ポイントと同一半径。",
+        sExtra: ""
+    }, 
+ 
+ // --- 複線直線レール (248mm) ---
     "KATO_WS248": {
-        sName: "複線直線 WS248",
+        sName: "複線直線線路 WS248",
         sProductCode: "20-xxx",
         sMaker: "KATO",
         sSeries: "UNITRACK",
@@ -109,7 +298,7 @@ const railData = {
     
     // --- 複線曲線レール (代表半径 315mm / 282mm) ---
     "KATO_WR315_282-45": {
-        sName: "複線曲線 WR315/282-45",
+        sName: "複線曲線線路 WR315/282-45",
         sProductCode: "20-xxx",
         sMaker: "KATO",
         sSeries: "UNITRACK",
@@ -131,7 +320,7 @@ const railData = {
     
     // --- 複線曲線レール (代表半径 414mm / 381mm) ---
     "KATO_WR414_381-45": {
-        sName: "複線曲線 WR414/381-45",
+        sName: "複線曲線線路 WR414/381-45",
         sProductCode: "20-540",
         sMaker: "KATO",
         sSeries: "UNITRACK",
@@ -153,7 +342,7 @@ const railData = {
 
     // --- 複線アプローチレール (左) ---
     "KATO_WR414_381-22.5L": {
-        sName: "複線アプローチ R414/381-22.5L",
+        sName: "複線アプローチ線路 R414/381-22.5L",
         sProductCode: "20-544",
         sMaker: "KATO",
         sSeries: "UNITRACK",
@@ -175,7 +364,7 @@ const railData = {
 
     // --- 複線アプローチレール (右) ---
     "KATO_WR414_381-22.5R": {
-        sName: "複線アプローチ R414/381-22.5R",
+        sName: "複線アプローチ線路 R414/381-22.5R",
         sProductCode: "20-544",
         sMaker: "KATO",
         sSeries: "UNITRACK",
@@ -197,7 +386,7 @@ const railData = {
 
      // --- 複線曲線レール (代表半径 414mm / 381mm) ---
     "KATO_WR414_381-45": {
-        sName: "複線曲線 WR414/381-45",
+        sName: "複線曲線線路 WR414/381-45",
         sProductCode: "20-540",
         sMaker: "KATO",
         sSeries: "UNITRACK",

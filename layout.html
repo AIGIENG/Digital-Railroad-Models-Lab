@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0248</title>
+    <title>Railroad Models Layout Designer v.0249</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -658,11 +658,15 @@ function drawCurveRail(ctx, r, angle, gauge, color) {
 /**
  * 単線ポイントの描画
  */
+/**
+ * 単線ポイントの描画（道床一体化版）
+ */
 function drawSinglePointPart(ctx, p) {
     const halfLen = p.nLength / 2;
     const r = p.nRadius;
     const angRad = p.nAngle * Math.PI / 180;
     const viewW = p.nViewWidth || 25; // 道床幅
+
     const isLeft = (p.sDirection === "left");
     const isRight = (p.sDirection === "right");
     const isY = (p.sDirection === "y");
@@ -670,10 +674,14 @@ function drawSinglePointPart(ctx, p) {
 
     ctx.save();
 
-    // --- 1. 道床（バラスト）の描画 ---
-    ctx.strokeStyle = "#dcdde1"; // 道床の色
+    // --- 1. 道床（バラスト）の一体化描画 ---
+    ctx.strokeStyle = "#dcdde1"; // 既存の道床色
     ctx.lineWidth = viewW;
     ctx.lineCap = "butt";
+
+    // 一体化のためのコンポジット設定
+    // これにより、以降の描画が既存の描画と「合体」し、重なり目が消える
+    ctx.globalCompositeOperation = "source-over"; // デフォルトだが、明示
 
     // 道床：直線
     if (!isY) {
@@ -683,13 +691,16 @@ function drawSinglePointPart(ctx, p) {
         ctx.stroke();
     }
 
-    // 道床：曲線
     let branches = [];
     if (isLeft || isY || isThree) branches.push(-1);
     if (isRight || isY || isThree) branches.push(1);
 
+    // 道床：曲線
     branches.forEach(dir => {
         ctx.save();
+        // 重なり目を消す設定。すでに描画された直線道床と一体化させる。
+        ctx.globalCompositeOperation = "destination-over"; // 直線の下に描く（またはsource-overで同色を重ねる）
+
         const centerY = r * dir;
         ctx.translate(-halfLen, centerY);
         const startAngle = (dir === -1) ? Math.PI / 2 : -Math.PI / 2;
@@ -700,7 +711,11 @@ function drawSinglePointPart(ctx, p) {
         ctx.restore();
     });
 
+    // 設定を元に戻す
+    ctx.globalCompositeOperation = "source-over";
+
     // --- 2. レール（鉄路）の描画 ---
+    // レールは道床の上に重ねるため、通常モードで描画
     ctx.strokeStyle = p.sColor || "#7f8c8d";
     ctx.lineWidth = 2;
 
@@ -858,7 +873,50 @@ function isPointInPart(x, y, p) {
                    r < (p.nRadius + trackWidth / 2) && 
                    angle > -halfAngle && angle < halfAngle;
         }
-        
+
+        case "point": {
+            // 直線部分の判定（矩形）
+            const halfLen = p.nLength / 2;
+            const viewW = p.nViewWidth || 25;
+            // ローカル座標 localX, localY を使用
+            const inStraight = Math.abs(localX) < halfLen && Math.abs(localY) < viewW / 2;
+            
+            if (inStraight) return true; // 直線上にいれば確定
+
+            // 曲線部分の判定（扇形）
+            const isLeft = (p.sDirection === "left");
+            const isRight = (p.sDirection === "right");
+            const isY = (p.sDirection === "y");
+            const isThree = (p.sDirection === "three");
+            
+            let branches = [];
+            if (isLeft || isY || isThree) branches.push(-1);
+            if (isRight || isY || isThree) branches.push(1);
+
+            for (let dir of branches) {
+                const r = p.nRadius;
+                // 分岐の扇形領域を判定。描画と同じ幅(viewW)を持たせる。
+                
+                // 相対座標をさらに曲線中心基準に変換（左端(-halfLen)が基点）
+                const relX = localX - (-halfLen); // 左端からのX距離
+                const centerY = r * dir;
+                const relY = localY - centerY;    // 中心点からのY距離
+
+                const dist = Math.sqrt(relX * relX + relY * relY);
+                
+                // 半径判定（道床幅分）
+                if (dist > (r - viewW / 2) && dist < (r + viewW / 2)) {
+                    // 角度判定
+                    // 円弧の始点（-halfLen, 0）からの角度を算出
+                    const angle = Math.atan2(relX, (dir === -1 ? r - relY : relY - r)) * 180 / Math.PI;
+                    if (angle > 0 && angle < p.nAngle) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+            
         default:
             return false;
     }

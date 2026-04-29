@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0243r</title>
+    <title>Railroad Models Layout Designer v.0244r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -462,8 +462,44 @@ function getConnectorPoints(p) {
             });
             break;
         }
+        case "point": {
+            const halfLen = p.nLength / 2;
+            const r = p.nRadius;
+            const angRad = p.nAngle * Math.PI / 180;
+            const sDir = p.sDirection;
+        
+            // 共通：根元（入力側）
+            const pRoot = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, 0);
+            pRoot.ang = (p.rotation + 180) % 360;
+            points.push({ ...pRoot, ...commonProps });
+        
+            // 直進端（left, right, three の場合）
+            if (sDir !== "y") {
+                const pStr = getTransformedPoint(p.x, p.y, p.rotation, halfLen, 0);
+                pStr.ang = p.rotation % 360;
+                points.push({ ...pStr, ...commonProps });
+            }
+        
+            // 左分岐端（left, y, three の場合）
+            if (sDir === "left" || sDir === "y" || sDir === "three") {
+                const dx = Math.sin(angRad) * r;
+                const dy = - (r - Math.cos(angRad) * r);
+                const pLeft = getTransformedPoint(p.x, p.y, p.rotation, -halfLen + dx, dy);
+                pLeft.ang = (p.rotation - p.nAngle + 360) % 360;
+                points.push({ ...pLeft, ...commonProps });
+            }
+        
+            // 右分岐端（right, y, three の場合）
+            if (sDir === "right" || sDir === "y" || sDir === "three") {
+                const dx = Math.sin(angRad) * r;
+                const dy = (r - Math.cos(angRad) * r);
+                const pRight = getTransformedPoint(p.x, p.y, p.rotation, -halfLen + dx, dy);
+                pRight.ang = (p.rotation + p.nAngle) % 360;
+                points.push({ ...pRight, ...commonProps });
+            }
+            break;
+        }
     }
-
     return points;
 }
 
@@ -508,6 +544,10 @@ function drawPart(ctx, p) {
             }
             drawApproachIndicator(ctx, p);
             break;
+        case "point":
+            drawSinglePointPart(ctx, p);
+            break;
+
     }
 
     if (isCtrlPressed) {
@@ -608,7 +648,38 @@ function drawCurveRail(ctx, r, angle, gauge, color) {
     ctx.stroke();
     ctx.restore();
 }
-    
+
+// ポイント描画
+function drawSinglePointPart(ctx, p) {
+    const halfLen = p.nLength / 2;
+    const r = p.nRadius;
+    const sDir = p.sDirection;
+
+    // 1. 直線軌道（3方、片開き左/右の場合に描画）
+    if (sDir === "left" || sDir === "right" || sDir === "three") {
+        drawSingleStraightPart(ctx, p);
+    }
+
+    // 2. 曲線軌道（左方向分岐：left, y, three）
+    if (sDir === "left" || sDir === "y" || sDir === "three") {
+        ctx.save();
+        ctx.translate(-halfLen, 0);
+        ctx.translate(0, -r);
+        ctx.scale(1, -1);
+        drawSingleCurvePart(ctx, p);
+        ctx.restore();
+    }
+
+    // 3. 曲線軌道（右方向分岐：right, y, three）
+    if (sDir === "right" || sDir === "y" || sDir === "three") {
+        ctx.save();
+        ctx.translate(-halfLen, 0);
+        ctx.translate(0, r);
+        drawSingleCurvePart(ctx, p);
+        ctx.restore();
+    }
+}
+        
 // 道床（バラスト）とハイライトを描画する共通関数
 function drawBallastBed(ctx, len, viewWidth, isDragged, color) {
     const halfL = len / 2;
@@ -753,6 +824,30 @@ function isPointInPart(mouseX, mouseY, p) {
         return Math.abs(mouseAngleRad) <= angleLimitRad;
     }
 
+    if (p.sRole === 'point') {
+        const sDir = p.sDirection;
+        const r = p.nRadius;
+        const angLimitRad = p.nAngle * Math.PI / 180;
+    
+        // 直線判定
+        if (sDir !== "y") {
+            if (Math.abs(lx) <= p.nLength / 2 && Math.abs(ly) <= p.nViewWidth / 2) return true;
+        }
+    
+        // 曲線判定関数
+        const checkCurve = (dir) => {
+            const clx = lx + (p.nLength / 2);
+            const cly = ly - (r * dir);
+            const dist = Math.hypot(clx, cly);
+            if (Math.abs(dist - r) <= p.nViewWidth / 2) {
+                const mouseAngleRad = Math.atan2(clx, cly * -dir);
+                return mouseAngleRad >= 0 && mouseAngleRad <= angLimitRad;
+            }
+            return false;
+        };
+        if ((sDir === "left" || sDir === "y" || sDir === "three") && checkCurve(-1)) return true;
+        if ((sDir === "right" || sDir === "y" || sDir === "three") && checkCurve(1)) return true;
+    }                
     return false;
 }
 

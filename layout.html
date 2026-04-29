@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0251</title>
+    <title>Railroad Models Layout Designer v.0243r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -462,51 +462,6 @@ function getConnectorPoints(p) {
             });
             break;
         }
-
-        case "point": {
-            const halfLen = p.nLength / 2;
-            const commonProps = { parentMaker: p.sMaker, parentGauge: p.nGauge };
-
-            // 1. 共通の根元（始点側）：パーツ左端
-            const base = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, 0);
-            base.ang = (p.rotation + 180) % 360;
-            points.push({ ...base, ...commonProps });
-
-            // 2. 分岐先の計算
-            // sDirection に応じて、どの方向に枝を出すかを定義
-            let directions = [];
-            switch (p.sDirection) {
-                case "left":  directions = [0, -1]; break; // 直線(0) と 左(-1)
-                case "right": directions = [0, 1];  break; // 直線(0) と 右(1)
-                case "y":     directions = [-1, 1]; break; // 左(-1) と 右(1) ※左右均等
-                case "three": directions = [-1, 0, 1]; break; // 左, 直, 右
-                default:      directions = [0]; // 未定義時は直線のみ
-            }
-
-            directions.forEach(dir => {
-                if (dir === 0) {
-                    // 直線側の接点
-                    const st = getTransformedPoint(p.x, p.y, p.rotation, halfLen, 0);
-                    points.push({ ...st, ...commonProps });
-                } else {
-                    // 曲線側の接点 (dir: -1は左, 1は右)
-                    const r = p.nRadius;
-                    const angRad = p.nAngle * Math.PI / 180;
-                    
-                    const dx = Math.sin(angRad) * r;
-                    const dy = (r - Math.cos(angRad) * r) * dir;
-                    
-                    const targetX = -halfLen + dx;
-                    const targetY = dy;
-                    
-                    const cp = getTransformedPoint(p.x, p.y, p.rotation, targetX, targetY);
-                    cp.ang = (p.rotation + (p.nAngle * dir)) % 360;
-                    points.push({ ...cp, ...commonProps });
-                }
-            });
-            break;
-        }    
-    
     }
 
     return points;
@@ -541,6 +496,11 @@ function drawPart(ctx, p) {
             break;
 
         case "approach":
+            // 選択判定（クリックやドラッグ）を有効にするためにサイズを定義
+            // 他の曲線レール(case "curve")と同様のロジックを流用
+            if (!p.w || p.w === 0) p.w = p.L || 40; 
+            if (!p.h || p.h === 0) p.h = (p.trackPitch || 46);
+
             if (p.bIsDouble) {
                 drawDoubleCurvePart(ctx, p);
             } else {
@@ -548,14 +508,8 @@ function drawPart(ctx, p) {
             }
             drawApproachIndicator(ctx, p);
             break;
-            
-        case "point":
-                drawSinglePointPart(ctx, p);
-                break;
-            
     }
-    
-    // Ctrl押下時ポイント表示    
+
     if (isCtrlPressed) {
         ctx.beginPath();
         ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
@@ -654,99 +608,7 @@ function drawCurveRail(ctx, r, angle, gauge, color) {
     ctx.stroke();
     ctx.restore();
 }
-
-/**
- * 単線ポイントの描画（道床：面描画版）
- */
-function drawSinglePointPart(ctx, p) {
-    const halfLen = p.nLength / 2;
-    const r = p.nRadius;
-    const angRad = p.nAngle * Math.PI / 180;
-    const viewW = p.nViewWidth || 25; // 道床幅
-
-    const isLeft = (p.sDirection === "left");
-    const isRight = (p.sDirection === "right");
-    const isY = (p.sDirection === "y");
-    const isThree = (p.sDirection === "three");
-
-    ctx.save();
     
-    // --- 1. 道床（バラスト）の描画：『面（fill）』 ---
-    // ここで stroke() ではなく fill() を使うことが、エッジを直角にする唯一の解決策です。
-    // 直線部分の矩形と、曲線部分の扇形の外形だけをパスとして統合します。
-    ctx.beginPath();
-    ctx.fillStyle = "#dcdde1"; // 道床の色
-
-    // A. 直線部分の外周矩形パス
-    if (!isY) {
-        // (左下) -> (右下) -> (右上) -> (左上)
-        ctx.moveTo(-halfLen, viewW / 2);
-        ctx.lineTo(halfLen, viewW / 2);
-        ctx.lineTo(halfLen, -viewW / 2);
-        ctx.lineTo(-halfLen, -viewW / 2);
-    }
-
-    // B. 曲線部分の外周扇形パスを追加
-    let branches = [];
-    if (isLeft || isY || isThree) branches.push(-1);
-    if (isRight || isY || isThree) branches.push(1);
-
-    branches.forEach(dir => {
-        const centerY = r * dir;
-        const inR = r - viewW / 2; // 内側半径
-        const outR = r + viewW / 2; // 外側半径
-        const startAngle = (dir === -1) ? Math.PI / 2 : -Math.PI / 2;
-        const endAngle = startAngle + (angRad * dir);
-
-        const anticlockwise = (dir === -1);
-
-        // 扇形の外周パスを計算して arc で追加
-        // (外周円弧の始点) -> (外周円弧の終点) -> (内周円弧の終点) -> (内周円弧の始点)
-        
-        // パスが閉じているので、moveTo で強制的に曲線部分の始点へ移動
-        // 左端(-halfLen,0)から、分岐角度に合わせて座標を算出（接点計算と同じロジック）
-        const outStartX = -halfLen + Math.sin(0) * outR; // 始点角0
-        const outStartY = (r - Math.cos(0) * outR) * dir; // ここは常にy=0ではない、r次第
-
-        // 面描画のためのアークパス
-        // 1. 外周円弧 (左端から進む)
-        ctx.arc(-halfLen, centerY, outR, startAngle, endAngle, anticlockwise);
-        // 2. 終端の直線面 (外周終点から内周終点へ)
-        // 3. 内周円弧 (終点から左端へ戻る)
-        ctx.arc(-halfLen, centerY, inR, endAngle, startAngle, !anticlockwise);
-        // 4. 始端の直線面（左端）
-    });
-    
-    // ここでまとめて塗りつぶし。重なり目は完全に消え、外周はスパッと切れる
-    ctx.fill();
-
-    // --- 2. レール（鉄路）の描画：『線（stroke）』 ---
-    // レールは細い線なので、そのまま stroke() でOK
-    ctx.beginPath();
-    ctx.strokeStyle = p.sColor || "#7f8c8d";
-    ctx.lineWidth = 2; // レールの太さ（20などハードコーディング禁止）
-    ctx.lineCap = "butt";
-
-    // レール：直線
-    if (!isY) {
-        ctx.moveTo(-halfLen, 0);
-        ctx.lineTo(halfLen, 0);
-    }
-
-    // レール：曲線
-    branches.forEach(dir => {
-        // レールの中心座標系でのarc（接点計算ロジックと同一）
-        const centerY = r * dir;
-        const startAngle = (dir === -1) ? Math.PI / 2 : -Math.PI / 2;
-        const endAngle = startAngle + (angRad * dir);
-        ctx.arc(-halfLen, centerY, r, startAngle, endAngle, (dir === -1));
-    });
-
-    ctx.stroke();
-
-    ctx.restore();
-}
-        
 // 道床（バラスト）とハイライトを描画する共通関数
 function drawBallastBed(ctx, len, viewWidth, isDragged, color) {
     const halfL = len / 2;
@@ -853,77 +715,45 @@ function drawApproachIndicator(ctx, p) {
     ctx.restore();
 }
         
-function isPointInPart(x, y, p) {
-    const dx = x - p.x;
-    const dy = y - p.y;
-    const cos = Math.cos(-p.rotation * Math.PI / 180);
-    const sin = Math.sin(-p.rotation * Math.PI / 180);
-    const localX = dx * cos - dy * sin;
-    const localY = dx * sin + dy * cos;
+function isPointInPart(mouseX, mouseY, p) {
+    // 1. マウス座標をパーツの基準点(p.x, p.y)からの相対座標に変換
+    const dx = mouseX - p.x;
+    const dy = mouseY - p.y;
 
-    switch (p.sRole) {
-        case "straight":
-            return Math.abs(localX) < p.nLength / 2 && 
-                   Math.abs(localY) < (p.bIsDouble ? p.nTrackGap : p.nWidth || 20) / 2;
+    // 2. パーツの回転角(p.rotation)を考慮して座標を逆回転させ、ローカル座標(lx, ly)を得る
+    const rad = -(p.rotation * Math.PI / 180);
+    const lx = dx * Math.cos(rad) - dy * Math.sin(rad);
+    const ly = dx * Math.sin(rad) + dy * Math.cos(rad);
 
-        case "curve":
-        case "approach": {
-            const r = Math.sqrt(localX * localX + Math.pow(localY - p.nRadius, 2));
-            const angle = Math.atan2(localX, p.nRadius - localY) * 180 / Math.PI;
-            const halfAngle = p.nAngle / 2;
-            const trackWidth = p.bIsDouble ? p.nTrackGap + 20 : 20; 
-            
-            return r > (p.nRadius - trackWidth / 2) && 
-                   r < (p.nRadius + trackWidth / 2) && 
-                   angle > -halfAngle && angle < halfAngle;
-        }
-
-        case "point": {
-            // 直線部分の判定（矩形）
-            const halfLen = p.nLength / 2;
-            const viewW = p.nViewWidth || 25;
-            // ローカル座標 localX, localY を使用
-            const inStraight = Math.abs(localX) < halfLen && Math.abs(localY) < viewW / 2;
-            
-            if (inStraight) return true; // 直線上にいれば確定
-
-            // 曲線部分の判定（扇形）
-            const isLeft = (p.sDirection === "left");
-            const isRight = (p.sDirection === "right");
-            const isY = (p.sDirection === "y");
-            const isThree = (p.sDirection === "three");
-            
-            let branches = [];
-            if (isLeft || isY || isThree) branches.push(-1);
-            if (isRight || isY || isThree) branches.push(1);
-
-            for (let dir of branches) {
-                const r = p.nRadius;
-                // 分岐の扇形領域を判定。描画と同じ幅(viewW)を持たせる。
-                
-                // 相対座標をさらに曲線中心基準に変換（左端(-halfLen)が基点）
-                const relX = localX - (-halfLen); // 左端からのX距離
-                const centerY = r * dir;
-                const relY = localY - centerY;    // 中心点からのY距離
-
-                const dist = Math.sqrt(relX * relX + relY * relY);
-                
-                // 半径判定（道床幅分）
-                if (dist > (r - viewW / 2) && dist < (r + viewW / 2)) {
-                    // 角度判定
-                    // 円弧の始点（-halfLen, 0）からの角度を算出
-                    const angle = Math.atan2(relX, (dir === -1 ? r - relY : relY - r)) * 180 / Math.PI;
-                    if (angle > 0 && angle < p.nAngle) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-            
-        default:
-            return false;
+    // --- 直線レールの判定 ---
+    if (p.sRole === 'straight') {
+        // 幅は nViewWidth、長さは nLength の矩形内か
+        return (Math.abs(lx) <= p.nLength / 2 && Math.abs(ly) <= p.nViewWidth / 2);
     }
+
+    // --- 曲線レールの判定 ---
+    if (p.sRole === 'curve') {
+        const r = p.nRadius;
+        const viewWidth = p.nViewWidth;
+        const angleLimitRad = (p.nAngle / 2) * Math.PI / 180;
+
+        // 描画時と同様、基準点から半径rだけ「下」にある円の中心点からの距離を計算
+        // ローカル座標系では中心点は (0, r) に位置する
+        const dist = Math.hypot(lx, ly - r);
+
+        // A. 半径方向の判定：円環の幅（道床の幅）の中にマウスがあるか
+        const isInRadius = Math.abs(dist - r) <= viewWidth / 2;
+        if (!isInRadius) return false;
+
+        // B. 角度方向の判定：円弧の扇形範囲内にマウスがあるか
+        // 中心(0, r)から見たマウス位置の角度を求める
+        // 頂点(0, 0)方向が 0 rad になるように調整
+        const mouseAngleRad = Math.atan2(lx, r - ly);
+
+        return Math.abs(mouseAngleRad) <= angleLimitRad;
+    }
+
+    return false;
 }
 
 function initCanvasEvents() {
@@ -1029,7 +859,7 @@ function initCanvasEvents() {
 
             const targetAng = (targetP.ang + 180) % 360;
 
-            if (draggedPart.sRole === "curve" || p.sRole === "approach") {
+            if (draggedPart.sRole === "curve") {
                 const myPointAng = myPoints[myIdx].ang;
                 const angleDiff = (myPointAng - draggedPart.rotation + 360) % 360;
                 draggedPart.rotation = (targetAng - angleDiff + 360) % 360;

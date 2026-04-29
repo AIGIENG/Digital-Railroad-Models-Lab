@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0219</title>
+    <title>Railroad Models Layout Designer v.0219a</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -185,6 +185,7 @@ function render() {
     layers.rail.forEach(part => drawPart(ctx, part));
 }
 
+// パーツ描画（ここから描くべきバーツを分岐）
 function drawPart(ctx, p) {
     ctx.save();
     ctx.translate(p.x, p.y);
@@ -218,7 +219,7 @@ function drawPart(ctx, p) {
     ctx.restore();
 }
 
-// 単線ストレートの描画実体
+// 単線直線描画
 function drawSingleStraightPart(ctx, p) {
     const halfLen = p.nLength / 2;
     const halfView = p.nViewWidth / 2;
@@ -232,7 +233,7 @@ function drawSingleStraightPart(ctx, p) {
     drawStraightRail(ctx, p);
 }
 
-// 複線ストレートの描画実体
+// 複線直線描画
 function drawDoubleStraightPart(ctx, p) {
     const halfLen = p.nLength / 2;
     const halfView = p.nViewWidth / 2;
@@ -255,7 +256,7 @@ function drawDoubleStraightPart(ctx, p) {
     ctx.restore();
 }
 
-// 複線曲線
+// 複線曲線描画
 function drawDoubleCurvePart(ctx, p) {
     const isDragged = (draggedPart === p);
     const mainColor = p.sColor || '#333';
@@ -270,8 +271,21 @@ function drawDoubleCurvePart(ctx, p) {
     drawCurveRail(ctx, r + gap, p.nAngle, p.nGauge, mainColor);
     ctx.restore();
 }
-        
-// 【推奨】このままの形で運用してください
+
+// 単線曲線
+function drawSingleCurvePart(ctx, p) {
+    const isDragged = (draggedPart === p);
+    const mainColor = p.sColor || '#333';
+    const r = p.nRadius;
+
+    ctx.save();
+    ctx.translate(0, r); // ここで30cmのズレを解消
+    drawCurveBallast(ctx, r, p.nAngle, p.nViewWidth, isDragged, mainColor);
+    drawCurveRail(ctx, r, p.nAngle, p.nGauge, mainColor);
+    ctx.restore();
+}
+            
+// 複線曲線
 function drawCurveRail(ctx, r, angle, gauge, color) {
     const startRad = ((-angle / 2) - 90) * Math.PI / 180;
     const endRad = ((angle / 2) - 90) * Math.PI / 180;
@@ -293,20 +307,7 @@ function drawCurveRail(ctx, r, angle, gauge, color) {
     ctx.stroke();
     ctx.restore();
 }
-
-// 単線曲線
-function drawSingleCurvePart(ctx, p) {
-    const isDragged = (draggedPart === p);
-    const mainColor = p.sColor || '#333';
-    const r = p.nRadius;
-
-    ctx.save();
-    ctx.translate(0, r); // ここで30cmのズレを解消
-    drawCurveBallast(ctx, r, p.nAngle, p.nViewWidth, isDragged, mainColor);
-    drawCurveRail(ctx, r, p.nAngle, p.nGauge, mainColor);
-    ctx.restore();
-}
-        
+    
 // 道床（バラスト）とハイライトを描画する共通関数
 function drawBallastBed(ctx, len, viewWidth, isDragged, color) {
     const halfL = len / 2;
@@ -326,6 +327,21 @@ function drawBallastBed(ctx, len, viewWidth, isDragged, color) {
     ctx.restore();
 }
 
+// 直線走行線（2本の鉄路）のみを描画する最小単位
+function drawStraightRail(ctx, p) {
+    const halfLen = p.nLength / 2;
+    const halfGauge = p.nGauge / 2;
+    const mainColor = p.sColor || '#333';
+
+    ctx.beginPath();
+    ctx.strokeStyle = mainColor;
+    ctx.lineWidth = 1;
+    ctx.moveTo(-halfLen, -halfGauge); ctx.lineTo(halfLen, -halfGauge);
+    ctx.moveTo(-halfLen,  halfGauge); ctx.lineTo(halfLen,  halfGauge);
+    ctx.stroke();
+}
+
+// 曲線走行線（2本の鉄路）のみを描画する最小単位
 function drawCurveBallast(ctx, r, angle, viewWidth, isDragged, color) {
     const startRad = ((-angle / 2) - 90) * Math.PI / 180;
     const endRad = ((angle / 2) - 90) * Math.PI / 180;
@@ -349,20 +365,6 @@ function drawCurveBallast(ctx, r, angle, viewWidth, isDragged, color) {
     ctx.lineWidth = isDragged ? 3 : 1;
     ctx.stroke();
     ctx.restore();
-}
-        
-// 走行線（2本の鉄路）のみを描画する最小単位
-function drawStraightRail(ctx, p) {
-    const halfLen = p.nLength / 2;
-    const halfGauge = p.nGauge / 2;
-    const mainColor = p.sColor || '#333';
-
-    ctx.beginPath();
-    ctx.strokeStyle = mainColor;
-    ctx.lineWidth = 1;
-    ctx.moveTo(-halfLen, -halfGauge); ctx.lineTo(halfLen, -halfGauge);
-    ctx.moveTo(-halfLen,  halfGauge); ctx.lineTo(halfLen,  halfGauge);
-    ctx.stroke();
 }
 
 function isPointInPart(mouseX, mouseY, p) {
@@ -484,7 +486,7 @@ function initCanvasEvents() {
                 
                 draggedPart.rotation = (targetAng - angleDiff + 360) % 360;
             } else {
-                // 2. 直線レール：斉藤さんの元々のロジックを無修正で維持
+                // 2. 直線レール：
                 draggedPart.rotation = (targetAng - (myIdx % 2 === 0 ? 0 : 180) + 360) % 360;
             }
 

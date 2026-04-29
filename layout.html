@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0231</title>
+    <title>Railroad Models Layout Designer v.0232</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -485,16 +485,14 @@ function drawPart(ctx, p) {
 
         // アプローチレールの描画を追加
         case "approach":
-            // 既存の複線曲線描画を流用
             if (p.bIsDouble) {
                 drawDoubleCurvePart(ctx, p);
             } else {
                 drawSingleCurvePart(ctx, p);
             }
-            // インジケーターの描画（描画順を最後に）
+            // レール描画の「直後」にインジケーターを描く
             drawApproachIndicator(ctx, p);
             break;
-    }
 
     if (isCtrlPressed) {
         ctx.beginPath();
@@ -655,34 +653,37 @@ function drawCurveBallast(ctx, r, angle, viewWidth, isDragged, color) {
 }
 
 function drawApproachIndicator(ctx, p) {
-    const size = 10;     // 視認性を上げるため少しサイズアップ
-    const offset = 5;    // 端面からの距離
-    
+    const size = 10; 
+    const offset = 2; // 端面に密着させる
+
     ctx.save();
     
-    // レール色（sColor）をベースに、より濃い（暗い）色を生成
-    // ※単純な実装として、少し暗くするフィルタをかけるか、色を上書きします
-    ctx.fillStyle = p.sColor || "#ccc"; 
-    ctx.filter = "brightness(0.6)"; // 色を40%暗くして「同系統の濃い色」にする
+    // 色の処理：sColorから濃い色を生成（未設定ならグレー）
+    const baseColor = p.sColor || "#7f8c8d";
+    ctx.fillStyle = baseColor;
+    ctx.filter = "brightness(0.5)"; // 明度を半分にして「より濃い色」にする
 
     ctx.beginPath();
     
-    // アプローチレールの向き判定
+    // パーツの高さの中央
+    const midY = p.h / 2;
+
     if (p.sDirection === 'left') {
-        // 左側の接続端面（x=0）の外側に左向き三角
-        ctx.moveTo(-offset, p.h / 2);
-        ctx.lineTo(-offset + size, p.h / 2 - size / 2);
-        ctx.lineTo(-offset + size, p.h / 2 + size / 2);
-    } else if (p.sDirection === 'right') {
-        // 右側の接続端面（x=p.w）の外側に右向き三角
-        ctx.moveTo(p.w + offset, p.h / 2);
-        ctx.lineTo(p.w + offset - size, p.h / 2 - size / 2);
-        ctx.lineTo(p.w + offset - size, p.h / 2 + size / 2);
+        // 左端(0, midY)に左向き三角
+        ctx.moveTo(-offset, midY);
+        ctx.lineTo(-offset + size, midY - size / 2);
+        ctx.lineTo(-offset + size, midY + size / 2);
+    } else {
+        // 右端(p.w または 期待される幅)に右向き三角
+        // p.w が 0 の場合を考慮し、標準的なレールの長さを参照するか、p.w を使用
+        const targetX = (p.w && p.w > 0) ? p.w : 40; 
+        ctx.moveTo(targetX + offset, midY);
+        ctx.lineTo(targetX + offset - size, midY - size / 2);
+        ctx.lineTo(targetX + offset - size, midY + size / 2);
     }
     
     ctx.closePath();
     ctx.fill();
-    
     ctx.restore();
 }
         

@@ -195,6 +195,28 @@ const railData = {
         sExtra: ""
     },
 
+     // --- 複線曲線レール (代表半径 414mm / 381mm) ---
+    "KATO_WR414_381-45": {
+        sName: "複線曲線 WR414/381-45",
+        sProductCode: "20-540",
+        sMaker: "KATO",
+        sSeries: "UNITRACK",
+        sRole: "curve",
+        nLength: 0,
+        nRadius: 414,        // 外側を代表半径として指定
+        nAngle: 45,
+        bIsDouble: true,      // 複線フラグをON
+        nTrackGap: 33,       // 内側レールは (414 - 33) で自動計算される
+        junctionCount: 4,
+        sDirection: "none",
+        nViewWidth: 57.5,       // 道床2本分の幅
+        nHeight: 0,
+        nGauge: 9,
+        sColor: "Green",
+        sComment: "カント付き複線曲線。内側はR381。",
+        sExtra: ""
+    },
+ 
     // --- 6番ポイント (左) ---
     "KATO_EP718-15L": {
         sName: "電動ポイント6番(左) EP718-18L",
@@ -217,28 +239,6 @@ const railData = {
         sExtra: ""
     },
  
-     // --- 複線曲線レール (代表半径 414mm / 381mm) ---
-    "KATO_WR414_381-45": {
-        sName: "複線曲線 WR414/381-45",
-        sProductCode: "20-540",
-        sMaker: "KATO",
-        sSeries: "UNITRACK",
-        sRole: "curve",
-        nLength: 0,
-        nRadius: 414,        // 外側を代表半径として指定
-        nAngle: 45,
-        bIsDouble: true,      // 複線フラグをON
-        nTrackGap: 33,       // 内側レールは (414 - 33) で自動計算される
-        junctionCount: 4,
-        sDirection: "none",
-        nViewWidth: 57.5,       // 道床2本分の幅
-        nHeight: 0,
-        nGauge: 9,
-        sColor: "Green",
-        sComment: "カント付き複線曲線。内側はR381。",
-        sExtra: ""
-    },
-
     // TOMIX(N)
     // --- 直線レール ---
     "TOMIX_S280": {

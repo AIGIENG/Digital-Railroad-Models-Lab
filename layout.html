@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0221</title>
+    <title>Railroad Models Layout Designer v.0222</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -29,9 +29,60 @@
             font-size: 13px;
             margin-top: 5px;
             pointer-events: none;
-            animation: fadeOut 1s forwards 9s;
+            animation: fadeOut 0.5s forwards 4.5s;
         }
         @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+        #zoom-window {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(44, 62, 80, 0.9);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 1100;
+            user-select: none;
+        }
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .zoom-slider {
+            flex: 1;
+            cursor: pointer;
+        }
+        .zoom-btn {
+            background: #1abc9c;
+            border: none;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .zoom-quick-btns {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 8px;
+        }
+        .quick-btn {
+            font-size: 11px;
+            background: #34495e;
+            border: 1px solid #7f8c8d;
+            color: #ecf0f1;
+            padding: 2px 5px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        #zoom-display {
+            text-align: center;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
         
     </style>
 </head>
@@ -50,12 +101,17 @@
 // --- 状態管理 ---
 const layers = { rail: [] };
 const CANVAS_CONFIG = { width: 5000, height: 5000 };
-
 let isDragging = false, draggedPart = null, offsetX = 0, offsetY = 0, isSnapped = false, isCtrlPressed = false;
-
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
+// ウィンドウのサイズ設定（ハードコーディング回避）
+const ZOOM_WINDOW_CONFIG = {
+    width: 250,
+    height: 100
+};
+let canvasScale = 1.0; // 100% = 1.0
+        
 /**
  * サイドバーの生成（2階層ツリー表示 / sNameのみ表示）
  */
@@ -158,9 +214,53 @@ function init() {
     canvas.height = CANVAS_CONFIG.height;
     initCanvasEvents();
     initSidebar();
+    initZoomWindow(); // これを追加
     render();
 }
 
+function initZoomWindow() {
+    const container = document.createElement('div');
+    container.id = 'zoom-window';
+    container.style.width = ZOOM_WINDOW_CONFIG.width + 'px';
+    container.style.height = ZOOM_WINDOW_CONFIG.height + 'px';
+
+    container.innerHTML = `
+        <div id="zoom-display">ズーム: 100%</div>
+        <div class="zoom-controls">
+            <button class="zoom-btn" id="zoom-out">－</button>
+            <input type="range" class="zoom-slider" id="zoom-range" min="0" max="200" value="100">
+            <button class="zoom-btn" id="zoom-plus">＋</button>
+        </div>
+        <div class="zoom-quick-btns">
+            <button class="quick-btn" data-val="50">50%</button>
+            <button class="quick-btn" data-val="100">100%</button>
+            <button class="quick-btn" data-val="150">150%</button>
+        </div>
+    `;
+    document.body.appendChild(container);
+
+    const range = document.getElementById('zoom-range');
+    const display = document.getElementById('zoom-display');
+
+    const updateZoom = (val) => {
+        canvasScale = val / 100;
+        display.textContent = `ズーム: ${val}%`;
+        range.value = val;
+        // キャンバスの見た目をCSSで拡大縮小（描画ロジックへの影響を最小限に抑える）
+        canvas.style.transformOrigin = '0 0';
+        canvas.style.transform = `scale(${canvasScale})`;
+        render();
+    };
+
+    range.oninput = (e) => updateZoom(e.target.value);
+    document.getElementById('zoom-out').onclick = () => updateZoom(Math.max(0, parseInt(range.value) - 10));
+    document.getElementById('zoom-plus').onclick = () => updateZoom(Math.min(200, parseInt(range.value) + 10));
+    
+    container.querySelectorAll('.quick-btn').forEach(btn => {
+        btn.onclick = () => updateZoom(btn.getAttribute('data-val'));
+    });
+}
+        
 /**
  * 接点取得の統合
  */
@@ -456,7 +556,7 @@ function initCanvasEvents() {
         alertBox.className = 'alert-box';
         alertBox.textContent = message;
         container.appendChild(alertBox);
-        setTimeout(() => alertBox.remove(), 10000);
+        setTimeout(() => alertBox.remove(), 5000);
     }
     
     canvas.onmousedown = (e) => {

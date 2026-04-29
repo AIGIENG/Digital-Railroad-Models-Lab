@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0245r</title>
+    <title>Railroad Models Layout Designer v.0246r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -347,8 +347,18 @@ function initZoomWindow() {
         canvasScale = val / 100;
         display.textContent = `ズーム: ${val}%`;
         range.value = val;
-        // キャンバスの見た目をCSSで拡大縮小（描画ロジックへの影響を最小限に抑える）
-        canvas.style.transformOrigin = '0 0';
+
+        // ズーム基準点の決定
+        let originX = CANVAS_CONFIG.width / 2;
+        let originY = CANVAS_CONFIG.height / 2;
+
+        if (draggedPart) {
+            originX = draggedPart.x;
+            originY = draggedPart.y;
+        }
+
+        // transform-origin を動的に変更
+        canvas.style.transformOrigin = `${originX}px ${originY}px`;
         canvas.style.transform = `scale(${canvasScale})`;
         render();
     };

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0236</title>
+    <title>Railroad Models Layout Designer v.0237</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -653,41 +653,38 @@ function drawCurveBallast(ctx, r, angle, viewWidth, isDragged, color) {
 
 // アプローチレール用インジケーター
 function drawApproachIndicator(ctx, p) {
-    const size = 12; // 見えやすくするために少し大きく
-    const offset = 1; // 端面に密着させる
+    const size = 12;
+    const offset = 2;
 
     ctx.save();
     
-    // 色の処理：sColorから濃い色を生成（未設定ならグレー）
     ctx.fillStyle = p.sColor || "#7f8c8d";
-    
     ctx.beginPath();
     
-    // 画像から、基準点が「上側レールの中心線」にあると推測。
-    // 赤丸の位置（外軌側の角）は、基準点から複線間隔の半分だけ「上（Y負）」にある。
-    // 複線間隔は p.trackPitch、カント量があれば p.cant を加味する。
-    const pitchY = (p.trackPitch) ? p.trackPitch / 2 : 23; // 未設定なら標準的な23mm
-    const cantY = (p.bIsDouble && p.cant) ? p.cant : 0; // カントがあれば足す
-    
-    // ターゲットのY座標（上側の外軌角）
-    const targetY = -(pitchY + cantY);
+    // Y方向：現在の位置よりさらに上（外軌側）へずらす
+    // 基準点が上側レール中心なら、外軌（一番上の線）はさらに上にある
+    const targetY = -((p.trackPitch || 46) / 2) - (p.cant || 0);
 
     if (p.sDirection === 'left') {
-        // 【致命的修正】左向き（始点側）のX座標は常に0（直線との接続点）
-        const targetX = 0; 
+        // X方向：画像から推測し、基準点から左へ「幅の半分」ずらして端に合わせる
+        const targetX = -(p.w / 2 || 0); 
         
-        // 頂点を (targetX - offset, targetY) に配置
         ctx.moveTo(targetX - offset, targetY);
         ctx.lineTo(targetX - offset + size, targetY - size / 2);
         ctx.lineTo(targetX - offset + size, targetY + size / 2);
-    } 
-    // ※右向き（終点側）は、半径・角度計算が必要で無理が出るため、いったんオミットします。
-    //   （不必要な変更を避けるため、leftのケースのみに集中します）
+    } else {
+        // 右向き：基準点から右へ「幅の半分」ずらして端に合わせる
+        const targetX = (p.w / 2 || 0); 
+        
+        ctx.moveTo(targetX + offset, targetY);
+        ctx.lineTo(targetX + offset - size, targetY - size / 2);
+        ctx.lineTo(targetX + offset - size, targetY + size / 2);
+    }
     
     ctx.closePath();
     ctx.fill();
 
-    // 濃く見せるために黒を重ねる（filterの代わり、低リスク）
+    // 濃い色にするためのオーバーレイ
     ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
     ctx.fill();
     

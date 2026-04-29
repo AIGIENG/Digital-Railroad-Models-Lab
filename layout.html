@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0242</title>
+    <title>Railroad Models Layout Designer v.0243</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -418,39 +418,52 @@ function initExtraPanel() {
  */
 function getConnectorPoints(p) {
     const points = [];
-    if (p.sRole === "straight") {
-        const halfLen = p.nLength / 2;
-        const offsetsY = p.bIsDouble ? [-(p.nTrackGap / 2), p.nTrackGap / 2] : [0];
-        offsetsY.forEach(oy => {
-            const right = getTransformedPoint(p.x, p.y, p.rotation, halfLen, oy);
-            points.push({ ...right, parentMaker: p.sMaker, parentGauge: p.nGauge });
+    const commonProps = { parentMaker: p.sMaker, parentGauge: p.nGauge };
 
-            const left = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, oy);
-            left.ang = (p.rotation + 180) % 360;
-            points.push({ ...left, parentMaker: p.sMaker, parentGauge: p.nGauge });
-        });
-    } else if (p.sRole === "curve") {
-        const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
-        const r = p.nRadius;
-        const offsetsR = p.bIsDouble ? [-(p.nTrackGap / 2), p.nTrackGap / 2] : [0];
+    switch (p.sRole) {
+        case "straight": {
+            const halfLen = p.nLength / 2;
+            const offsetsY = p.bIsDouble ? [-(p.nTrackGap / 2), p.nTrackGap / 2] : [0];
+            
+            offsetsY.forEach(oy => {
+                const right = getTransformedPoint(p.x, p.y, p.rotation, halfLen, oy);
+                points.push({ ...right, ...commonProps });
 
-        offsetsR.forEach(or => {
-            const currentR = r + or;
-            // 右端
-            const dx1 = Math.sin(halfAngRad) * currentR;
-            const dy1 = r - Math.cos(halfAngRad) * currentR;
-            const p1 = getTransformedPoint(p.x, p.y, p.rotation, dx1, dy1);
-            p1.ang = (p.rotation + (p.nAngle / 2)) % 360;
-            points.push({ ...p1, parentMaker: p.sMaker, parentGauge: p.nGauge });
+                const left = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, oy);
+                left.ang = (p.rotation + 180) % 360;
+                points.push({ ...left, ...commonProps });
+            });
+            break;
+        }
 
-            // 左端
-            const dx2 = Math.sin(-halfAngRad) * currentR;
-            const dy2 = r - Math.cos(-halfAngRad) * currentR;
-            const p2 = getTransformedPoint(p.x, p.y, p.rotation, dx2, dy2);
-            p2.ang = (p.rotation - (p.nAngle / 2) + 180) % 360;
-            points.push({ ...p2, parentMaker: p.sMaker, parentGauge: p.nGauge });
-        });
+        case "curve":
+        case "approach": {
+            // アプローチレールも計算式は曲線と同じため統合
+            const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
+            const r = p.nRadius;
+            const offsetsR = p.bIsDouble ? [-(p.nTrackGap / 2), p.nTrackGap / 2] : [0];
+
+            offsetsR.forEach(or => {
+                const currentR = r + or;
+                
+                // 右端
+                const dx1 = Math.sin(halfAngRad) * currentR;
+                const dy1 = r - Math.cos(halfAngRad) * currentR;
+                const p1 = getTransformedPoint(p.x, p.y, p.rotation, dx1, dy1);
+                p1.ang = (p.rotation + (p.nAngle / 2)) % 360;
+                points.push({ ...p1, ...commonProps });
+
+                // 左端
+                const dx2 = Math.sin(-halfAngRad) * currentR;
+                const dy2 = r - Math.cos(-halfAngRad) * currentR;
+                const p2 = getTransformedPoint(p.x, p.y, p.rotation, dx2, dy2);
+                p2.ang = (p.rotation - (p.nAngle / 2) + 180) % 360;
+                points.push({ ...p2, ...commonProps });
+            });
+            break;
+        }
     }
+
     return points;
 }
 

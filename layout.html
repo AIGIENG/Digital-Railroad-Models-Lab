@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0223</title>
+    <title>Railroad Models Layout Designer v.0224</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -33,7 +33,7 @@
         }
         @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
 
-        #zoom-window {
+#zoom-window {
             position: fixed;
             bottom: 20px;
             right: 20px;
@@ -44,7 +44,16 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             z-index: 1100;
             user-select: none;
+            /* 追加：初期状態を30%の透明度にし、変化を滑らかにする */
+            opacity: 0.3;
+            transition: opacity 0.2s ease;
         }
+
+        /* 追加：マウスがウインドウに乗った時に不透明にする */
+        #zoom-window:hover {
+            opacity: 1.0;
+        }
+
         .zoom-controls {
             display: flex;
             align-items: center;

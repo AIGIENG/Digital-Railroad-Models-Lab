@@ -238,6 +238,28 @@ const railData = {
         sComment: "V1/V3付属電動ポイント",
         sExtra: ""
     },
+
+    // --- 6番ポイント (右) ---
+    "KATO_EP718-15L": {
+        sName: "電動ポイント6番(左) EP718-18R",
+        sProductCode: "20-203",
+        sMaker: "KATO",
+        sSeries: "UNITRACK",
+        sRole: "point",
+        nLength: 186,
+        nRadius: 718,
+        nAngle: 15,
+        bIsDouble: false,
+        nTrackGap: 0,
+        junctionCount: 3,
+        sDirection: "right",  // 右方向にカーブが始まるポイント
+        nViewWidth: 25,
+        nHeight: 0,
+        nGauge: 9,
+        sColor: "Green",
+        sComment: "V1/V3付属電動ポイント",
+        sExtra: ""
+    },
  
     // TOMIX(N)
     // --- 直線レール ---

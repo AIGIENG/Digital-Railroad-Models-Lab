@@ -240,7 +240,7 @@ const railData = {
     },
 
     // --- 6番ポイント (右) ---
-    "KATO_EP718-15L": {
+    "KATO_EP718-15R": {
         sName: "電動ポイント6番(右) EP718-15R",
         sProductCode: "20-203",
         sMaker: "KATO",

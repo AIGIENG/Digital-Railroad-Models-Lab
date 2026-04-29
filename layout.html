@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0247r5</title>
+    <title>Railroad Models Layout Designer v.0244r2</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -347,12 +347,11 @@ function initZoomWindow() {
         canvasScale = val / 100;
         display.textContent = `ズーム: ${val}%`;
         range.value = val;
-        render(); 
+        // キャンバスの見た目をCSSで拡大縮小（描画ロジックへの影響を最小限に抑える）
+        canvas.style.transformOrigin = '0 0';
+        canvas.style.transform = `scale(${canvasScale})`;
+        render();
     };
-
-    // キャンバス側のスタイル初期化
-    canvas.style.transformOrigin = '0 0';
-    canvas.style.transform = '';
 
     range.oninput = (e) => updateZoom(e.target.value);
     document.getElementById('zoom-out').onclick = () => updateZoom(Math.max(5, parseInt(range.value) - 5));
@@ -360,6 +359,57 @@ function initZoomWindow() {
     
     container.querySelectorAll('.quick-btn').forEach(btn => {
         btn.onclick = () => updateZoom(btn.getAttribute('data-val'));
+    });
+}
+
+function initExtraPanel() {
+    const container = document.createElement('div');
+    container.id = 'extra-panel';
+    container.style.width = EXTRA_PANEL_CONFIG.width + 'px';
+    container.style.height = EXTRA_PANEL_CONFIG.height + 'px';
+    container.style.bottom = EXTRA_PANEL_CONFIG.bottom + 'px';
+
+    // タブの生成
+    const tabContainer = document.createElement('div');
+    tabContainer.className = 'panel-tabs';
+    tabContainer.innerHTML = `
+        <div class="panel-tab active" id="tab-edit">編集</div>
+        <div class="panel-tab" id="tab-sys">システム</div>
+    `;
+    container.appendChild(tabContainer);
+
+    // ボタン群の生成用関数
+    const createGroup = (id, prefix, isActive) => {
+        const group = document.createElement('div');
+        group.id = id;
+        group.className = 'button-group' + (isActive ? ' active' : '');
+        for (let i = 1; i <= 12; i++) {
+            const btn = document.createElement('div');
+            btn.className = 'dummy-btn';
+            btn.textContent = `${prefix}-${i.toString().padStart(2, '0')}`;
+            group.appendChild(btn);
+        }
+        return group;
+    };
+
+    const editGroup = createGroup('group-edit', 'EDIT', true);
+    const sysGroup = createGroup('group-sys', 'SYS', false);
+    container.appendChild(editGroup);
+    container.appendChild(sysGroup);
+
+    document.body.appendChild(container);
+
+    // 切り替えイベント
+    const tabs = container.querySelectorAll('.panel-tab');
+    tabs.forEach(tab => {
+        tab.onclick = () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            const isEdit = tab.id === 'tab-edit';
+            editGroup.classList.toggle('active', isEdit);
+            sysGroup.classList.toggle('active', !isEdit);
+        };
     });
 }
         
@@ -454,30 +504,8 @@ function getConnectorPoints(p) {
 }
 
 function render() {
-    ctx.save();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // ズーム基準点の決定（キャンバスの表示領域の中心を基準にするための計算）
-    const viewCenterX = window.innerWidth / 2;
-    const viewCenterY = window.innerHeight / 2;
-    
-    let targetX = CANVAS_CONFIG.width / 2;
-    let targetY = CANVAS_CONFIG.height / 2;
-
-    if (draggedPart) {
-        targetX = draggedPart.x;
-        targetY = draggedPart.y;
-    }
-
-    // 1. 画面中央に基準点を配置するための平行移動
-    ctx.translate(viewCenterX, viewCenterY);
-    // 2. ズーム適用
-    ctx.scale(canvasScale, canvasScale);
-    // 3. 対象パーツ（または中央）が中央に来るように逆移動
-    ctx.translate(-targetX, -targetY);
-
     layers.rail.forEach(part => drawPart(ctx, part));
-    ctx.restore();
 }
 
 // パーツ描画（ここから描くべきバーツを分岐）
@@ -854,12 +882,11 @@ function initCanvasEvents() {
     
     canvas.onmousedown = (e) => {
         const rect = canvas.getBoundingClientRect();
-        // ズーム倍率を考慮した論理座標への変換
-        const mx = (e.clientX - rect.left) / canvasScale;
-        const my = (e.clientY - rect.top) / canvasScale;
-    
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
         const target = [...layers.rail].reverse().find(p => isPointInPart(mx, my, p));
-    
+
         if (target) {
             isDragging = true;
             draggedPart = target;
@@ -875,14 +902,11 @@ function initCanvasEvents() {
     canvas.onmousemove = (e) => {
         if (!isDragging || !draggedPart) return;
         const rect = canvas.getBoundingClientRect();
-        // ズーム倍率を考慮した論理座標への変換
-        const mx = (e.clientX - rect.left) / canvasScale;
-        const my = (e.clientY - rect.top) / canvasScale;
-    
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
         const basePosX = mx - offsetX;
         const basePosY = my - offsetY;
-    
-        // 以降の吸着判定ロジックは変更なし
 
         draggedPart.x = basePosX;
         draggedPart.y = basePosY;

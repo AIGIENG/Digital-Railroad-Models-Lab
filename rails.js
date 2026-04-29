@@ -229,7 +229,7 @@ const railData = {
         nAngle: 15,
         bIsDouble: false,
         nTrackGap: 0,
-        junctionCount: 4,
+        junctionCount: 3,
         sDirection: "left",  // 左方向にカーブが始まるポイント
         nViewWidth: 25,
         nHeight: 0,

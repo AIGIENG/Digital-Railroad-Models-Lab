@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0219a</title>
+    <title>Railroad Models Layout Designer v.0220</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -13,6 +13,26 @@
         .rail-item:hover { background: #1abc9c; }
         #main { flex: 1; background: #ecf0f1; position: relative; overflow: auto; }
         #canvas { background: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); display: block; margin: 50px; }
+
+        #alert-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .alert-box {
+            background: rgba(255, 0, 0, 0.1);
+            color: #ff0000;
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            margin-top: 5px;
+            pointer-events: none;
+            animation: fadeOut 1s forwards 9s;
+        }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+        
     </style>
 </head>
 <body>
@@ -150,10 +170,12 @@ function getConnectorPoints(p) {
         const halfLen = p.nLength / 2;
         const offsetsY = p.bIsDouble ? [-(p.nTrackGap / 2), p.nTrackGap / 2] : [0];
         offsetsY.forEach(oy => {
-            points.push(getTransformedPoint(p.x, p.y, p.rotation, halfLen, oy));
+            const right = getTransformedPoint(p.x, p.y, p.rotation, halfLen, oy);
+            points.push({ ...right, parentMaker: p.sMaker, parentGauge: p.nGauge });
+
             const left = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, oy);
             left.ang = (p.rotation + 180) % 360;
-            points.push(left);
+            points.push({ ...left, parentMaker: p.sMaker, parentGauge: p.nGauge });
         });
     } else if (p.sRole === "curve") {
         const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
@@ -167,14 +189,14 @@ function getConnectorPoints(p) {
             const dy1 = r - Math.cos(halfAngRad) * currentR;
             const p1 = getTransformedPoint(p.x, p.y, p.rotation, dx1, dy1);
             p1.ang = (p.rotation + (p.nAngle / 2)) % 360;
-            points.push(p1);
+            points.push({ ...p1, parentMaker: p.sMaker, parentGauge: p.nGauge });
 
             // 左端
             const dx2 = Math.sin(-halfAngRad) * currentR;
             const dy2 = r - Math.cos(-halfAngRad) * currentR;
             const p2 = getTransformedPoint(p.x, p.y, p.rotation, dx2, dy2);
             p2.ang = (p.rotation - (p.nAngle / 2) + 180) % 360;
-            points.push(p2);
+            points.push({ ...p2, parentMaker: p.sMaker, parentGauge: p.nGauge });
         });
     }
     return points;
@@ -423,6 +445,20 @@ function initCanvasEvents() {
         }
     };
 
+    function showWarning(message) {
+        let container = document.getElementById('alert-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'alert-container';
+            document.body.appendChild(container);
+        }
+        const alertBox = document.createElement('div');
+        alertBox.className = 'alert-box';
+        alertBox.textContent = message;
+        container.appendChild(alertBox);
+        setTimeout(() => alertBox.remove(), 10000);
+    }
+    
     canvas.onmousedown = (e) => {
         const rect = canvas.getBoundingClientRect();
         const mx = e.clientX - rect.left;
@@ -444,7 +480,7 @@ function initCanvasEvents() {
         render();
     };
 
-    canvas.onmousemove = (e) => {
+canvas.onmousemove = (e) => {
         if (!isDragging || !draggedPart) return;
         const rect = canvas.getBoundingClientRect();
         const mx = e.clientX - rect.left;
@@ -472,6 +508,63 @@ function initCanvasEvents() {
                 });
             });
         });
+
+        if (targetP) {
+            // --- 接続可能性チェック ---
+            const sMaker1 = draggedPart.sMaker;
+            const sMaker2 = targetP.parentMaker;
+            const nGauge1 = draggedPart.nGauge;
+            const nGauge2 = targetP.parentGauge;
+
+            const isMakerMatch = (sMaker1 === sMaker2 || sMaker1 === "universal" || sMaker2 === "universal");
+            const isGaugeMatch = (nGauge1 === nGauge2 || nGauge1 === "universal" || nGauge2 === "universal");
+
+            // ゲージ不一致を優先判定
+            if (!isGaugeMatch) {
+                if (!isSnapped) {
+                    showWarning(`ゲージが異なるため接続できません (${nGauge1} / ${nGauge2})`);
+                    isSnapped = true; // 警告重複表示防止
+                }
+                render();
+                return; // 吸着（座標書き換え）をせずに終了
+            }
+
+            // メーカー不一致の判定
+            if (!isMakerMatch) {
+                if (!isSnapped) {
+                    showWarning(`メーカーが異なるため接続できません (${sMaker1} / ${sMaker2})`);
+                    isSnapped = true; // 警告重複表示防止
+                }
+                render();
+                return; // 吸着（座標書き換え）をせずに終了
+            }
+
+            // --- 全て一致する場合のみ以下吸着処理 ---
+            const targetAng = (targetP.ang + 180) % 360;
+
+            if (draggedPart.sRole === "curve") {
+                const myPointAng = myPoints[myIdx].ang;
+                const angleDiff = (myPointAng - draggedPart.rotation + 360) % 360;
+                draggedPart.rotation = (targetAng - angleDiff + 360) % 360;
+            } else {
+                draggedPart.rotation = (targetAng - (myIdx % 2 === 0 ? 0 : 180) + 360) % 360;
+            }
+
+            const currentPoints = getConnectorPoints(draggedPart);
+            draggedPart.x += (targetP.x - currentPoints[myIdx].x);
+            draggedPart.y += (targetP.y - currentPoints[myIdx].y);
+
+            if (!isSnapped) {
+                offsetX = mx - draggedPart.x;
+                offsetY = my - draggedPart.y;
+                isSnapped = true; 
+            }
+        } else {
+            // 圏外に出た場合はフラグをリセット
+            isSnapped = false;
+        }
+        render();
+    };
 
         if (targetP) {
             // --- 吸着圏内：座標と角度をターゲットに合わせる ---

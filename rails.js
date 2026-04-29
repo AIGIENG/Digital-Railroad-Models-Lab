@@ -219,7 +219,7 @@ const railData = {
  
     // --- 6番ポイント (左) ---
     "KATO_EP718-15L": {
-        sName: "電動ポイント6番(左) EP718-18L",
+        sName: "電動ポイント6番(左) EP718-15L",
         sProductCode: "20-202",
         sMaker: "KATO",
         sSeries: "UNITRACK",
@@ -241,7 +241,7 @@ const railData = {
 
     // --- 6番ポイント (右) ---
     "KATO_EP718-15L": {
-        sName: "電動ポイント6番(右) EP718-18R",
+        sName: "電動ポイント6番(右) EP718-15R",
         sProductCode: "20-203",
         sMaker: "KATO",
         sSeries: "UNITRACK",

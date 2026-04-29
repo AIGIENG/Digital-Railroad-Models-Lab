@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0249</title>
+    <title>Railroad Models Layout Designer v.0250</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -656,89 +656,70 @@ function drawCurveRail(ctx, r, angle, gauge, color) {
 }
 
 /**
- * 単線ポイントの描画
- */
-/**
- * 単線ポイントの描画（道床一体化版）
+ * 単線ポイントの描画（ポイント対応）
  */
 function drawSinglePointPart(ctx, p) {
     const halfLen = p.nLength / 2;
     const r = p.nRadius;
     const angRad = p.nAngle * Math.PI / 180;
-    const viewW = p.nViewWidth || 25; // 道床幅
-
+    const viewW = p.nViewWidth || 25;
     const isLeft = (p.sDirection === "left");
     const isRight = (p.sDirection === "right");
     const isY = (p.sDirection === "y");
     const isThree = (p.sDirection === "three");
 
-    ctx.save();
-
-    // --- 1. 道床（バラスト）の一体化描画 ---
-    ctx.strokeStyle = "#dcdde1"; // 既存の道床色
-    ctx.lineWidth = viewW;
-    ctx.lineCap = "butt";
-
-    // 一体化のためのコンポジット設定
-    // これにより、以降の描画が既存の描画と「合体」し、重なり目が消える
-    ctx.globalCompositeOperation = "source-over"; // デフォルトだが、明示
-
-    // 道床：直線
-    if (!isY) {
-        ctx.beginPath();
-        ctx.moveTo(-halfLen, 0);
-        ctx.lineTo(halfLen, 0);
-        ctx.stroke();
-    }
-
     let branches = [];
     if (isLeft || isY || isThree) branches.push(-1);
     if (isRight || isY || isThree) branches.push(1);
 
-    // 道床：曲線
-    branches.forEach(dir => {
-        ctx.save();
-        // 重なり目を消す設定。すでに描画された直線道床と一体化させる。
-        ctx.globalCompositeOperation = "destination-over"; // 直線の下に描く（またはsource-overで同色を重ねる）
+    ctx.save();
+    ctx.lineCap = "butt";
+    ctx.lineJoin = "round";
 
+    // --- 1. 道床（バラスト）を一筆書きで描画 ---
+    // ここで stroke() を分けないことが、重なり目を消す唯一の解決策です
+    ctx.beginPath();
+    ctx.strokeStyle = "#dcdde1"; // 道床の色
+    ctx.lineWidth = viewW;
+
+    // 直線パス
+    if (!isY) {
+        ctx.moveTo(-halfLen, 0);
+        ctx.lineTo(halfLen, 0);
+    }
+
+    // 曲線パスを同じ beginPath 内で追加
+    branches.forEach(dir => {
         const centerY = r * dir;
-        ctx.translate(-halfLen, centerY);
         const startAngle = (dir === -1) ? Math.PI / 2 : -Math.PI / 2;
         const endAngle = startAngle + (angRad * dir);
-        ctx.beginPath();
-        ctx.arc(0, 0, r, startAngle, endAngle, (dir === -1));
-        ctx.stroke();
-        ctx.restore();
+        
+        // 中心点座標を計算して arc を追加
+        // ctx.moveTo は不要。arc 自体がパスを繋ぐか、新しいサブパスを作ります
+        ctx.arc(-halfLen, centerY, r, startAngle, endAngle, (dir === -1));
     });
+    
+    // ここで一度だけ描画。これで内部の重なり目が消えます
+    ctx.stroke();
 
-    // 設定を元に戻す
-    ctx.globalCompositeOperation = "source-over";
-
-    // --- 2. レール（鉄路）の描画 ---
-    // レールは道床の上に重ねるため、通常モードで描画
+    // --- 2. レール（鉄路）を描画 ---
+    ctx.beginPath();
     ctx.strokeStyle = p.sColor || "#7f8c8d";
     ctx.lineWidth = 2;
 
-    // レール：直線
     if (!isY) {
-        ctx.beginPath();
         ctx.moveTo(-halfLen, 0);
         ctx.lineTo(halfLen, 0);
-        ctx.stroke();
     }
 
-    // レール：曲線
     branches.forEach(dir => {
-        ctx.save();
         const centerY = r * dir;
-        ctx.translate(-halfLen, centerY);
         const startAngle = (dir === -1) ? Math.PI / 2 : -Math.PI / 2;
         const endAngle = startAngle + (angRad * dir);
-        ctx.beginPath();
-        ctx.arc(0, 0, r, startAngle, endAngle, (dir === -1));
-        ctx.stroke();
-        ctx.restore();
+        ctx.arc(-halfLen, centerY, r, startAngle, endAngle, (dir === -1));
     });
+
+    ctx.stroke();
 
     ctx.restore();
 }

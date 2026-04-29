@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0220</title>
+    <title>Railroad Models Layout Designer v.0221</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -464,38 +464,33 @@ function initCanvasEvents() {
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
 
-        // 背面にあるパーツから先に判定されないよう、配列を逆順に検索
         const target = [...layers.rail].reverse().find(p => isPointInPart(mx, my, p));
 
         if (target) {
             isDragging = true;
-            draggedPart = target; // 選択状態にする
+            draggedPart = target;
             offsetX = mx - target.x;
             offsetY = my - target.y;
         } else {
-            // 何もないところをクリックしたら選択解除
             draggedPart = null;
             isDragging = false;
         }
         render();
     };
 
-canvas.onmousemove = (e) => {
+    canvas.onmousemove = (e) => {
         if (!isDragging || !draggedPart) return;
         const rect = canvas.getBoundingClientRect();
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
 
-        // 1. 【本来の位置】を計算（マウスに追従するベース座標）
         const basePosX = mx - offsetX;
         const basePosY = my - offsetY;
 
-        // 判定用に一旦、本来の位置へ仮置きする
         draggedPart.x = basePosX;
         draggedPart.y = basePosY;
 
         let minD = 20, targetP = null, myIdx = -1;
-        // 本来の位置における接点を取得して、近くに他の接点があるか探す
         const myPoints = getConnectorPoints(draggedPart);
 
         layers.rail.forEach(t => {
@@ -510,7 +505,6 @@ canvas.onmousemove = (e) => {
         });
 
         if (targetP) {
-            // --- 接続可能性チェック ---
             const sMaker1 = draggedPart.sMaker;
             const sMaker2 = targetP.parentMaker;
             const nGauge1 = draggedPart.nGauge;
@@ -519,27 +513,24 @@ canvas.onmousemove = (e) => {
             const isMakerMatch = (sMaker1 === sMaker2 || sMaker1 === "universal" || sMaker2 === "universal");
             const isGaugeMatch = (nGauge1 === nGauge2 || nGauge1 === "universal" || nGauge2 === "universal");
 
-            // ゲージ不一致を優先判定
             if (!isGaugeMatch) {
                 if (!isSnapped) {
                     showWarning(`ゲージが異なるため接続できません (${nGauge1} / ${nGauge2})`);
-                    isSnapped = true; // 警告重複表示防止
+                    isSnapped = true;
                 }
                 render();
-                return; // 吸着（座標書き換え）をせずに終了
+                return;
             }
 
-            // メーカー不一致の判定
             if (!isMakerMatch) {
                 if (!isSnapped) {
                     showWarning(`メーカーが異なるため接続できません (${sMaker1} / ${sMaker2})`);
-                    isSnapped = true; // 警告重複表示防止
+                    isSnapped = true;
                 }
                 render();
-                return; // 吸着（座標書き換え）をせずに終了
+                return;
             }
 
-            // --- 全て一致する場合のみ以下吸着処理 ---
             const targetAng = (targetP.ang + 180) % 360;
 
             if (draggedPart.sRole === "curve") {
@@ -560,44 +551,11 @@ canvas.onmousemove = (e) => {
                 isSnapped = true; 
             }
         } else {
-            // 圏外に出た場合はフラグをリセット
             isSnapped = false;
         }
         render();
     };
 
-        if (targetP) {
-            // --- 吸着圏内：座標と角度をターゲットに合わせる ---
-            const targetAng = (targetP.ang + 180) % 360;
-
-            if (draggedPart.sRole === "curve") {
-                // 1. 曲線レール専用：接点の相対角度を動的に取得して rotation を逆算
-                // 現在の角度におけるその接点の向きと、パーツの向きの差分を求める
-                const myPoints = getConnectorPoints(draggedPart);
-                const myPointAng = myPoints[myIdx].ang;
-                const angleDiff = (myPointAng - draggedPart.rotation + 360) % 360;
-                
-                draggedPart.rotation = (targetAng - angleDiff + 360) % 360;
-            } else {
-                // 2. 直線レール：
-                draggedPart.rotation = (targetAng - (myIdx % 2 === 0 ? 0 : 180) + 360) % 360;
-            }
-
-            // 座標合わせのロジックは全パーツ共通のため維持
-            const currentPoints = getConnectorPoints(draggedPart);
-            draggedPart.x += (targetP.x - currentPoints[myIdx].x);
-            draggedPart.y += (targetP.y - currentPoints[myIdx].y);
-
-            if (!isSnapped) {
-                offsetX = mx - draggedPart.x;
-                offsetY = my - draggedPart.y;
-                isSnapped = true; 
-            }
-        } else { 
-            isSnapped = false; 
-        }
-        render();
-    };
     window.onmouseup = () => { 
         isDragging = false; 
         render(); 

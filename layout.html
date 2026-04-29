@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0230</title>
+    <title>Railroad Models Layout Designer v.0231</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -485,9 +485,13 @@ function drawPart(ctx, p) {
 
         // アプローチレールの描画を追加
         case "approach":
-            // 基本は複線曲線と同じ描画を流用
-            drawDoubleCurvePart(ctx, p);
-            // 接続方向を示す三角インジケーターを描画
+            // 既存の複線曲線描画を流用
+            if (p.bIsDouble) {
+                drawDoubleCurvePart(ctx, p);
+            } else {
+                drawSingleCurvePart(ctx, p);
+            }
+            // インジケーターの描画（描画順を最後に）
             drawApproachIndicator(ctx, p);
             break;
     }
@@ -651,28 +655,35 @@ function drawCurveBallast(ctx, r, angle, viewWidth, isDragged, color) {
 }
 
 function drawApproachIndicator(ctx, p) {
-    const size = 6;     // 三角形の大きさ
-    const offset = 2;    // 端面からの微調整距離
+    const size = 10;     // 視認性を上げるため少しサイズアップ
+    const offset = 5;    // 端面からの距離
     
+    ctx.save();
+    
+    // レール色（sColor）をベースに、より濃い（暗い）色を生成
+    // ※単純な実装として、少し暗くするフィルタをかけるか、色を上書きします
+    ctx.fillStyle = p.sColor || "#ccc"; 
+    ctx.filter = "brightness(0.6)"; // 色を40%暗くして「同系統の濃い色」にする
+
     ctx.beginPath();
     
+    // アプローチレールの向き判定
     if (p.sDirection === 'left') {
-        // 左側の端面に、左向きの三角
-        // 座標(0, h/2)が左端の基準
+        // 左側の接続端面（x=0）の外側に左向き三角
         ctx.moveTo(-offset, p.h / 2);
         ctx.lineTo(-offset + size, p.h / 2 - size / 2);
         ctx.lineTo(-offset + size, p.h / 2 + size / 2);
-    } else {
-        // 右側の端面に、右向きの三角
-        // 座標(w, h/2)が右端の基準
+    } else if (p.sDirection === 'right') {
+        // 右側の接続端面（x=p.w）の外側に右向き三角
         ctx.moveTo(p.w + offset, p.h / 2);
         ctx.lineTo(p.w + offset - size, p.h / 2 - size / 2);
         ctx.lineTo(p.w + offset - size, p.h / 2 + size / 2);
     }
     
     ctx.closePath();
-    ctx.fillStyle = "#f1c40f"; // 視認性の良い黄色
     ctx.fill();
+    
+    ctx.restore();
 }
         
 function isPointInPart(mouseX, mouseY, p) {

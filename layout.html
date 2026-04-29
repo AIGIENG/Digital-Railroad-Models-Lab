@@ -347,8 +347,18 @@ function initZoomWindow() {
         canvasScale = val / 100;
         display.textContent = `ズーム: ${val}%`;
         range.value = val;
-        // キャンバスの見た目をCSSで拡大縮小（描画ロジックへの影響を最小限に抑える）
-        canvas.style.transformOrigin = '0 0';
+
+        // ズーム基準点の決定
+        let originX = CANVAS_CONFIG.width / 2;
+        let originY = CANVAS_CONFIG.height / 2;
+
+        if (draggedPart) {
+            originX = draggedPart.x;
+            originY = draggedPart.y;
+        }
+
+        // CSSによるズーム制御
+        canvas.style.transformOrigin = `${originX}px ${originY}px`;
         canvas.style.transform = `scale(${canvasScale})`;
         render();
     };
@@ -882,11 +892,12 @@ function initCanvasEvents() {
     
     canvas.onmousedown = (e) => {
         const rect = canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
-
+        // ズーム倍率を考慮して論理座標に変換
+        const mx = (e.clientX - rect.left) / canvasScale;
+        const my = (e.clientY - rect.top) / canvasScale;
+    
         const target = [...layers.rail].reverse().find(p => isPointInPart(mx, my, p));
-
+    
         if (target) {
             isDragging = true;
             draggedPart = target;
@@ -902,9 +913,10 @@ function initCanvasEvents() {
     canvas.onmousemove = (e) => {
         if (!isDragging || !draggedPart) return;
         const rect = canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
-
+        // ズーム倍率を考慮して論理座標に変換
+        const mx = (e.clientX - rect.left) / canvasScale;
+        const my = (e.clientY - rect.top) / canvasScale;
+    
         const basePosX = mx - offsetX;
         const basePosY = my - offsetY;
 

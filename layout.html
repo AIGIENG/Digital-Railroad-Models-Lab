@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0246r</title>
+    <title>Railroad Models Layout Designer v.0247r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -347,19 +347,12 @@ function initZoomWindow() {
         canvasScale = val / 100;
         display.textContent = `ズーム: ${val}%`;
         range.value = val;
-
-        // ズーム基準点の決定
-        let originX = CANVAS_CONFIG.width / 2;
-        let originY = CANVAS_CONFIG.height / 2;
-
-        if (draggedPart) {
-            originX = draggedPart.x;
-            originY = draggedPart.y;
-        }
+        render(); // 再描画時に座標変換を適用
+    };
 
         // transform-origin を動的に変更
-        canvas.style.transformOrigin = `${originX}px ${originY}px`;
-        canvas.style.transform = `scale(${canvasScale})`;
+        canvas.style.transformOrigin = '0 0'; // 左上固定
+        canvas.style.transform = ''; // CSSズームは使用しない
         render();
     };
 
@@ -514,8 +507,30 @@ function getConnectorPoints(p) {
 }
 
 function render() {
+    ctx.save();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // ズーム基準点の決定（キャンバスの表示領域の中心を基準にするための計算）
+    const viewCenterX = window.innerWidth / 2;
+    const viewCenterY = window.innerHeight / 2;
+    
+    let targetX = CANVAS_CONFIG.width / 2;
+    let targetY = CANVAS_CONFIG.height / 2;
+
+    if (draggedPart) {
+        targetX = draggedPart.x;
+        targetY = draggedPart.y;
+    }
+
+    // 1. 画面中央に基準点を配置するための平行移動
+    ctx.translate(viewCenterX, viewCenterY);
+    // 2. ズーム適用
+    ctx.scale(canvasScale, canvasScale);
+    // 3. 対象パーツ（または中央）が中央に来るように逆移動
+    ctx.translate(-targetX, -targetY);
+
     layers.rail.forEach(part => drawPart(ctx, part));
+    ctx.restore();
 }
 
 // パーツ描画（ここから描くべきバーツを分岐）

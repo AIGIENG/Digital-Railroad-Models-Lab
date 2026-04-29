@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0226</title>
+    <title>Railroad Models Layout Designer v.0227</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -101,43 +101,47 @@
             margin-bottom: 2px; /* 5pxから2pxに詰め */
         }
 
+        /* コマンドパネル */
         #extra-panel {
             position: fixed;
-            bottom: 20px;
-            left: 270px; /* サイドバー(250px)の右隣に配置 */
+            /* ズームパネルの上に配置 */
+            bottom: 130px; 
+            right: 20px;
             background: rgba(44, 62, 80, 0.9);
             color: white;
-            padding: 10px;
+            padding: 8px;
             border-radius: 8px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             z-index: 1100;
             user-select: none;
             
-            /* ズーム窓と同様の半透明設定 */
             opacity: 0.3;
             transition: opacity 0.2s ease;
 
+            /* スクロールバーを絶対に出さない設定 */
             display: flex;
             flex-direction: column;
-            gap: 8px; /* ボタン間の隙間 */
-            overflow-y: auto; /* 万が一高さが足りない場合のスクロール */
+            gap: 4px; 
+            overflow: hidden; 
         }
 
-        /* コマンドパネル */
         #extra-panel:hover {
             opacity: 1.0;
         }
 
         .dummy-btn {
             width: 100%;
+            /* 親の高さに合わせてボタンの高さを自動調整 */
+            flex: 1; 
             background: #34495e;
             border: 1px solid #7f8c8d;
             color: #bdc3c7;
-            padding: 8px 0;
             border-radius: 4px;
-            cursor: not-allowed; /* 現時点では機能しないことを示す */
-            font-size: 12px;
-            text-align: center;
+            cursor: not-allowed;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
     </style>
@@ -169,8 +173,9 @@ let canvasScale = 1.0; // 100% = 1.0
 
 // 拡張パネルのサイズ設定
 const EXTRA_PANEL_CONFIG = {
-    width: 120,   // ボタンを横長にするため、幅を確保
-    height: 450   // 12個並べるための高さ
+    width: 150,   // ボタンを横長に使いやすくするため少し広めに
+    height: 400,  // 12個並べるための高さ
+    bottom: 130   // ズームパネル（約100px）の上に重ならないよう配置
 };
         
 /**
@@ -328,8 +333,9 @@ function initExtraPanel() {
     container.id = 'extra-panel';
     container.style.width = EXTRA_PANEL_CONFIG.width + 'px';
     container.style.height = EXTRA_PANEL_CONFIG.height + 'px';
+    // 下からの位置を動的に指定
+    container.style.bottom = EXTRA_PANEL_CONFIG.bottom + 'px';
 
-    // 12個のダミーボタンを生成
     for (let i = 1; i <= 12; i++) {
         const btn = document.createElement('div');
         btn.className = 'dummy-btn';

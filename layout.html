@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0238</title>
+    <title>Railroad Models Layout Designer v.0239</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -658,26 +658,25 @@ function drawApproachIndicator(ctx, p) {
 
     ctx.save();
     
-    // 同系統の濃い色にする設定
     ctx.fillStyle = p.sColor || "#7f8c8d";
-    
     ctx.beginPath();
     
-    // 1本目のレールの中心線（吸着点）のY座標
-    // 原点(0,0)がレールの中心線にある前提で、Y=0を基準にします
+    // Y方向は現在の位置（中心）を維持
     const targetY = 0; 
 
+    // 三角が向いている方向（sDirection）へ、幅の半分だけ寄せる
+    const halfW = (p.w || 0) / 2;
+
     if (p.sDirection === 'left') {
-        // 左側の吸着点は (0, 0)
-        const targetX = 0; 
+        // 左端へ寄せる
+        const targetX = -halfW; 
         
         ctx.moveTo(targetX - offset, targetY);
         ctx.lineTo(targetX - offset + size, targetY - size / 2);
         ctx.lineTo(targetX - offset + size, targetY + size / 2);
     } else {
-        // 右側の吸着点は (p.w, 0)
-        // p.wが期待通りでない場合の予備として、パーツのバウンディングボックス幅を使用
-        const targetX = (p.w && p.w !== 0) ? p.w : 0;
+        // 右端へ寄せる
+        const targetX = halfW; 
         
         ctx.moveTo(targetX + offset, targetY);
         ctx.lineTo(targetX + offset - size, targetY - size / 2);
@@ -687,7 +686,7 @@ function drawApproachIndicator(ctx, p) {
     ctx.closePath();
     ctx.fill();
 
-    // 濃く見せるために黒を40%重ねる
+    // 濃く見せるためのオーバーレイ
     ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
     ctx.fill();
     

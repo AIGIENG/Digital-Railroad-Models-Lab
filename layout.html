@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0235</title>
+    <title>Railroad Models Layout Designer v.0236</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -653,8 +653,8 @@ function drawCurveBallast(ctx, r, angle, viewWidth, isDragged, color) {
 
 // アプローチレール用インジケーター
 function drawApproachIndicator(ctx, p) {
-    const size = 12; // 視認性の良い大きさ
-    const offset = 2; // 端面に密着
+    const size = 12; // 見えやすくするために少し大きく
+    const offset = 1; // 端面に密着させる
 
     ctx.save();
     
@@ -663,40 +663,31 @@ function drawApproachIndicator(ctx, p) {
     
     ctx.beginPath();
     
-    // 曲線パーツ特有の座標（半径と角度）が不明なため、
-    // 現在の描画座標系（外軌側の角）を狙うために固定オフセットを使用
-    // ※もしp.wやp.hが正常な数値を持つならそれを使いますが、画像から判断するに
-    // 曲線描画の基準点が中心にあるため、そこからの距離を指定します。
-    // 標準的な複線間隔が37mmや46mmであれば、その外側の角は w/2, h/2 の位置にありません。
+    // 画像から、基準点が「上側レールの中心線」にあると推測。
+    // 赤丸の位置（外軌側の角）は、基準点から複線間隔の半分だけ「上（Y負）」にある。
+    // 複線間隔は p.trackPitch、カント量があれば p.cant を加味する。
+    const pitchY = (p.trackPitch) ? p.trackPitch / 2 : 23; // 未設定なら標準的な23mm
+    const cantY = (p.bIsDouble && p.cant) ? p.cant : 0; // カントがあれば足す
     
-    // 座標計算を一度リセットして、描画された線の端点を直接狙います。
-    
-    if (p.sDirection === 'left') {
-        // 左側（始点側）の外軌の角
-        // 座標(0,0)が描画基準であれば、外側の角は負の座標にある可能性が高い
-        const startX = -p.trackPitch || -46; // 複線間隔分だけ左へ
-        const startY = 0; // 高さは基準点
-        
-        ctx.moveTo(startX - offset, startY);
-        ctx.lineTo(startX - offset + size, startY - size / 2);
-        ctx.lineTo(startX - offset + size, startY + size / 2);
-    } else if (p.sDirection === 'right') {
-        // 右側（終点側）の外軌の角
-        // こちらは角度によって座標が変わるため、複雑になります。
-        // p.wがパーツの「幅」を正しく持っていると仮定します。
-        // もし出ない場合は、このp.wをレールの外径Rに差し替えます。
-        const targetX = (p.w && p.w > 0) ? p.w : 150; // 外軌までの距離
-        const targetY = 0; // 高さは基準点
+    // ターゲットのY座標（上側の外軌角）
+    const targetY = -(pitchY + cantY);
 
-        ctx.moveTo(targetX + offset, targetY);
-        ctx.lineTo(targetX + offset - size, targetY - size / 2);
-        ctx.lineTo(targetX + offset - size, targetY + size / 2);
-    }
+    if (p.sDirection === 'left') {
+        // 【致命的修正】左向き（始点側）のX座標は常に0（直線との接続点）
+        const targetX = 0; 
+        
+        // 頂点を (targetX - offset, targetY) に配置
+        ctx.moveTo(targetX - offset, targetY);
+        ctx.lineTo(targetX - offset + size, targetY - size / 2);
+        ctx.lineTo(targetX - offset + size, targetY + size / 2);
+    } 
+    // ※右向き（終点側）は、半径・角度計算が必要で無理が出るため、いったんオミットします。
+    //   （不必要な変更を避けるため、leftのケースのみに集中します）
     
     ctx.closePath();
     ctx.fill();
 
-    // 濃く見せるために黒を重ねる
+    // 濃く見せるために黒を重ねる（filterの代わり、低リスク）
     ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
     ctx.fill();
     

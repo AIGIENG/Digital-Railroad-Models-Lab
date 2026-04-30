@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0258r</title>
+    <title>Railroad Models Layout Designer v.0259r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -691,13 +691,13 @@ function drawSinglePointPart(ctx, p) {
         // 1. 直線の左端(接続点)へ移動
         ctx.translate(-halfLen, 0);
 
-        // 2. 回転補正：円弧の端の接線を水平(0度)にする
-        // Y字分岐ならそのまま、片開きなら水平から始まるよう角度の半分を回す
+        // 2. 回転補正
+        // 左(scale反転あり)と右(反転なし)で、接続点を水平にするための回転方向を合わせる
         const rotateAngle = (sDir === "y") ? 0 : (angRad / 2);
         ctx.rotate(direction * rotateAngle);
 
-        // 3. X軸の補正：円弧の端点が translate(-halfLen, 0) に重なるようプラス方向にスライド
-        // drawSingleCurvePart 内部の translate(0, r) は既存の offsetY ロジックで相殺を維持
+        // 3. X軸/Y軸の補正
+        // 右ポイント時、内部の回転(-angRad/2)によるズレを正しく相殺
         const offsetX = r * Math.sin(angRad / 2);
         const offsetY = -(r - r * Math.cos(angRad / 2));
 
@@ -705,7 +705,9 @@ function drawSinglePointPart(ctx, p) {
             ctx.scale(1, -1);
             ctx.translate(offsetX, offsetY);
         } else {
-            ctx.translate(offsetX, -offsetY);
+            // 右ポイントは反転がないため、Yオフセットを反転させて内部のtranslate(0, r)を相殺
+            ctx.translate(offsetX, -offsetY - 2 * r); 
+            // ※内部のtranslate(0, r)とあわせて結果的に -r - (r-rcos) = -2r+rcos に移動
         }
 
         drawSingleCurvePart(ctx, p);

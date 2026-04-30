@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0270</title>
+    <title>Railroad Models Layout Designer v.0271</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -682,45 +682,47 @@ function drawSinglePointPart(ctx, p) {
     const angRad = (p.nAngle * Math.PI) / 180;
     const sDir = p.sDirection;
 
-    // 直線レールの描画
     if (sDir !== "y") {
         drawSingleStraightPart(ctx, p);
     }
 
     const drawSide = (direction, isLeftFlag) => {
         ctx.save();
-        // 1. 直線の左端（接続点）へ移動
+        // 1. 直線の左端へ移動
         ctx.translate(-halfLen, 0);
 
-        // 2. 回転補正：円弧の端の接線を水平(0度)にする
-        const rotateAngle = (sDir === "y") ? 0 : (angRad / 2);
-        ctx.rotate(direction * rotateAngle);
-
-        // 3. 補正値の計算（KATO 6番なら offsetXは約93.72, offsetYは約-6.14）
+        // 3. 補正値の計算（成功している左と同じ定義）
         const offsetX = r * Math.sin(angRad / 2);
         const offsetY = -(r - r * Math.cos(angRad / 2));
 
         if (isLeftFlag) {
-            // 【左ポイント / sDirection: "left"】
-            // scale(1, -1) でY軸を反転。成功している既存ロジックを維持。
+            // 【左】成功コードを完全維持
+            const rotateAngle = (sDir === "y") ? 0 : (angRad / 2);
+            ctx.rotate(direction * rotateAngle);
             ctx.scale(1, -1);
             ctx.translate(offsetX, offsetY);
         } else {
-            // 【右ポイント / sDirection: "right"】
-            // 反転がないため、内部の translate(0, r) を直接相殺する。
-            // 物理的に y=0 に吸着させるための「引き上げ移動量」を適用。
-            const rightOffsetY = -r * Math.cos(angRad / 2);
-            ctx.translate(offsetX, rightOffsetY);
+            // 【右】回転する「前」に、内部の translate(0, r) を打ち消す
+            // これにより、どの角度に回転しても支点が (0, 0) からズレません
+            ctx.translate(0, -r); 
+
+            // 軸が真っ直ぐな状態で中心を持ち上げたので、ここで回転
+            const rotateAngle = (sDir === "y") ? 0 : (angRad / 2);
+            ctx.rotate(direction * rotateAngle);
+
+            // 回転後に、端点を合わせるための offsetX と 
+            // 「r * cosθ」で計算される本来の端点の高さを復元
+            const rightCorrectY = r * Math.cos(angRad / 2);
+            ctx.translate(offsetX, rightCorrectY);
         }
 
         drawSingleCurvePart(ctx, p);
         ctx.restore();
     };
 
-    // rails.js の sDirection に基づき、反転が必要な側(left)か否かを判定して描画
     if (sDir === "left" || sDir === "y" || sDir === "three") drawSide(-1, true);
     if (sDir === "right" || sDir === "y" || sDir === "three") drawSide(1, false);
-}
+} 
         
 // 道床（バラスト）とハイライトを描画する共通関数
 function drawBallastBed(ctx, len, viewWidth, isDragged, color) {

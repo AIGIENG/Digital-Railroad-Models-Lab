@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0252r</title>
+    <title>Railroad Models Layout Designer v.0253r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -582,7 +582,7 @@ function drawPart(ctx, p) {
         ctx.beginPath();
         ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
         ctx.strokeStyle = (draggedPart === p) ? "#0056b3" : "blue";
-        ctx.stroke();
+        ctx.fill();
     }
     ctx.restore();
 }
@@ -688,16 +688,14 @@ function drawSinglePointPart(ctx, p) {
 
     if (sDir === "left" || sDir === "y" || sDir === "three") {
         ctx.save();
-        // 直線の左端へ移動
         ctx.translate(-halfLen, 0); 
         if (sDir === "y") {
             ctx.rotate(-angRad / 2);
-            ctx.translate(0, -r);
         } else {
-            // 曲線の端点が原点(0,0)に来るよう、回転後に半径分オフセット
             ctx.rotate(-angRad / 2);
-            ctx.translate(0, -r);
         }
+        // Y軸方向の補正：曲線の描画開始点を直線の中心線(Y=0)に合わせる
+        ctx.translate(0, -r); 
         ctx.scale(1, -1);
         drawSingleCurvePart(ctx, p);
         ctx.restore();
@@ -705,20 +703,18 @@ function drawSinglePointPart(ctx, p) {
 
     if (sDir === "right" || sDir === "y" || sDir === "three") {
         ctx.save();
-        // 直線の左端へ移動
         ctx.translate(-halfLen, 0);
         if (sDir === "y") {
             ctx.rotate(angRad / 2);
-            ctx.translate(0, r);
         } else {
-            // 曲線の端点が原点(0,0)に来るよう、回転後に半径分オフセット
             ctx.rotate(angRad / 2);
-            ctx.translate(0, -r);
         }
+        // Y軸方向の補正：曲線の描画開始点を直線の中心線(Y=0)に合わせる
+        ctx.translate(0, -r); 
         drawSingleCurvePart(ctx, p);
         ctx.restore();
     }
-} 
+}
         
 // 道床（バラスト）とハイライトを描画する共通関数
 function drawBallastBed(ctx, len, viewWidth, isDragged, color) {

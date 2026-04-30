@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0249r</title>
+    <title>Railroad Models Layout Designer v.0250r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -699,10 +699,11 @@ function drawSinglePointPart(ctx, p) {
         if (sDir === "y") {
             ctx.rotate(-angRad / 2);
         } else {
-            ctx.rotate(-angRad);
+            // 左分岐: 直線端から上向きに弧が始まるよう、
+            // 半径分のオフセットと開始角の回転を適用
+            ctx.rotate(-angRad / 2);
+            ctx.translate(0, -r);
         }
-        // drawSingleCurvePart内のtranslate(0, r)を相殺
-        ctx.translate(0, -r); 
         ctx.scale(1, -1);
         drawSingleCurvePart(ctx, p);
         ctx.restore();
@@ -714,10 +715,11 @@ function drawSinglePointPart(ctx, p) {
         if (sDir === "y") {
             ctx.rotate(angRad / 2);
         } else {
-            ctx.rotate(angRad);
+            // 右分岐: 直線端から下向きに弧が始まるよう、
+            // 半径分のオフセットと開始角の回転を適用
+            ctx.rotate(angRad / 2);
+            ctx.translate(0, -r);
         }
-        // drawSingleCurvePart内のtranslate(0, r)を相殺
-        ctx.translate(0, -r); 
         drawSingleCurvePart(ctx, p);
         ctx.restore();
     }

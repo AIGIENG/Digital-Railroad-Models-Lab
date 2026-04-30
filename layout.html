@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0269</title>
+    <title>Railroad Models Layout Designer v.0270</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -682,38 +682,42 @@ function drawSinglePointPart(ctx, p) {
     const angRad = (p.nAngle * Math.PI) / 180;
     const sDir = p.sDirection;
 
+    // 直線レールの描画
     if (sDir !== "y") {
         drawSingleStraightPart(ctx, p);
     }
 
-    const drawSide = (direction, isLeft) => {
+    const drawSide = (direction, isLeftFlag) => {
         ctx.save();
-        // 1. 直線の左端(接続点)へ移動
+        // 1. 直線の左端（接続点）へ移動
         ctx.translate(-halfLen, 0);
 
-        // 2. 回転補正 (成功コードをそのまま維持)
+        // 2. 回転補正：円弧の端の接線を水平(0度)にする
         const rotateAngle = (sDir === "y") ? 0 : (angRad / 2);
         ctx.rotate(direction * rotateAngle);
 
-        // 3. 補正値の計算 (成功コードと同じ定義)
+        // 3. 補正値の計算（KATO 6番なら offsetXは約93.72, offsetYは約-6.14）
         const offsetX = r * Math.sin(angRad / 2);
         const offsetY = -(r - r * Math.cos(angRad / 2));
 
-        if (isLeft) {
-            // 【左】うまくいっていたコードを完全に再現
+        if (isLeftFlag) {
+            // 【左ポイント / sDirection: "left"】
+            // scale(1, -1) でY軸を反転。成功している既存ロジックを維持。
             ctx.scale(1, -1);
             ctx.translate(offsetX, offsetY);
         } else {
-            // 【右】考え方は左と同じだが、scaleがないため
-            // 内部で発生する translate(0, r) を直接相殺する移動が必要。
-            // 内部の +r を消すために -r し、そこに端点の補正 offsetY を加える。
-            ctx.translate(offsetX, -r - offsetY);
+            // 【右ポイント / sDirection: "right"】
+            // 反転がないため、内部の translate(0, r) を直接相殺する。
+            // 物理的に y=0 に吸着させるための「引き上げ移動量」を適用。
+            const rightOffsetY = -r * Math.cos(angRad / 2);
+            ctx.translate(offsetX, rightOffsetY);
         }
 
         drawSingleCurvePart(ctx, p);
         ctx.restore();
     };
 
+    // rails.js の sDirection に基づき、反転が必要な側(left)か否かを判定して描画
     if (sDir === "left" || sDir === "y" || sDir === "three") drawSide(-1, true);
     if (sDir === "right" || sDir === "y" || sDir === "three") drawSide(1, false);
 }

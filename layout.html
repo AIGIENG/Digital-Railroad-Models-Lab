@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0251r</title>
+    <title>Railroad Models Layout Designer v.0252r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -578,14 +578,6 @@ function drawPart(ctx, p) {
     }
 
     // デバッグ表示：Ctrl + Shift 押下時に基準点を赤丸で描画
-    if (isCtrlPressed && isShiftPressed) {
-        ctx.beginPath();
-        ctx.arc(0, 0, 5, 0, Math.PI * 2);
-        ctx.fillStyle = "red";
-        ctx.fill();
-        ctx.closePath();
-    }
-
     if (isCtrlPressed) {
         ctx.beginPath();
         ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
@@ -696,12 +688,13 @@ function drawSinglePointPart(ctx, p) {
 
     if (sDir === "left" || sDir === "y" || sDir === "three") {
         ctx.save();
+        // 直線の左端へ移動
         ctx.translate(-halfLen, 0); 
         if (sDir === "y") {
             ctx.rotate(-angRad / 2);
+            ctx.translate(0, -r);
         } else {
-            // 左分岐: 直線端から上向きに弧が始まるよう、
-            // 半径分のオフセットと開始角の回転を適用
+            // 曲線の端点が原点(0,0)に来るよう、回転後に半径分オフセット
             ctx.rotate(-angRad / 2);
             ctx.translate(0, -r);
         }
@@ -712,19 +705,20 @@ function drawSinglePointPart(ctx, p) {
 
     if (sDir === "right" || sDir === "y" || sDir === "three") {
         ctx.save();
+        // 直線の左端へ移動
         ctx.translate(-halfLen, 0);
         if (sDir === "y") {
             ctx.rotate(angRad / 2);
+            ctx.translate(0, r);
         } else {
-            // 右分岐: 直線端から下向きに弧が始まるよう、
-            // 半径分のオフセットと開始角の回転を適用
+            // 曲線の端点が原点(0,0)に来るよう、回転後に半径分オフセット
             ctx.rotate(angRad / 2);
             ctx.translate(0, -r);
         }
         drawSingleCurvePart(ctx, p);
         ctx.restore();
     }
-}
+} 
         
 // 道床（バラスト）とハイライトを描画する共通関数
 function drawBallastBed(ctx, len, viewWidth, isDragged, color) {

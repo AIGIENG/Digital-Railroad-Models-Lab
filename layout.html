@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0248r</title>
+    <title>Railroad Models Layout Designer v.0249r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -689,44 +689,35 @@ function drawSinglePointPart(ctx, p) {
     const sDir = p.sDirection;
     const angRad = (p.nAngle * Math.PI) / 180;
 
-    // 1. 直線軌道（3方、片開き左/右の場合に描画）
     if (sDir === "left" || sDir === "right" || sDir === "three") {
         drawSingleStraightPart(ctx, p);
     }
 
-    // 2. 曲線軌道（左方向分岐：left, y, three）
     if (sDir === "left" || sDir === "y" || sDir === "three") {
         ctx.save();
+        ctx.translate(-halfLen, 0); 
         if (sDir === "y") {
-            ctx.translate(-halfLen, 0);
             ctx.rotate(-angRad / 2);
-            ctx.translate(0, -r);
         } else {
-            // 直線始点に移動後、左回りにnAngle回転させ、
-            // 曲線描画（translate(0,r)される）を相殺する位置へ移動
-            ctx.translate(-halfLen, 0);
             ctx.rotate(-angRad);
-            ctx.translate(0, r);
         }
+        // drawSingleCurvePart内のtranslate(0, r)を相殺
+        ctx.translate(0, -r); 
         ctx.scale(1, -1);
         drawSingleCurvePart(ctx, p);
         ctx.restore();
     }
 
-    // 3. 曲線軌道（右方向分岐：right, y, three）
     if (sDir === "right" || sDir === "y" || sDir === "three") {
         ctx.save();
+        ctx.translate(-halfLen, 0);
         if (sDir === "y") {
-            ctx.translate(-halfLen, 0);
             ctx.rotate(angRad / 2);
-            ctx.translate(0, r);
         } else {
-            // 直線始点に移動後、右回りにnAngle回転させ、
-            // 曲線描画（translate(0,r)される）を相殺する位置へ移動
-            ctx.translate(-halfLen, 0);
             ctx.rotate(angRad);
-            ctx.translate(0, -r);
         }
+        // drawSingleCurvePart内のtranslate(0, r)を相殺
+        ctx.translate(0, -r); 
         drawSingleCurvePart(ctx, p);
         ctx.restore();
     }
@@ -839,40 +830,25 @@ function drawApproachIndicator(ctx, p) {
 }
         
 function isPointInPart(mouseX, mouseY, p) {
-    // 1. マウス座標をパーツの基準点(p.x, p.y)からの相対座標に変換
     const dx = mouseX - p.x;
     const dy = mouseY - p.y;
-
-    // 2. パーツの回転角(p.rotation)を考慮して座標を逆回転させ、ローカル座標(lx, ly)を得る
     const rad = -(p.rotation * Math.PI / 180);
     const lx = dx * Math.cos(rad) - dy * Math.sin(rad);
     const ly = dx * Math.sin(rad) + dy * Math.cos(rad);
 
-    // --- 直線レールの判定 ---
     if (p.sRole === 'straight') {
-        // 幅は nViewWidth、長さは nLength の矩形内か
         return (Math.abs(lx) <= p.nLength / 2 && Math.abs(ly) <= p.nViewWidth / 2);
     }
 
-    // --- 曲線レールの判定 ---
-    if (p.sRole === 'curve') {
+    // curve または approach の判定を追加
+    if (p.sRole === 'curve' || p.sRole === 'approach') {
         const r = p.nRadius;
         const viewWidth = p.nViewWidth;
         const angleLimitRad = (p.nAngle / 2) * Math.PI / 180;
-
-        // 描画時と同様、基準点から半径rだけ「下」にある円の中心点からの距離を計算
-        // ローカル座標系では中心点は (0, r) に位置する
         const dist = Math.hypot(lx, ly - r);
-
-        // A. 半径方向の判定：円環の幅（道床の幅）の中にマウスがあるか
         const isInRadius = Math.abs(dist - r) <= viewWidth / 2;
         if (!isInRadius) return false;
-
-        // B. 角度方向の判定：円弧の扇形範囲内にマウスがあるか
-        // 中心(0, r)から見たマウス位置の角度を求める
-        // 頂点(0, 0)方向が 0 rad になるように調整
         const mouseAngleRad = Math.atan2(lx, r - ly);
-
         return Math.abs(mouseAngleRad) <= angleLimitRad;
     }
 
@@ -880,20 +856,18 @@ function isPointInPart(mouseX, mouseY, p) {
         const sDir = p.sDirection;
         const r = p.nRadius;
         const angLimitRad = p.nAngle * Math.PI / 180;
-    
-        // 直線判定
         if (sDir !== "y") {
             if (Math.abs(lx) <= p.nLength / 2 && Math.abs(ly) <= p.nViewWidth / 2) return true;
         }
-    
-        // 曲線判定関数
         const checkCurve = (dir) => {
+            const angRad = p.nAngle * Math.PI / 180;
+            // ポイントの曲線部判定：直線端(-halfLen, 0)を起点とした扇形範囲
             const clx = lx + (p.nLength / 2);
             const cly = ly - (r * dir);
             const dist = Math.hypot(clx, cly);
             if (Math.abs(dist - r) <= p.nViewWidth / 2) {
-                const mouseAngleRad = Math.atan2(clx, cly * -dir);
-                return mouseAngleRad >= 0 && mouseAngleRad <= angLimitRad;
+                const mouseAngleRad = Math.atan2(clx, (r - ly * dir) * dir);
+                return mouseAngleRad >= 0 && mouseAngleRad <= angRad;
             }
             return false;
         };
@@ -902,7 +876,7 @@ function isPointInPart(mouseX, mouseY, p) {
     }                
     return false;
 }
-
+        
 function initCanvasEvents() {
     canvas.ondragover = (e) => e.preventDefault();
     canvas.ondrop = (e) => {

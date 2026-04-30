@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0247r</title>
+    <title>Railroad Models Layout Designer v.0248r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -687,6 +687,7 @@ function drawSinglePointPart(ctx, p) {
     const halfLen = p.nLength / 2;
     const r = p.nRadius;
     const sDir = p.sDirection;
+    const angRad = (p.nAngle * Math.PI) / 180;
 
     // 1. 直線軌道（3方、片開き左/右の場合に描画）
     if (sDir === "left" || sDir === "right" || sDir === "three") {
@@ -697,13 +698,15 @@ function drawSinglePointPart(ctx, p) {
     if (sDir === "left" || sDir === "y" || sDir === "three") {
         ctx.save();
         if (sDir === "y") {
-            // Y字の場合は中心を基準に上下対称
             ctx.translate(-halfLen, 0);
-            ctx.rotate(- (p.nAngle / 2) * Math.PI / 180);
+            ctx.rotate(-angRad / 2);
             ctx.translate(0, -r);
         } else {
-            // 片開き・3方の場合は直線路の端から分岐
-            ctx.translate(-halfLen, -r);
+            // 直線始点に移動後、左回りにnAngle回転させ、
+            // 曲線描画（translate(0,r)される）を相殺する位置へ移動
+            ctx.translate(-halfLen, 0);
+            ctx.rotate(-angRad);
+            ctx.translate(0, r);
         }
         ctx.scale(1, -1);
         drawSingleCurvePart(ctx, p);
@@ -714,13 +717,15 @@ function drawSinglePointPart(ctx, p) {
     if (sDir === "right" || sDir === "y" || sDir === "three") {
         ctx.save();
         if (sDir === "y") {
-            // Y字の場合は中心を基準に上下対称
             ctx.translate(-halfLen, 0);
-            ctx.rotate((p.nAngle / 2) * Math.PI / 180);
+            ctx.rotate(angRad / 2);
             ctx.translate(0, r);
         } else {
-            // 片開き・3方の場合は直線路の端から分岐
-            ctx.translate(-halfLen, r);
+            // 直線始点に移動後、右回りにnAngle回転させ、
+            // 曲線描画（translate(0,r)される）を相殺する位置へ移動
+            ctx.translate(-halfLen, 0);
+            ctx.rotate(angRad);
+            ctx.translate(0, -r);
         }
         drawSingleCurvePart(ctx, p);
         ctx.restore();

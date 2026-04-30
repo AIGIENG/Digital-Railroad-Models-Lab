@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0250r</title>
+    <title>Railroad Models Layout Designer v.0251r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -195,7 +195,7 @@
 // --- 状態管理 ---
 const layers = { rail: [] };
 const CANVAS_CONFIG = { width: 1800 , height: 900 };
-let isDragging = false, draggedPart = null, offsetX = 0, offsetY = 0, isSnapped = false, isCtrlPressed = false;
+let isDragging = false, draggedPart = null, offsetX = 0, offsetY = 0, isSnapped = false, isCtrlPressed = false, isShiftPressed = false;        
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
@@ -555,7 +555,6 @@ function drawPart(ctx, p) {
                 drawSingleStraightPart(ctx, p);
             }
             break;
-
         case "curve":
             if (p.bIsDouble) {
                 drawDoubleCurvePart(ctx, p);
@@ -563,13 +562,9 @@ function drawPart(ctx, p) {
                 drawSingleCurvePart(ctx, p);
             }
             break;
-
         case "approach":
-            // 選択判定（クリックやドラッグ）を有効にするためにサイズを定義
-            // 他の曲線レール(case "curve")と同様のロジックを流用
             if (!p.w || p.w === 0) p.w = p.L || 40; 
             if (!p.h || p.h === 0) p.h = (p.trackPitch || 46);
-
             if (p.bIsDouble) {
                 drawDoubleCurvePart(ctx, p);
             } else {
@@ -580,19 +575,25 @@ function drawPart(ctx, p) {
         case "point":
             drawSinglePointPart(ctx, p);
             break;
+    }
 
+    // デバッグ表示：Ctrl + Shift 押下時に基準点を赤丸で描画
+    if (isCtrlPressed && isShiftPressed) {
+        ctx.beginPath();
+        ctx.arc(0, 0, 5, 0, Math.PI * 2);
+        ctx.fillStyle = "red";
+        ctx.fill();
+        ctx.closePath();
     }
 
     if (isCtrlPressed) {
         ctx.beginPath();
         ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
-        ctx.fillStyle = (draggedPart === p) ? "#0056b3" : "blue";
-        ctx.fill();
+        ctx.strokeStyle = (draggedPart === p) ? "#0056b3" : "blue";
         ctx.stroke();
     }
     ctx.restore();
 }
-
 // 単線直線描画
 function drawSingleStraightPart(ctx, p) {
     const halfLen = p.nLength / 2;

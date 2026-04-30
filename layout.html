@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0246r</title>
+    <title>Railroad Models Layout Designer v.0247r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -394,25 +394,43 @@ function initExtraPanel() {
     `;
     container.appendChild(tabContainer);
 
-    // ボタン群の生成用関数
-    const createGroup = (id, prefix, isActive) => {
-        const group = document.createElement('div');
-        group.id = id;
-        group.className = 'button-group' + (isActive ? ' active' : '');
-        for (let i = 1; i <= 12; i++) {
-            const btn = document.createElement('div');
-            btn.className = 'dummy-btn';
-            btn.textContent = `${prefix}-${i.toString().padStart(2, '0')}`;
-            group.appendChild(btn);
-        }
-        return group;
-    };
+    // 編集グループ（既存のロジックを維持）
+    const editGroup = document.createElement('div');
+    editGroup.id = 'group-edit';
+    editGroup.className = 'button-group active';
+    for (let i = 1; i <= 12; i++) {
+        const btn = document.createElement('div');
+        btn.className = 'dummy-btn';
+        btn.textContent = `EDIT-${i.toString().padStart(2, '0')}`;
+        editGroup.appendChild(btn);
+    }
 
-    const editGroup = createGroup('group-edit', 'EDIT', true);
-    const sysGroup = createGroup('group-sys', 'SYS', false);
+    // システムグループ（指定項目 + 予備）
+    const sysButtons = [
+        "レイアウトエクスポート",
+        "レイアウトインポート",
+        "画像エクスポート",
+        "パーツリストエクスポート",
+        "キャンバスサイズ変更",
+        "全体移動"
+    ];
+
+    const sysGroup = document.createElement('div');
+    sysGroup.id = 'group-sys';
+    sysGroup.className = 'button-group';
+    for (let i = 0; i < 12; i++) {
+        const btn = document.createElement('div');
+        btn.className = 'dummy-btn';
+        if (i < sysButtons.length) {
+            btn.textContent = sysButtons[i];
+        } else {
+            btn.textContent = `予備${i - sysButtons.length + 1}`;
+        }
+        sysGroup.appendChild(btn);
+    }
+
     container.appendChild(editGroup);
     container.appendChild(sysGroup);
-
     document.body.appendChild(container);
 
     // 切り替えイベント
@@ -421,7 +439,6 @@ function initExtraPanel() {
         tab.onclick = () => {
             tabs.forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
-            
             const isEdit = tab.id === 'tab-edit';
             editGroup.classList.toggle('active', isEdit);
             sysGroup.classList.toggle('active', !isEdit);

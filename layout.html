@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0271</title>
+    <title>Railroad Models Layout Designer v.0272</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -688,32 +688,33 @@ function drawSinglePointPart(ctx, p) {
 
     const drawSide = (direction, isLeftFlag) => {
         ctx.save();
-        // 1. 直線の左端へ移動
+        // 1. 直線の左端（接続点）へ移動
         ctx.translate(-halfLen, 0);
 
-        // 3. 補正値の計算（成功している左と同じ定義）
-        const offsetX = r * Math.sin(angRad / 2);
-        const offsetY = -(r - r * Math.cos(angRad / 2));
-
         if (isLeftFlag) {
-            // 【左】成功コードを完全維持
+            // 【左】成功している既存ロジックを完全維持
             const rotateAngle = (sDir === "y") ? 0 : (angRad / 2);
             ctx.rotate(direction * rotateAngle);
             ctx.scale(1, -1);
+            const offsetX = r * Math.sin(angRad / 2);
+            const offsetY = -(r - r * Math.cos(angRad / 2));
             ctx.translate(offsetX, offsetY);
         } else {
-            // 【右】回転する「前」に、内部の translate(0, r) を打ち消す
-            // これにより、どの角度に回転しても支点が (0, 0) からズレません
-            ctx.translate(0, -r); 
+            // 【右】左端に吸着させるための物理的補正
+            // 内部関数が +r 移動してから回転することを踏まえ、
+            // 外部であらかじめ「回転中心」まで移動してから回転させる
 
-            // 軸が真っ直ぐな状態で中心を持ち上げたので、ここで回転
+            // A. 先に「円弧の端点」が (0,0) に来るための水平オフセットのみ適用
+            const offsetX = r * Math.sin(angRad / 2);
+            ctx.translate(offsetX, 0);
+
+            // B. 回転（右は direction=1）
             const rotateAngle = (sDir === "y") ? 0 : (angRad / 2);
             ctx.rotate(direction * rotateAngle);
 
-            // 回転後に、端点を合わせるための offsetX と 
-            // 「r * cosθ」で計算される本来の端点の高さを復元
-            const rightCorrectY = r * Math.cos(angRad / 2);
-            ctx.translate(offsetX, rightCorrectY);
+            // C. 内部で translate(0, r) される分を、回転後の軸で「真上」に引き戻す
+            // これにより、数ミリの浮き（r * (1 - cosθ)）が完全に消滅します
+            ctx.translate(0, -r);
         }
 
         drawSingleCurvePart(ctx, p);
@@ -722,7 +723,7 @@ function drawSinglePointPart(ctx, p) {
 
     if (sDir === "left" || sDir === "y" || sDir === "three") drawSide(-1, true);
     if (sDir === "right" || sDir === "y" || sDir === "three") drawSide(1, false);
-} 
+}
         
 // 道床（バラスト）とハイライトを描画する共通関数
 function drawBallastBed(ctx, len, viewWidth, isDragged, color) {

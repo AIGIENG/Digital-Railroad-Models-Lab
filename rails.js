@@ -375,7 +375,7 @@ const railData = {
         bIsDouble: true,
         nTrackGap: 33,
         junctionCount: 4,
-        sDirection: "left",
+        sDirection: "right",
         nViewWidth: 57.5,
         nHeight: 0,
         nGauge: 9,

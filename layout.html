@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0254r</title>
+    <title>Railroad Models Layout Designer v.0255r</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -682,40 +682,31 @@ function drawSinglePointPart(ctx, p) {
     const sDir = p.sDirection;
     const angRad = (p.nAngle * Math.PI) / 180;
 
-    // 1. 直線路の描画
     if (sDir !== "y") {
         drawSingleStraightPart(ctx, p);
     }
 
-    // 2. 曲線路（左分岐）
-    if (sDir === "left" || sDir === "y" || sDir === "three") {
+    const drawSide = (direction, isLeft) => {
         ctx.save();
-        // 手順A: 直線の左端へ移動
+        // 1. まず直線の端（接続点）へ移動
         ctx.translate(-halfLen, 0);
-        // 手順B: 分岐角の半分だけ回転させて接線方向を水平に合わせる
-        const rot = (sDir === "y") ? -angRad / 2 : -angRad / 2;
-        ctx.rotate(rot);
-        // 手順C: drawSingleCurvePart内部の translate(0, r) を打ち消す
+        
+        // 2. drawSingleCurvePart内の「中心角0への回転」を逆算
+        // 接続点が水平になるよう、あらかじめ角度の半分だけ回しておく
+        ctx.rotate(direction * (angRad / 2));
+        
+        // 3. 重要：内部の translate(0, r) を打ち消すために、
+        // 「現在の回転状態におけるy軸方向」へ -r 移動する
         ctx.translate(0, -r);
-        // 手順D: 上向きに曲げるための反転
-        ctx.scale(1, -1);
-        drawSingleCurvePart(ctx, p);
-        ctx.restore();
-    }
 
-    // 3. 曲線路（右分岐）
-    if (sDir === "right" || sDir === "y" || sDir === "three") {
-        ctx.save();
-        // 手順A: 直線の左端へ移動
-        ctx.translate(-halfLen, 0);
-        // 手順B: 分岐角の半分だけ回転
-        const rot = (sDir === "y") ? angRad / 2 : angRad / 2;
-        ctx.rotate(rot);
-        // 手順C: drawSingleCurvePart内部の translate(0, r) を打ち消す
-        ctx.translate(0, -r);
+        if (isLeft) ctx.scale(1, -1);
+        
         drawSingleCurvePart(ctx, p);
         ctx.restore();
-    }
+    };
+
+    if (sDir === "left" || sDir === "y" || sDir === "three") drawSide(-1, true);
+    if (sDir === "right" || sDir === "y" || sDir === "three") drawSide(1, false);
 }
         
 // 道床（バラスト）とハイライトを描画する共通関数

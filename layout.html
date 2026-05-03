@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0294</title>
+    <title>Railroad Models Layout Designer v.0296</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -495,7 +495,7 @@ function getConnectorPoints(p) {
             });
             break;
         }
-case "point": {
+        case "point": {
             const halfLen = p.nLength / 2;
             const r = p.nRadius;
             const angRad = p.nAngle * Math.PI / 180;
@@ -504,22 +504,22 @@ case "point": {
             // 1. 根元 (nConnIdx: 0)
             const pRoot = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, 0);
             points.push({ 
-                x: pRoot.x, y: pRoot.y, 
+                ...p, // マスタデータ p の全プロパティ（nGauge含む）をまずコピーする
+                x: pRoot.x, 
+                y: pRoot.y, 
                 ang: (p.rotation + 180) % 360, 
-                id: p.id, 
-                nConnIdx: 0, 
-                nGauge: p.nGauge // マスタデータ(p)から値を継承
+                nConnIdx: 0 
             });
         
             // 2. 直進端 (nConnIdx: 1)
             if (sDir !== "y") {
                 const pStr = getTransformedPoint(p.x, p.y, p.rotation, halfLen, 0);
                 points.push({ 
-                    x: pStr.x, y: pStr.y, 
+                    ...p, 
+                    x: pStr.x, 
+                    y: pStr.y, 
                     ang: p.rotation % 360, 
-                    id: p.id, 
-                    nConnIdx: 1, 
-                    nGauge: p.nGauge // 同上
+                    nConnIdx: 1 
                 });
             }
         
@@ -532,11 +532,11 @@ case "point": {
             if (isLeft) {
                 const pLeft = getTransformedPoint(p.x, p.y, p.rotation, dxP, -dyP);
                 points.push({ 
-                    x: pLeft.x, y: pLeft.y, 
+                    ...p, 
+                    x: pLeft.x, 
+                    y: pLeft.y, 
                     ang: (p.rotation + p.nAngle) % 360, 
-                    id: p.id, 
-                    nConnIdx: 2, 
-                    nGauge: p.nGauge 
+                    nConnIdx: 2 
                 });
             }
         
@@ -544,19 +544,19 @@ case "point": {
                 const pRight = getTransformedPoint(p.x, p.y, p.rotation, dxP, dyP);
                 const rIdx = (sDir === "three") ? 3 : 2;
                 points.push({ 
-                    x: pRight.x, y: pRight.y, 
+                    ...p, 
+                    x: pRight.x, 
+                    y: pRight.y, 
                     ang: (p.rotation - p.nAngle + 360) % 360, 
-                    id: p.id, 
-                    nConnIdx: rIdx, 
-                    nGauge: p.nGauge 
+                    nConnIdx: rIdx 
                 });
             }
             break;
         }
-    }
     return points;
+    }
 }
-
+    
 function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     

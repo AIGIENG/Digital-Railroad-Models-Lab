@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0282</title>
+    <title>Railroad Models Layout Designer v.0283</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -691,30 +691,28 @@ function drawSinglePointPart(ctx, p) {
         ctx.rotate(Math.PI);
     }
 
-    // --- A. 直線側（単線1組：鉄路2本） ---
+    // --- A. 直線側（単線1組） ---
     if (sDir !== "y") {
         ctx.beginPath();
         ctx.strokeStyle = mainColor;
         ctx.lineWidth = 1;
-        // 左端から右端へ2本の鉄路を引く
         ctx.moveTo(-halfLen, -halfGauge); ctx.lineTo(halfLen, -halfGauge);
         ctx.moveTo(-halfLen,  halfGauge); ctx.lineTo(halfLen,  halfGauge);
         ctx.stroke();
     }
 
-    // --- B. 曲線側（単線1組：鉄路2本） ---
+    // --- B. 曲線側（単線1組） ---
     if (sDir !== "straight") {
         ctx.save();
         
-        // 【修正点】分岐の基点を「右端(halfLen)」に設定
-        // EP718-15L/R の形状に基づき、右端から左へ戻るようにカーブを開始させます
-        ctx.translate(halfLen, r); 
+        // 分岐基点を右端(halfLen)に設定。半径方向(y)を向きに応じて反転
+        const yOffset = (sDir === "left") ? -r : r;
+        ctx.translate(halfLen, yOffset); 
 
-        // 真上(-90度)を基点とし、そこから角度分だけ「手前（左）」へ描画
-        const startRad = -Math.PI / 2;
-        // Lならプラス方向へ、Rならマイナス方向へ
-        const endRad = startRad + (sDir === "left" ? angRad : -angRad);
-        const isClockwise = (sDir === "left");
+        // 基準角：Lなら真下(90度)、Rなら真上(-90度)
+        const startRad = (sDir === "left") ? Math.PI / 2 : -Math.PI / 2;
+        // 終了角：右端から左へ向かうため、角度分を「引く」
+        const endRad = startRad - angRad; 
 
         const innerR = r - halfGauge;
         const outerR = r + halfGauge;
@@ -722,15 +720,15 @@ function drawSinglePointPart(ctx, p) {
         ctx.strokeStyle = mainColor;
         ctx.lineWidth = 1;
 
-        // 1本目の鉄路（外側）
+        // 常に「反時計回り」で描画することで、右から左へ戻る弧を確定させます
+        // 1本目（外側）
         ctx.beginPath();
-        ctx.arc(0, 0, outerR, startRad, endRad, isClockwise);
+        ctx.arc(0, 0, outerR, startRad, endRad, true);
         ctx.stroke();
 
-        // 2本目の鉄路（内側）
-        // 【修正点】beginPathを分けることで、前のarcの終点から次の開始点への「余計な1本」を完全に排除します
+        // 2本目（内側）
         ctx.beginPath();
-        ctx.arc(0, 0, innerR, startRad, endRad, isClockwise);
+        ctx.arc(0, 0, innerR, startRad, endRad, true);
         ctx.stroke();
         
         ctx.restore();

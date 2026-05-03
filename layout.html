@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0283</title>
+    <title>Railroad Models Layout Designer v.0284</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -686,12 +686,13 @@ function drawSinglePointPart(ctx, p) {
 
     ctx.save();
 
-    // 接続点(nConnIdx)が始点(0)なら全体を反転
+    // 1. 接続点(nConnIdx)が始点(0)なら全体を反転
+    // これにより、吸着位置が「内側に潜り込む」現象を物理的に反転させて解消します
     if (p.nConnIdx === 0) {
         ctx.rotate(Math.PI);
     }
 
-    // --- A. 直線側（単線1組） ---
+    // --- A. 直線側（単線1組：鉄路2本） ---
     if (sDir !== "y") {
         ctx.beginPath();
         ctx.strokeStyle = mainColor;
@@ -701,18 +702,22 @@ function drawSinglePointPart(ctx, p) {
         ctx.stroke();
     }
 
-    // --- B. 曲線側（単線1組） ---
+    // --- B. 曲線側（単線1組：鉄路2本） ---
     if (sDir !== "straight") {
         ctx.save();
         
-        // 分岐基点を右端(halfLen)に設定。半径方向(y)を向きに応じて反転
-        const yOffset = (sDir === "left") ? -r : r;
-        ctx.translate(halfLen, yOffset); 
+        // 2. 分岐基点を「右端(halfLen)」に固定
+        // y座標（円の中心）：Leftなら y=+r（下側）、Rightなら y=-r（上側）に置くのが正解です
+        const isLeft = (sDir === "left" || sDir === "y" || sDir === "three");
+        const yCenterOffset = isLeft ? r : -r;
+        ctx.translate(halfLen, yCenterOffset); 
 
-        // 基準角：Lなら真下(90度)、Rなら真上(-90度)
-        const startRad = (sDir === "left") ? Math.PI / 2 : -Math.PI / 2;
-        // 終了角：右端から左へ向かうため、角度分を「引く」
-        const endRad = startRad - angRad; 
+        // 3. 開始角と終了角の厳密化
+        // Left時：中心が下にあるので、真上(-90度)から「反時計回り」に15度戻る
+        // Right時：中心が上にあるので、真下(90度)から「時計回り」に15度戻る
+        const startRad = isLeft ? -Math.PI / 2 : Math.PI / 2;
+        const endRad = startRad + (isLeft ? angRad : -angRad);
+        const anticlockwise = isLeft ? false : true; 
 
         const innerR = r - halfGauge;
         const outerR = r + halfGauge;
@@ -720,15 +725,14 @@ function drawSinglePointPart(ctx, p) {
         ctx.strokeStyle = mainColor;
         ctx.lineWidth = 1;
 
-        // 常に「反時計回り」で描画することで、右から左へ戻る弧を確定させます
         // 1本目（外側）
         ctx.beginPath();
-        ctx.arc(0, 0, outerR, startRad, endRad, true);
+        ctx.arc(0, 0, outerR, startRad, endRad, anticlockwise);
         ctx.stroke();
 
         // 2本目（内側）
         ctx.beginPath();
-        ctx.arc(0, 0, innerR, startRad, endRad, true);
+        ctx.arc(0, 0, innerR, startRad, endRad, anticlockwise);
         ctx.stroke();
         
         ctx.restore();

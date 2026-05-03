@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0319</title>
+    <title>Railroad Models Layout Designer v.0320</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -925,6 +925,24 @@ function isPointInPart(mouseX, mouseY, p) {
     }                
     return false;
 }
+
+function showWarning(message) {
+        let container = document.getElementById('alert-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'alert-container';
+            document.body.appendChild(container);
+        }
+        
+        // 改善案：新しい警告を出す前に中身を空にする（任意）
+        container.innerHTML = ''; 
+
+        const alertBox = document.createElement('div');
+        alertBox.className = 'alert-box';
+        alertBox.textContent = message;
+        container.appendChild(alertBox);
+        setTimeout(() => alertBox.remove(), 5000);
+    }
         
 /**
  * キャンバスイベントの初期化（最適化・修正版）

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0311</title>
+    <title>Railroad Models Layout Designer v.0312</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -780,30 +780,39 @@ function drawCurveBallast(ctx, r, angle, viewWidth, isDragged, color) {
     ctx.restore();
 }
 
-// アプローチレール用インジケーター
-// アプローチレール用インジケーター（修正版）
+// アプローチレール用インジケーター（座標計算の修正のみ）
 function drawApproachIndicator(ctx, p) {
     const size = 12;
     const offset = 2;
 
     ctx.save();
+    
     ctx.fillStyle = p.sColor || "#7f8c8d";
     ctx.beginPath();
 
-    // 既存の p.r / p.angle を正しいプロパティ名に修正
-    const r = p.nRadius || 0;
-    const angleRad = (p.nAngle || 0) * Math.PI / 180;
+    // 曲線パーツとしての定義（nRadius/nAngle）を参照
+    const r = p.nRadius;
+    const angleRad = (p.nAngle) * Math.PI / 180;
 
+    // 描画ロジックの ctx.translate(0, r) 後の座標系に基づき
+    // 円の中心 (0, 0) からの相対位置で計算
     if (p.sDirection === 'left') {
-        const targetX = r;
-        const targetY = 0;
+        // 左端（開始点）：真上（-90度）の地点
+        const targetX = 0;
+        const targetY = -r;
+        
         ctx.translate(targetX, targetY);
+        // レールの向きに合わせて回転
+        ctx.rotate(0); 
         ctx.moveTo(-offset, 0);
         ctx.lineTo(-offset + size, -size / 2);
         ctx.lineTo(-offset + size, size / 2);
     } else {
-        const targetX = r * Math.cos(angleRad);
-        const targetY = r * Math.sin(angleRad);
+        // 右端（終了点）：-90度から angleRad 分回転した地点
+        const drawAngle = -Math.PI / 2 + angleRad;
+        const targetX = r * Math.cos(drawAngle);
+        const targetY = r * Math.sin(drawAngle);
+        
         ctx.translate(targetX, targetY);
         ctx.rotate(angleRad);
         ctx.moveTo(offset, 0);
@@ -813,57 +822,12 @@ function drawApproachIndicator(ctx, p) {
     
     ctx.closePath();
     ctx.fill();
+
+    // 既存のオーバーレイ
     ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
     ctx.fill();
+    
     ctx.restore();
-}
-        
-function isPointInPart(mouseX, mouseY, p) {
-    const dx = mouseX - p.x;
-    const dy = mouseY - p.y;
-    const rad = -(p.rotation * Math.PI / 180);
-    const lx = dx * Math.cos(rad) - dy * Math.sin(rad);
-    const ly = dx * Math.sin(rad) + dy * Math.cos(rad);
-
-    if (p.sRole === 'straight') {
-        return (Math.abs(lx) <= p.nLength / 2 && Math.abs(ly) <= p.nViewWidth / 2);
-    }
-
-    // curve または approach の判定を追加
-    if (p.sRole === 'curve' || p.sRole === 'approach') {
-        const r = p.nRadius;
-        const viewWidth = p.nViewWidth;
-        const angleLimitRad = (p.nAngle / 2) * Math.PI / 180;
-        const dist = Math.hypot(lx, ly - r);
-        const isInRadius = Math.abs(dist - r) <= viewWidth / 2;
-        if (!isInRadius) return false;
-        const mouseAngleRad = Math.atan2(lx, r - ly);
-        return Math.abs(mouseAngleRad) <= angleLimitRad;
-    }
-
-    if (p.sRole === 'point') {
-        const sDir = p.sDirection;
-        const r = p.nRadius;
-        const angLimitRad = p.nAngle * Math.PI / 180;
-        if (sDir !== "y") {
-            if (Math.abs(lx) <= p.nLength / 2 && Math.abs(ly) <= p.nViewWidth / 2) return true;
-        }
-        const checkCurve = (dir) => {
-            const angRad = p.nAngle * Math.PI / 180;
-            // ポイントの曲線部判定：直線端(-halfLen, 0)を起点とした扇形範囲
-            const clx = lx + (p.nLength / 2);
-            const cly = ly - (r * dir);
-            const dist = Math.hypot(clx, cly);
-            if (Math.abs(dist - r) <= p.nViewWidth / 2) {
-                const mouseAngleRad = Math.atan2(clx, (r - ly * dir) * dir);
-                return mouseAngleRad >= 0 && mouseAngleRad <= angRad;
-            }
-            return false;
-        };
-        if ((sDir === "left" || sDir === "y" || sDir === "three") && checkCurve(-1)) return true;
-        if ((sDir === "right" || sDir === "y" || sDir === "three") && checkCurve(1)) return true;
-    }                
-    return false;
 }
         
 /**

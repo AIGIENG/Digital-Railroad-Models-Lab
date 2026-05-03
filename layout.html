@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0314</title>
+    <title>Railroad Models Layout Designer v.0315</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -818,25 +818,25 @@ function drawApproachIndicator(ctx, p) {
  * キャンバスイベントの初期化（最適化・修正版）
  */
 function initCanvasEvents() {
-    let staticConnectors = []; // 静止パーツの接点キャッシュ
+    let staticConnectors = []; 
 
     canvas.onmousedown = (e) => {
         const rect = canvas.getBoundingClientRect();
         const mx = (e.clientX - rect.left) / canvasScale;
         const my = (e.clientY - rect.top) / canvasScale;
     
-        // 1. パーツ選択判定（当たり判定を確実に実行）
+        // 1. 選択判定：既存の isPointInPart を正しく利用
         const target = [...layers.rail].reverse().find(p => isPointInPart(mx, my, p));
     
         if (target) {
             isDragging = true;
             draggedPart = target;
             
-            // 重要：オフセットを保存して、ドラッグ開始位置を固定する
+            // ドラッグ開始時のオフセット（マウスとパーツの相対距離）を保持
             offsetX = mx - target.x;
             offsetY = my - target.y;
 
-            // 2. パフォーマンス対策：ドラッグ開始時に他パーツの接点をキャッシュ
+            // 2. 高速化：ドラッグ中以外の全接点を一度だけキャッシュ
             staticConnectors = [];
             layers.rail.forEach(t => {
                 if (t === target) return;
@@ -847,22 +847,26 @@ function initCanvasEvents() {
             draggedPart = null;
             isDragging = false;
         }
-        render();
+        render(); // 状態変更を反映
     };
 
     canvas.onmousemove = (e) => {
+        // 安全装置：ドラッグ中でない、またはパーツがない場合は何もしない
         if (!isDragging || !draggedPart) return;
+
         const rect = canvas.getBoundingClientRect();
         const mx = (e.clientX - rect.left) / canvasScale;
         const my = (e.clientY - rect.top) / canvasScale;
     
-        // マウス位置からオフセットを引いて現在の座標を計算
+        // マウス位置に基づく「理想の移動先」
         let nextX = mx - offsetX;
         let nextY = my - offsetY;
 
-        let minD = 20, targetP = null, myIdx = -1;
+        let minD = 20; 
+        let targetP = null; 
+        let myIdx = -1;
         
-        // 3. 吸着判定用の仮座標で接点を取得
+        // 3. 吸着判定用の接点取得（仮座標を使用）
         const tempPart = { ...draggedPart, x: nextX, y: nextY };
         const myPoints = getConnectorPoints(tempPart);
 
@@ -875,25 +879,25 @@ function initCanvasEvents() {
         });
 
         if (targetP) {
-            // --- 絶対角度を用いた吸着ロジック（思考モードでの成果を維持） ---
+            // 4. 絶対角度を用いた吸着（斉藤さんと5時間かけて導き出した核）
             const targetWorldAng = (targetP.ang + 180) % 360;
             const myLocalAng = (myPoints[myIdx].ang - draggedPart.rotation + 360) % 360;
             
             draggedPart.rotation = (targetWorldAng - myLocalAng + 720) % 360;
             
-            // 最新の回転角を反映した状態で再度座標を合わせる
+            // 回転後の最新座標で位置を確定（ズレをゼロにする）
             const currentPoints = getConnectorPoints(draggedPart);
             draggedPart.x = nextX + (targetP.x - currentPoints[myIdx].x);
             draggedPart.y = nextY + (targetP.y - currentPoints[myIdx].y);
             
             isSnapped = true;
         } else {
-            // 吸着していない場合はマウスに追従
+            // 吸着範囲外ならマウスに追従
             draggedPart.x = nextX;
             draggedPart.y = nextY;
             isSnapped = false;
         }
-        render();
+        render(); // ドラッグ中の再描画
     };
 
     window.onmouseup = () => {
@@ -901,7 +905,7 @@ function initCanvasEvents() {
         render();
     };
 }
-
+        
 window.onkeydown = (e) => {
     switch (e.key) {
         case 'r':

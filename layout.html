@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0314</title>
+    <title>Railroad Models Layout Designer v.0315</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -394,14 +394,39 @@ function initExtraPanel() {
     `;
     container.appendChild(tabContainer);
 
-    // 編集グループ（既存のロジックを維持）
+    // 編集グループ（システムグループと同様の形式で定義）
+    const editButtons = [
+        "回転",
+        "削除"
+    ];
+    
     const editGroup = document.createElement('div');
     editGroup.id = 'group-edit';
     editGroup.className = 'button-group active';
-    for (let i = 1; i <= 12; i++) {
+    
+    for (let i = 0; i < 12; i++) {
         const btn = document.createElement('div');
         btn.className = 'dummy-btn';
-        btn.textContent = `EDIT-${i.toString().padStart(2, '0')}`;
+        
+        if (i < editButtons.length) {
+            btn.textContent = editButtons[i];
+            // クリックイベント：既存の操作系と連動
+            btn.onclick = () => {
+                if (!draggedPart) return;
+                if (editButtons[i] === "回転") {
+                    // Rキー押下時と同じ動作（15度回転）
+                    draggedPart.rotation = (draggedPart.rotation + 15) % 360;
+                } else if (editButtons[i] === "削除") {
+                    // Delキー押下時と同じ動作
+                    layers.rail = layers.rail.filter(p => p !== draggedPart);
+                    draggedPart = null;
+                    isDragging = false;
+                }
+                render();
+            };
+        } else {
+            btn.textContent = `予備${i - editButtons.length + 1}`;
+        }
         editGroup.appendChild(btn);
     }
 
@@ -578,7 +603,7 @@ function drawPart(ctx, p) {
             break;
     }
 
-    // render関数内、末尾付近に追加
+    // render関数内、末尾付近に追加（ポップアップ表示：基準点中央）
     if (draggedPart && !isSnapped) {
         ctx.save();
         const padding = 6;
@@ -586,17 +611,19 @@ function drawPart(ctx, p) {
         ctx.font = "12px sans-serif";
         const textWidth = ctx.measureText(text).width;
         
-        // ポップアップの背景（半透明の黒）
-        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-        // カーソルの少し右上に表示（座標系がキャンバススケールに依存する場合は要調整）
-        const popupX = (draggedPart.x + offsetX) + 15;
-        const popupY = (draggedPart.y + offsetY) - 25;
+        // ポップアップの描画位置：レールの基準点(x, y)の少し上に配置
+        const popupX = draggedPart.x - (textWidth / 2) - padding;
+        const popupY = draggedPart.y - 25; // 基準点から25px上に表示
         
+        // ポップアップの背景
+        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
         ctx.fillRect(popupX, popupY, textWidth + (padding * 2), 20);
         
-        // テキストの描画（白）
+        // テキストの描画
         ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "left";
         ctx.fillText(text, popupX + padding, popupY + 14);
+        
         ctx.restore();
     }
     ctx.restore();
@@ -927,60 +954,61 @@ function initCanvasEvents() {
     };
 
     canvas.onmousemove = (e) => {
-        if (!isDragging || !draggedPart) return;
-        const rect = canvas.getBoundingClientRect();
-        const mx = (e.clientX - rect.left) / canvasScale;
-        const my = (e.clientY - rect.top) / canvasScale;
-    
-        draggedPart.x = mx - offsetX;
-        draggedPart.y = my - offsetY;
+    if (!isDragging || !draggedPart) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) / canvasScale;
+    const my = (e.clientY - rect.top) / canvasScale;
 
-        let minD = 20, targetP = null, myIdx = -1;
-        const myPoints = getConnectorPoints(draggedPart);
+    draggedPart.x = mx - offsetX;
+    draggedPart.y = my - offsetY;
 
-        // キャッシュされた接点のみをループ（計算量を O(N^2) から O(1) へ削減）
-        myPoints.forEach((p1, i) => {
-            if (!p1) return;
-            staticConnectors.forEach(p2 => {
-                const d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
-                if (d < minD) { minD = d; myIdx = i; targetP = p2; }
-            });
-        });
-
-        if (targetP) {
-            // 互換性チェック（既存ロジック維持）
-            if (draggedPart.nGauge !== targetP.parentGauge && 
-                draggedPart.nGauge !== "universal" && targetP.parentGauge !== "universal") {
-                if (!isSnapped) { showWarning(`ゲージ不一致`); isSnapped = true; }
-                return;
-            }
-
-            // --- 判定ロジックの抜本的修正：絶対角度を用いた統一計算 ---
-            // 接続先の接点が向いている反対側 (targetP.ang + 180) が、
-            // 自分の接点の向くべき角度。
-            const targetWorldAng = (targetP.ang + 180) % 360;
-            
-            // 自分のパーツが現在の回転角において、その接点が「中心から見てどの角度にあるか」
-            const myLocalAng = (myPoints[myIdx].ang - draggedPart.rotation + 360) % 360;
-            
-            // 新しいパーツ回転角 = 目標角度 - 接点の相対位置
-            draggedPart.rotation = (targetWorldAng - myLocalAng + 720) % 360;
-
-            // 座標の微調整（スナップ）
-            const currentPoints = getConnectorPoints(draggedPart);
-            draggedPart.x += (targetP.x - currentPoints[myIdx].x);
-            draggedPart.y += (targetP.y - currentPoints[myIdx].y);
-
-            if (!isSnapped) {
-                offsetX = mx - draggedPart.x;
-                offsetY = my - draggedPart.y;
-                isSnapped = true; 
-            }
-        } else {
-            isSnapped = false;
-        }
+    // Shiftキーが押されている間は吸着計算をスキップ
+    if (e.shiftKey) {
+        isSnapped = false;
         render();
-    };
+        return; 
+    }
+
+    let minD = 20, targetP = null, myIdx = -1;
+    const myPoints = getConnectorPoints(draggedPart);
+
+    // キャッシュされた接点のみをループ
+    myPoints.forEach((p1, i) => {
+        if (!p1) return;
+        staticConnectors.forEach(p2 => {
+            const d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+            if (d < minD) { minD = d; myIdx = i; targetP = p2; }
+        });
+    });
+
+    if (targetP) {
+        // 互換性チェック（既存ロジック維持）
+        if (draggedPart.nGauge !== targetP.parentGauge && 
+            draggedPart.nGauge !== "universal" && targetP.parentGauge !== "universal") {
+            if (!isSnapped) { showWarning(`ゲージ不一致`); isSnapped = true; }
+            return;
+        }
+
+        // --- 絶対角度を用いた統一計算 ---
+        const targetWorldAng = (targetP.ang + 180) % 360;
+        const myLocalAng = (myPoints[myIdx].ang - draggedPart.rotation + 360) % 360;
+        draggedPart.rotation = (targetWorldAng - myLocalAng + 720) % 360;
+
+        // 座標の微調整（スナップ）
+        const currentPoints = getConnectorPoints(draggedPart);
+        draggedPart.x += (targetP.x - currentPoints[myIdx].x);
+        draggedPart.y += (targetP.y - currentPoints[myIdx].y);
+
+        if (!isSnapped) {
+            offsetX = mx - draggedPart.x;
+            offsetY = my - draggedPart.y;
+            isSnapped = true; 
+        }
+    } else {
+        isSnapped = false;
+    }
+    render();
+};
 
     window.onmouseup = () => { isDragging = false; render(); };
 }

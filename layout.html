@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0278r3</title>
+    <title>Railroad Models Layout Designer v.0279r3</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -682,24 +682,24 @@ function drawSinglePointPart(ctx, p) {
     const angRad = (p.nAngle * Math.PI) / 180;
     const sDir = p.sDirection;
 
-    // 接続点に応じて「描き始めの端」を物理的に入れ替える
-    // 始点(0)吸着なら右側(+halfLen)から描き始め、180度回して左へ伸ばす
-    const isStartSide = (p.nConnIdx === 0);
-    const baseTranslateX = isStartSide ? halfLen : -halfLen;
-
     ctx.save();
-    if (isStartSide) {
+
+    // 1. 吸着状態（nConnIdx）に応じた全体制御
+    // 始点(0)で吸着している場合、中心を軸に180度回転させて反対側へ伸ばす
+    if (p.nConnIdx === 0) {
         ctx.rotate(Math.PI);
     }
 
+    // 2. 直線部分の描画（中心基準）
     if (sDir !== "y") {
         drawSingleStraightPart(ctx, p);
     }
 
     const drawSide = (direction, isLeftFlag) => {
         ctx.save();
-        // ここが最大の変更点：固定の -halfLen を変数 baseTranslateX に変更
-        ctx.translate(baseTranslateX, 0);
+        
+        // 3. 【順序の是正】まず「中心から端へ」移動し、そこを起点にする
+        ctx.translate(-halfLen, 0);
 
         const offsetX = r * Math.sin(angRad / 2);
         const offsetY = -(r - r * Math.cos(angRad / 2));
@@ -710,6 +710,7 @@ function drawSinglePointPart(ctx, p) {
             ctx.scale(1, -1);
             ctx.translate(offsetX, offsetY);
         } else {
+            // 右ポイントの精度を維持する順序
             ctx.translate(offsetX, -offsetY); 
             const rotateAngle = (sDir === "y") ? 0 : (angRad / 2);
             ctx.rotate(direction * rotateAngle);

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0288</title>
+    <title>Railroad Models Layout Designer v.0240</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -500,28 +500,25 @@ function getConnectorPoints(p) {
             const r = p.nRadius;
             const angRad = (p.nAngle * Math.PI) / 180;
             const sDir = p.sDirection;
+            const isLeft = (sDir === "left" || sDir === "y" || sDir === "three");
+            const isRight = (sDir === "right" || sDir === "y" || sDir === "three");
         
-            // 1. 根元：常に左端
+            // 1. 根元
             const pRoot = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, 0);
             pRoot.ang = (p.rotation + 180) % 360;
             points.push({ ...pRoot, ...commonProps });
         
-            // 2. 直進端：常に右端
+            // 2. 直進端
             if (sDir !== "y") {
                 const pStr = getTransformedPoint(p.x, p.y, p.rotation, halfLen, 0);
                 pStr.ang = p.rotation % 360;
                 points.push({ ...pStr, ...commonProps });
             }
         
-            // 3. 分岐端：描画と同じ「右端(halfLen)からの戻り」で算出
-            const isLeft = (sDir === "left" || sDir === "y" || sDir === "three");
-            const isRight = (sDir === "right" || sDir === "y" || sDir === "three");
-
+            // 3. 分岐端（右端 halfLen からのオフセット計算に統一）
             if (isLeft) {
-                // 右端から戻る距離(dx)と、横に振れる距離(dy)
                 const dx = Math.sin(angRad) * r;
                 const dy = -(r - Math.cos(angRad) * r);
-                // 基準を -halfLen ではなく halfLen - dx に修正
                 const pLeft = getTransformedPoint(p.x, p.y, p.rotation, halfLen - dx, dy);
                 pLeft.ang = (p.rotation - p.nAngle + 360) % 360;
                 points.push({ ...pLeft, ...commonProps });
@@ -530,13 +527,12 @@ function getConnectorPoints(p) {
             if (isRight) {
                 const dx = Math.sin(angRad) * r;
                 const dy = (r - Math.cos(angRad) * r);
-                // 基準を -halfLen ではなく halfLen - dx に修正
                 const pRight = getTransformedPoint(p.x, p.y, p.rotation, halfLen - dx, dy);
                 pRight.ang = (p.rotation + p.nAngle) % 360;
                 points.push({ ...pRight, ...commonProps });
             }
             break;
-        } 
+        }
     }
     return points;
 }
@@ -546,6 +542,47 @@ function render() {
     layers.rail.forEach(part => drawPart(ctx, part));
 }
 
+//吸着した点からレールの中心 (0,0) へ戻るためのオフセット量を算出
+function getOffsetForConnector(p, idx) {
+    const halfLen = p.nLength / 2;
+    const r = p.nRadius;
+    const angRad = (p.nAngle * Math.PI) / 180;
+    const sDir = p.sDirection;
+    const isLeft = (sDir === "left" || sDir === "y" || sDir === "three");
+
+    // idx: 0=根元, 1=直進端, 2=分岐端(L), 3=分岐端(R)
+    if (idx === 0) return { x: -halfLen, y: 0 };
+    if (idx === 1) return { x: halfLen, y: 0 };
+    
+    // 分岐端のオフセット（右端起点）
+    const dx = halfLen - (Math.sin(angRad) * r);
+    if (idx === 2) {
+        const dy = isLeft ? -(r - Math.cos(angRad) * r) : (r - Math.cos(angRad) * r);
+        return { x: dx, y: dy };
+    }
+    // 三枝ポイント等の右分岐用
+    const dyR = (r - Math.cos(angRad) * r);
+    return { x: dx, y: dyR };
+}
+
+// レール配置・吸着時の処理イメージ
+function applySnap(targetConnector, movingRail, myConnectorIdx) {
+    // 1. まず角度を合わせる
+    movingRail.rotation = (targetConnector.ang + 180) % 360;
+
+    // 2. 自分の接続点が中心からどれだけ離れているか取得
+    const offset = getOffsetForConnector(movingRail, myConnectorIdx);
+
+    // 3. 接続点から中心位置を逆算して配置（回転を考慮）
+    const rad = (movingRail.rotation * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+
+    // 相手の接点座標(targetConnector.x, y)から、自分の中心(x, y)を求める
+    movingRail.x = targetConnector.x - (offset.x * cos - offset.y * sin);
+    movingRail.y = targetConnector.y - (offset.x * sin + offset.y * cos);
+}
+        
 // パーツ描画（ここから描くべきバーツを分岐）
 function drawPart(ctx, p) {
     ctx.save();

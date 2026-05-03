@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0277</title>
+    <title>Railroad Models Layout Designer v.0278</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -682,11 +682,9 @@ function drawSinglePointPart(ctx, p) {
     const angRad = (p.nAngle * Math.PI) / 180;
     const sDir = p.sDirection;
 
-    // 接続状態による反転（吸着方向）の補正
-    ctx.save();
-    if (p.bReverse) {
-        ctx.rotate(Math.PI);
-    }
+    // 接続位置（0:始点、1:終点、2:分岐点）に応じて、描画の原点を動的に決定
+    // 終点(1)で接続している場合は原点を右端(+halfLen)へ、それ以外は左端(-halfLen)へ
+    const baseOffset = (p.nConnIdx === 1) ? halfLen : -halfLen;
 
     if (sDir !== "y") {
         drawSingleStraightPart(ctx, p);
@@ -694,8 +692,14 @@ function drawSinglePointPart(ctx, p) {
 
     const drawSide = (direction, isLeftFlag) => {
         ctx.save();
-        // 常に「吸着した側の端」を起点にするための移動
-        ctx.translate(-halfLen, 0);
+        
+        // 接続点に基づく原点移動
+        ctx.translate(baseOffset, 0);
+        
+        // 終点吸着時は、レールが重ならないよう描画方向を180度反転
+        if (p.nConnIdx === 1) {
+            ctx.rotate(Math.PI);
+        }
 
         const offsetX = r * Math.sin(angRad / 2);
         const offsetY = -(r - r * Math.cos(angRad / 2));
@@ -706,8 +710,8 @@ function drawSinglePointPart(ctx, p) {
             ctx.scale(1, -1);
             ctx.translate(offsetX, offsetY);
         } else {
-            // 右ポイントの描画位置修正：回転前に座標を確定
-            ctx.translate(offsetX, -offsetY);
+            // 右ポイント：回転前に座標を確定
+            ctx.translate(offsetX, -offsetY); 
             const rotateAngle = (sDir === "y") ? 0 : (angRad / 2);
             ctx.rotate(direction * rotateAngle);
         }
@@ -718,9 +722,7 @@ function drawSinglePointPart(ctx, p) {
 
     if (sDir === "left" || sDir === "y" || sDir === "three") drawSide(-1, true);
     if (sDir === "right" || sDir === "y" || sDir === "three") drawSide(1, false);
-
-    ctx.restore();
-} 
+}
         
 // 道床（バラスト）とハイライトを描画する共通関数
 function drawBallastBed(ctx, len, viewWidth, isDragged, color) {

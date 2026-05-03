@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0292</title>
+    <title>Railroad Models Layout Designer v.0294</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -502,20 +502,19 @@ function getConnectorPoints(p) {
             const sDir = p.sDirection;
         
             // 1. 根元 (nConnIdx: 0)
-            // angを (p.rotation + 180) にすることで、直線レールの左端（180度）に近づけた時、
-            // 「180度 vs 180度」となり、吸着システムが自動的に180度回転させて繋ごうとします。
             const pRoot = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, 0);
             pRoot.ang = (p.rotation + 180) % 360;
-            points.push({ ...pRoot, ...commonProps });
+            // 直接オブジェクトをpushしてエラーを回避
+            points.push({ x: pRoot.x, y: pRoot.y, ang: pRoot.ang, id: p.id, nConnIdx: 0 });
         
             // 2. 直進端 (nConnIdx: 1)
             if (sDir !== "y") {
                 const pStr = getTransformedPoint(p.x, p.y, p.rotation, halfLen, 0);
                 pStr.ang = p.rotation % 360;
-                points.push({ ...pStr, ...commonProps });
+                points.push({ x: pStr.x, y: pStr.y, ang: pStr.ang, id: p.id, nConnIdx: 1 });
             }
         
-            // 3. 分岐端 (nConnIdx: 2以降)
+            // 3. 分岐端 (nConnIdx: 2)
             const isLeft = (sDir === "left" || sDir === "y" || sDir === "three");
             const isRight = (sDir === "right" || sDir === "y" || sDir === "three");
 
@@ -524,7 +523,7 @@ function getConnectorPoints(p) {
                 const dy = -(r - Math.cos(angRad) * r);
                 const pLeft = getTransformedPoint(p.x, p.y, p.rotation, dx, dy);
                 pLeft.ang = (p.rotation + p.nAngle) % 360;
-                points.push({ ...pLeft, ...commonProps });
+                points.push({ x: pLeft.x, y: pLeft.y, ang: pLeft.ang, id: p.id, nConnIdx: 2 });
             }
         
             if (isRight) {
@@ -532,11 +531,12 @@ function getConnectorPoints(p) {
                 const dy = (r - Math.cos(angRad) * r);
                 const pRight = getTransformedPoint(p.x, p.y, p.rotation, dx, dy);
                 pRight.ang = (p.rotation - p.nAngle + 360) % 360;
-                points.push({ ...pRight, ...commonProps });
+                // 三枝ポイント等でIdxが重複しないよう配慮
+                const idx = (sDir === "three") ? 3 : 2;
+                points.push({ x: pRight.x, y: pRight.y, ang: pRight.ang, id: p.id, nConnIdx: idx });
             }
             break;
         }
-    }
     return points;
 }
 
@@ -600,11 +600,11 @@ function drawSinglePointPart(ctx, p) {
     const mainColor = p.sColor || '#333';
 
     ctx.save();
-    // 反転処理を削除し、常に中心基準で描画
+    // 描画が止まらないよう、シンプルな色指定とパス作成に限定
     ctx.strokeStyle = mainColor;
     ctx.lineWidth = 1;
 
-    // --- 直線描画 ---
+    // --- 直線側 ---
     if (sDir !== "y") {
         ctx.beginPath();
         ctx.moveTo(-halfLen, -halfGauge); ctx.lineTo(halfLen, -halfGauge);
@@ -612,15 +612,16 @@ function drawSinglePointPart(ctx, p) {
         ctx.stroke();
     }
 
-    // --- 曲線描画 ---
+    // --- 曲線側 ---
     if (sDir !== "straight") {
         const isLeft = (sDir === "left" || sDir === "y" || sDir === "three");
         const isRight = (sDir === "right" || sDir === "y" || sDir === "three");
 
-        const drawBranch = (sideLeft) => {
+        const drawCurve = (sideLeft) => {
             const centerY = sideLeft ? -r : r;
             const startAngle = sideLeft ? Math.PI / 2 : -Math.PI / 2;
             const endAngle = sideLeft ? (Math.PI / 2 - angRad) : (-Math.PI / 2 + angRad);
+            
             ctx.beginPath();
             ctx.arc(-halfLen, centerY, r + halfGauge, startAngle, endAngle, sideLeft);
             ctx.stroke();
@@ -629,8 +630,8 @@ function drawSinglePointPart(ctx, p) {
             ctx.stroke();
         };
 
-        if (isLeft) drawBranch(true);
-        if (isRight) drawBranch(false);
+        if (isLeft) drawCurve(true);
+        if (isRight) drawCurve(false);
     }
     ctx.restore();
 }

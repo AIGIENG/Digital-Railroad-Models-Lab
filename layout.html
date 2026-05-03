@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0275r4</title>
+    <title>Railroad Models Layout Designer v.0290</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -501,33 +501,35 @@ function getConnectorPoints(p) {
             const angRad = p.nAngle * Math.PI / 180;
             const sDir = p.sDirection;
         
-            // 共通：根元（入力側）
+            // 1. 根元 (nConnIdx: 0)
             const pRoot = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, 0);
-            pRoot.ang = (p.rotation + 180) % 360;
+            pRoot.ang = (p.rotation + 180) % 360; // レールの向きと反対側
             points.push({ ...pRoot, ...commonProps });
         
-            // 直進端（left, right, three の場合）
+            // 2. 直進端 (nConnIdx: 1)
             if (sDir !== "y") {
                 const pStr = getTransformedPoint(p.x, p.y, p.rotation, halfLen, 0);
-                pStr.ang = p.rotation % 360;
+                pStr.ang = p.rotation % 360; // レールの向きと同じ
                 points.push({ ...pStr, ...commonProps });
             }
         
-            // 左分岐端（left, y, three の場合）
-            if (sDir === "left" || sDir === "y" || sDir === "three") {
-                const dx = Math.sin(angRad) * r;
-                const dy = - (r - Math.cos(angRad) * r);
-                const pLeft = getTransformedPoint(p.x, p.y, p.rotation, -halfLen + dx, dy);
-                pLeft.ang = (p.rotation - p.nAngle + 360) % 360;
+            // 3. 分岐端 (nConnIdx: 2以降)
+            const isLeft = (sDir === "left" || sDir === "y" || sDir === "three");
+            const isRight = (sDir === "right" || sDir === "y" || sDir === "three");
+
+            if (isLeft) {
+                const dx = -halfLen + Math.sin(angRad) * r;
+                const dy = -(r - Math.cos(angRad) * r);
+                const pLeft = getTransformedPoint(p.x, p.y, p.rotation, dx, dy);
+                pLeft.ang = (p.rotation + p.nAngle) % 360;
                 points.push({ ...pLeft, ...commonProps });
             }
         
-            // 右分岐端（right, y, three の場合）
-            if (sDir === "right" || sDir === "y" || sDir === "three") {
-                const dx = Math.sin(angRad) * r;
+            if (isRight) {
+                const dx = -halfLen + Math.sin(angRad) * r;
                 const dy = (r - Math.cos(angRad) * r);
-                const pRight = getTransformedPoint(p.x, p.y, p.rotation, -halfLen + dx, dy);
-                pRight.ang = (p.rotation + p.nAngle) % 360;
+                const pRight = getTransformedPoint(p.x, p.y, p.rotation, dx, dy);
+                pRight.ang = (p.rotation - p.nAngle + 360) % 360;
                 points.push({ ...pRight, ...commonProps });
             }
             break;
@@ -678,47 +680,47 @@ function drawCurveRail(ctx, r, angle, gauge, color) {
 // ポイント描画
 function drawSinglePointPart(ctx, p) {
     const halfLen = p.nLength / 2;
+    const halfGauge = p.nGauge / 2;
     const r = p.nRadius;
-    const angRad = (p.nAngle * Math.PI) / 180;
+    const angRad = p.nAngle * Math.PI / 180;
     const sDir = p.sDirection;
+    const mainColor = p.sColor || '#333';
 
+    ctx.save();
+    // nConnIdxによる分岐を削除、または共通化し、配置座標を基準に描画
+    ctx.strokeStyle = mainColor;
+    ctx.lineWidth = 1;
+
+    // A. 直線
     if (sDir !== "y") {
-        drawSingleStraightPart(ctx, p);
+        ctx.beginPath();
+        ctx.moveTo(-halfLen, -halfGauge); ctx.lineTo(halfLen, -halfGauge);
+        ctx.moveTo(-halfLen,  halfGauge); ctx.lineTo(halfLen,  halfGauge);
+        ctx.stroke();
     }
 
-    const drawSide = (direction, isLeftFlag) => {
-        ctx.save();
-        // 1. 直線の左端へ移動
-        ctx.translate(-halfLen, 0);
+    // B. 曲線
+    if (sDir !== "straight") {
+        const isLeft = (sDir === "left" || sDir === "y" || sDir === "three");
+        const isRight = (sDir === "right" || sDir === "y" || sDir === "three");
 
-        // 共通の補正値
-        const offsetX = r * Math.sin(angRad / 2);
-        const offsetY = -(r - r * Math.cos(angRad / 2));
+        const drawBranch = (sideLeft) => {
+            const centerY = sideLeft ? -r : r;
+            const startAngle = sideLeft ? Math.PI / 2 : -Math.PI / 2;
+            const endAngle = sideLeft ? (Math.PI / 2 - angRad) : (-Math.PI / 2 + angRad);
+            ctx.beginPath();
+            ctx.arc(-halfLen, centerY, r + halfGauge, startAngle, endAngle, sideLeft);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(-halfLen, centerY, r - halfGauge, startAngle, endAngle, sideLeft);
+            ctx.stroke();
+        };
 
-        if (isLeftFlag) {
-            // 【左】成功ロジックを維持
-            const rotateAngle = (sDir === "y") ? 0 : (angRad / 2);
-            ctx.rotate(direction * rotateAngle);
-            ctx.scale(1, -1);
-            ctx.translate(offsetX, offsetY);
-        } else {
-            // 【右】回転する「前」に移動を完了させる
-            // 軸が水平なうちに offsetY を足すことで、
-            // 回転後の「浮き」を物理的に封じ込めます。
-            ctx.translate(offsetX, -offsetY); 
-
-            // 移動しきった「点」を基準に回転させる
-            const rotateAngle = (sDir === "y") ? 0 : (angRad / 2);
-            ctx.rotate(direction * rotateAngle);
-        }
-
-        drawSingleCurvePart(ctx, p);
-        ctx.restore();
-    };
-
-    if (sDir === "left" || sDir === "y" || sDir === "three") drawSide(-1, true);
-    if (sDir === "right" || sDir === "y" || sDir === "three") drawSide(1, false);
-}
+        if (isLeft) drawBranch(true);
+        if (isRight) drawBranch(false);
+    }
+    ctx.restore();
+} 
         
 // 道床（バラスト）とハイライトを描画する共通関数
 function drawBallastBed(ctx, len, viewWidth, isDragged, color) {

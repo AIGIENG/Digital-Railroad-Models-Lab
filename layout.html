@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0284</title>
+    <title>Railroad Models Layout Designer v.0285</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -686,13 +686,15 @@ function drawSinglePointPart(ctx, p) {
 
     ctx.save();
 
-    // 1. 接続点(nConnIdx)が始点(0)なら全体を反転
-    // これにより、吸着位置が「内側に潜り込む」現象を物理的に反転させて解消します
+    // 1. 吸着不具合の解消
+    // システムが「始点(0)」に吸着したと判断している場合、
+    // 描画を180度回転させ、かつ「座標の原点自体」を反転させます
     if (p.nConnIdx === 0) {
-        ctx.rotate(Math.PI);
+        ctx.scale(-1, -1);
     }
 
-    // --- A. 直線側（単線1組：鉄路2本） ---
+    // --- A. 直線側（単線1組） ---
+    // ここは常に中心(0,0)を基準に、左右 halfLen ずつ描画します
     if (sDir !== "y") {
         ctx.beginPath();
         ctx.strokeStyle = mainColor;
@@ -702,22 +704,25 @@ function drawSinglePointPart(ctx, p) {
         ctx.stroke();
     }
 
-    // --- B. 曲線側（単線1組：鉄路2本） ---
+    // --- B. 曲線側（単線1組） ---
     if (sDir !== "straight") {
         ctx.save();
         
-        // 2. 分岐基点を「右端(halfLen)」に固定
-        // y座標（円の中心）：Leftなら y=+r（下側）、Rightなら y=-r（上側）に置くのが正解です
+        // 2. 分岐起点を「直線の右端」に合わせるための計算
+        // translate(halfLen, ...) を使うと座標系が狂うため、
+        // arcの「中心座標そのもの」に位置を持たせます
         const isLeft = (sDir === "left" || sDir === "y" || sDir === "three");
-        const yCenterOffset = isLeft ? r : -r;
-        ctx.translate(halfLen, yCenterOffset); 
+        
+        // 円の中心座標：直線の右端(halfLen)から見て、真上または真下(r)の位置
+        const centerX = halfLen;
+        const centerY = isLeft ? r : -r;
 
-        // 3. 開始角と終了角の厳密化
-        // Left時：中心が下にあるので、真上(-90度)から「反時計回り」に15度戻る
-        // Right時：中心が上にあるので、真下(90度)から「時計回り」に15度戻る
+        // 基準角：中心から見た「右端(halfLen)」の位置
+        // 中心が下(isLeft)なら真上(-90度)、中心が上(!isLeft)なら真下(90度)
         const startRad = isLeft ? -Math.PI / 2 : Math.PI / 2;
-        const endRad = startRad + (isLeft ? angRad : -angRad);
-        const anticlockwise = isLeft ? false : true; 
+        
+        // 終了角：右から左へ戻るため、角度分を「引く」
+        const endRad = startRad - angRad;
 
         const innerR = r - halfGauge;
         const outerR = r + halfGauge;
@@ -727,12 +732,12 @@ function drawSinglePointPart(ctx, p) {
 
         // 1本目（外側）
         ctx.beginPath();
-        ctx.arc(0, 0, outerR, startRad, endRad, anticlockwise);
+        ctx.arc(centerX, centerY, outerR, startRad, endRad, true);
         ctx.stroke();
 
         // 2本目（内側）
         ctx.beginPath();
-        ctx.arc(0, 0, innerR, startRad, endRad, anticlockwise);
+        ctx.arc(centerX, centerY, innerR, startRad, endRad, true);
         ctx.stroke();
         
         ctx.restore();

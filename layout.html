@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0291</title>
+    <title>Railroad Models Layout Designer v.0292</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -502,14 +502,16 @@ function getConnectorPoints(p) {
             const sDir = p.sDirection;
         
             // 1. 根元 (nConnIdx: 0)
+            // angを (p.rotation + 180) にすることで、直線レールの左端（180度）に近づけた時、
+            // 「180度 vs 180度」となり、吸着システムが自動的に180度回転させて繋ごうとします。
             const pRoot = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, 0);
-            pRoot.ang = (p.rotation + 180) % 360; // レールの向きと反対側
+            pRoot.ang = (p.rotation + 180) % 360;
             points.push({ ...pRoot, ...commonProps });
         
             // 2. 直進端 (nConnIdx: 1)
             if (sDir !== "y") {
                 const pStr = getTransformedPoint(p.x, p.y, p.rotation, halfLen, 0);
-                pStr.ang = p.rotation % 360; // レールの向きと同じ
+                pStr.ang = p.rotation % 360;
                 points.push({ ...pStr, ...commonProps });
             }
         
@@ -589,39 +591,47 @@ function drawPart(ctx, p) {
     ctx.restore();
 }
 // 単線直線描画
-function drawSingleStraightPart(ctx, p) {
+function drawSinglePointPart(ctx, p) {
     const halfLen = p.nLength / 2;
-    const halfView = p.nViewWidth / 2;
-    const isDragged = (draggedPart === p);
+    const halfGauge = p.nGauge / 2;
+    const r = p.nRadius;
+    const angRad = p.nAngle * Math.PI / 180;
+    const sDir = p.sDirection;
     const mainColor = p.sColor || '#333';
 
-    // 道床と外枠の描画
-    drawBallastBed(ctx, p.nLength, p.nViewWidth, isDragged, mainColor);
-
-    // 走行線の描画（オフセットなし）
-    drawStraightRail(ctx, p);
-}
-
-// 複線直線描画
-function drawDoubleStraightPart(ctx, p) {
-    const halfLen = p.nLength / 2;
-    const halfView = p.nViewWidth / 2;
-    const isDragged = (draggedPart === p);
-    const mainColor = p.sColor || '#333';
-    const gap = p.nTrackGap / 2;
-
-    // 複線用の広い道床を一括で描画
-    drawBallastBed(ctx, p.nLength, p.nViewWidth, isDragged, mainColor);
-
-    // 既存の走行線描画を2回呼び出す
     ctx.save();
-    ctx.translate(0, -gap);
-    drawStraightRail(ctx, p);
-    ctx.restore();
+    // 反転処理を削除し、常に中心基準で描画
+    ctx.strokeStyle = mainColor;
+    ctx.lineWidth = 1;
 
-    ctx.save();
-    ctx.translate(0, gap);
-    drawStraightRail(ctx, p);
+    // --- 直線描画 ---
+    if (sDir !== "y") {
+        ctx.beginPath();
+        ctx.moveTo(-halfLen, -halfGauge); ctx.lineTo(halfLen, -halfGauge);
+        ctx.moveTo(-halfLen,  halfGauge); ctx.lineTo(halfLen,  halfGauge);
+        ctx.stroke();
+    }
+
+    // --- 曲線描画 ---
+    if (sDir !== "straight") {
+        const isLeft = (sDir === "left" || sDir === "y" || sDir === "three");
+        const isRight = (sDir === "right" || sDir === "y" || sDir === "three");
+
+        const drawBranch = (sideLeft) => {
+            const centerY = sideLeft ? -r : r;
+            const startAngle = sideLeft ? Math.PI / 2 : -Math.PI / 2;
+            const endAngle = sideLeft ? (Math.PI / 2 - angRad) : (-Math.PI / 2 + angRad);
+            ctx.beginPath();
+            ctx.arc(-halfLen, centerY, r + halfGauge, startAngle, endAngle, sideLeft);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(-halfLen, centerY, r - halfGauge, startAngle, endAngle, sideLeft);
+            ctx.stroke();
+        };
+
+        if (isLeft) drawBranch(true);
+        if (isRight) drawBranch(false);
+    }
     ctx.restore();
 }
 
@@ -1005,31 +1015,7 @@ function initCanvasEvents() {
     };
 
     window.onmouseup = () => {
-        if (isDragging && isSnapped && snapTarget) {
-            // ドラッグ中のレール(currentRail)と吸着対象(snapTarget)の情報を取得
-            const movingRail = currentRail; 
-            const targetConnector = snapTarget;
-    
-            // 接続点に応じた角度補正
-            // ポイントの根元(Idx: 0)が吸着した場合のみ、相手と同じ向き(0度差)にする
-            // それ以外の端点(Idx: 1以上)が吸着した場合は、180度反転させて外へ伸ばす
-            let baseRotation;
-            if (movingRail.nConnIdx === 0) {
-                baseRotation = targetConnector.ang % 360;
-            } else {
-                baseRotation = (targetConnector.ang + 180) % 360;
-            }
-    
-            movingRail.rotation = baseRotation;
-    
-            // 座標の確定（中心位置の再計算）
-            const rad = (movingRail.rotation * Math.PI) / 180;
-            const offset = getOffsetForConnector(movingRail, movingRail.nConnIdx);
-    
-            movingRail.x = targetConnector.x - (offset.x * Math.cos(rad) - offset.y * Math.sin(rad));
-            movingRail.y = targetConnector.y - (offset.x * Math.sin(rad) + offset.y * Math.cos(rad));
-        }
-    
+
         isDragging = false;
         render();
     };

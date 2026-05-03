@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0320</title>
+    <title>Railroad Models Layout Designer v.0321</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -225,6 +225,16 @@ function initSidebar() {
         return;
     }
 
+    // パーツの役割名の日本語変換定義（ソースを見て適宜追加・変更可能）
+    const ROLE_NAMES_JP = {
+        "straight": "直線",
+        "curve": "曲線",
+        "approach": "アプローチ",
+        "point": "ポイント",
+        "structure": "ストラクチャー類",
+        "furniture": "家具類（机など）"
+    };
+
     // データをツリー構造に整理 [シリーズ][役割]
     const tree = {};
     Object.entries(railData).forEach(([key, rail]) => {
@@ -262,7 +272,10 @@ function initSidebar() {
             roleSummary.style.cursor = "pointer";
             roleSummary.style.fontSize = "13px";
             roleSummary.style.color = "#1abc9c";
-            roleSummary.textContent = "> " + roleName;
+            
+            // 日本語変換の適用：ROLE_NAMES_JPに定義があればそれを使用、なければroleNameをそのまま表示
+            const roleDisplayName = ROLE_NAMES_JP[roleName] || roleName;
+            roleSummary.textContent = "> " + roleDisplayName;
             
             roleDetails.appendChild(roleSummary);
 

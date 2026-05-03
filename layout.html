@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0241</title>
+    <title>Railroad Models Layout Designer v.0275r4</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -498,26 +498,37 @@ function getConnectorPoints(p) {
         case "point": {
             const halfLen = p.nLength / 2;
             const r = p.nRadius;
-            const angRad = (p.nAngle * Math.PI) / 180;
+            const angRad = p.nAngle * Math.PI / 180;
             const sDir = p.sDirection;
         
-            // 1. 根元：左端
-            points.push({ ...getTransformedPoint(p.x, p.y, p.rotation, -halfLen, 0), ang: (p.rotation + 180) % 360 });
+            // 共通：根元（入力側）
+            const pRoot = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, 0);
+            pRoot.ang = (p.rotation + 180) % 360;
+            points.push({ ...pRoot, ...commonProps });
         
-            // 2. 直進端：右端
+            // 直進端（left, right, three の場合）
             if (sDir !== "y") {
-                points.push({ ...getTransformedPoint(p.x, p.y, p.rotation, halfLen, 0), ang: p.rotation % 360 });
+                const pStr = getTransformedPoint(p.x, p.y, p.rotation, halfLen, 0);
+                pStr.ang = p.rotation % 360;
+                points.push({ ...pStr, ...commonProps });
             }
         
-            // 3. 分岐端：右端(halfLen)から弧の分だけ戻る（内側吸着を物理的に阻止する計算式）
-            const dx = Math.sin(angRad) * r;
-            const dy = r - Math.cos(angRad) * r;
-        
+            // 左分岐端（left, y, three の場合）
             if (sDir === "left" || sDir === "y" || sDir === "three") {
-                points.push({ ...getTransformedPoint(p.x, p.y, p.rotation, halfLen - dx, -dy), ang: (p.rotation - p.nAngle + 360) % 360 });
+                const dx = Math.sin(angRad) * r;
+                const dy = - (r - Math.cos(angRad) * r);
+                const pLeft = getTransformedPoint(p.x, p.y, p.rotation, -halfLen + dx, dy);
+                pLeft.ang = (p.rotation - p.nAngle + 360) % 360;
+                points.push({ ...pLeft, ...commonProps });
             }
+        
+            // 右分岐端（right, y, three の場合）
             if (sDir === "right" || sDir === "y" || sDir === "three") {
-                points.push({ ...getTransformedPoint(p.x, p.y, p.rotation, halfLen - dx, dy), ang: (p.rotation + p.nAngle) % 360 });
+                const dx = Math.sin(angRad) * r;
+                const dy = (r - Math.cos(angRad) * r);
+                const pRight = getTransformedPoint(p.x, p.y, p.rotation, -halfLen + dx, dy);
+                pRight.ang = (p.rotation + p.nAngle) % 360;
+                points.push({ ...pRight, ...commonProps });
             }
             break;
         }
@@ -530,47 +541,6 @@ function render() {
     layers.rail.forEach(part => drawPart(ctx, part));
 }
 
-//吸着した点からレールの中心 (0,0) へ戻るためのオフセット量を算出
-function getOffsetForConnector(p, idx) {
-    const halfLen = p.nLength / 2;
-    const r = p.nRadius;
-    const angRad = (p.nAngle * Math.PI) / 180;
-    const sDir = p.sDirection;
-    const isLeft = (sDir === "left" || sDir === "y" || sDir === "three");
-
-    // idx: 0=根元, 1=直進端, 2=分岐端(L), 3=分岐端(R)
-    if (idx === 0) return { x: -halfLen, y: 0 };
-    if (idx === 1) return { x: halfLen, y: 0 };
-    
-    // 分岐端のオフセット（右端起点）
-    const dx = halfLen - (Math.sin(angRad) * r);
-    if (idx === 2) {
-        const dy = isLeft ? -(r - Math.cos(angRad) * r) : (r - Math.cos(angRad) * r);
-        return { x: dx, y: dy };
-    }
-    // 三枝ポイント等の右分岐用
-    const dyR = (r - Math.cos(angRad) * r);
-    return { x: dx, y: dyR };
-}
-
-// レール配置・吸着時の処理イメージ
-function applySnap(targetConnector, movingRail, myConnectorIdx) {
-    // 1. まず角度を合わせる
-    movingRail.rotation = (targetConnector.ang + 180) % 360;
-
-    // 2. 自分の接続点が中心からどれだけ離れているか取得
-    const offset = getOffsetForConnector(movingRail, myConnectorIdx);
-
-    // 3. 接続点から中心位置を逆算して配置（回転を考慮）
-    const rad = (movingRail.rotation * Math.PI) / 180;
-    const cos = Math.cos(rad);
-    const sin = Math.sin(rad);
-
-    // 相手の接点座標(targetConnector.x, y)から、自分の中心(x, y)を求める
-    movingRail.x = targetConnector.x - (offset.x * cos - offset.y * sin);
-    movingRail.y = targetConnector.y - (offset.x * sin + offset.y * cos);
-}
-        
 // パーツ描画（ここから描くべきバーツを分岐）
 function drawPart(ctx, p) {
     ctx.save();
@@ -708,45 +678,48 @@ function drawCurveRail(ctx, r, angle, gauge, color) {
 // ポイント描画
 function drawSinglePointPart(ctx, p) {
     const halfLen = p.nLength / 2;
-    const halfGauge = p.nGauge / 2;
     const r = p.nRadius;
     const angRad = (p.nAngle * Math.PI) / 180;
     const sDir = p.sDirection;
 
-    ctx.save();
-    if (p.nConnIdx === 0) ctx.scale(-1, -1);
-
-    ctx.strokeStyle = p.sColor || '#333';
-    ctx.lineWidth = 1;
-
-    // A. 直線
     if (sDir !== "y") {
-        ctx.beginPath();
-        ctx.moveTo(-halfLen, -halfGauge); ctx.lineTo(halfLen, -halfGauge);
-        ctx.moveTo(-halfLen,  halfGauge); ctx.lineTo(halfLen,  halfGauge);
-        ctx.stroke();
+        drawSingleStraightPart(ctx, p);
     }
 
-    // B. 曲線：接点(halfLen)を基準に描画
-    const drawCurve = (isLeft) => {
-        const yCenter = isLeft ? r : -r;
-        const startAng = isLeft ? -Math.PI/2 : Math.PI/2;
-        // 外側
-        ctx.beginPath();
-        ctx.arc(halfLen, yCenter, r + halfGauge, startAng, startAng - angRad, true);
-        ctx.stroke();
-        // 内側
-        ctx.beginPath();
-        ctx.arc(halfLen, yCenter, r - halfGauge, startAng, startAng - angRad, true);
-        ctx.stroke();
+    const drawSide = (direction, isLeftFlag) => {
+        ctx.save();
+        // 1. 直線の左端へ移動
+        ctx.translate(-halfLen, 0);
+
+        // 共通の補正値
+        const offsetX = r * Math.sin(angRad / 2);
+        const offsetY = -(r - r * Math.cos(angRad / 2));
+
+        if (isLeftFlag) {
+            // 【左】成功ロジックを維持
+            const rotateAngle = (sDir === "y") ? 0 : (angRad / 2);
+            ctx.rotate(direction * rotateAngle);
+            ctx.scale(1, -1);
+            ctx.translate(offsetX, offsetY);
+        } else {
+            // 【右】回転する「前」に移動を完了させる
+            // 軸が水平なうちに offsetY を足すことで、
+            // 回転後の「浮き」を物理的に封じ込めます。
+            ctx.translate(offsetX, -offsetY); 
+
+            // 移動しきった「点」を基準に回転させる
+            const rotateAngle = (sDir === "y") ? 0 : (angRad / 2);
+            ctx.rotate(direction * rotateAngle);
+        }
+
+        drawSingleCurvePart(ctx, p);
+        ctx.restore();
     };
 
-    if (sDir === "left" || sDir === "y" || sDir === "three") drawCurve(true);
-    if (sDir === "right" || sDir === "y" || sDir === "three") drawCurve(false);
-
-    ctx.restore();
+    if (sDir === "left" || sDir === "y" || sDir === "three") drawSide(-1, true);
+    if (sDir === "right" || sDir === "y" || sDir === "three") drawSide(1, false);
 }
-
+        
 // 道床（バラスト）とハイライトを描画する共通関数
 function drawBallastBed(ctx, len, viewWidth, isDragged, color) {
     const halfL = len / 2;

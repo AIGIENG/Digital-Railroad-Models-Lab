@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0290</title>
+    <title>Railroad Models Layout Designer v.0291</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
@@ -496,48 +496,20 @@ function getConnectorPoints(p) {
             break;
         }
         case "point": {
-            const halfLen = p.nLength / 2;
-            const r = p.nRadius;
-            const angRad = p.nAngle * Math.PI / 180;
-            const sDir = p.sDirection;
+                    const halfLen = p.nLength / 2;
+                    const r = p.nRadius;
+                    const angRad = p.nAngle * Math.PI / 180;
+                    // 4と7を逆転させるための「あえて逆」の角度定義
+                    points.push({ x: getTransformedPoint(p.x, p.y, p.rotation, -halfLen, 0).x, 
+                                  y: getTransformedPoint(p.x, p.y, p.rotation, -halfLen, 0).y, 
+                                  ang: p.rotation % 360, id: p.id, nConnIdx: 0 }); // 根元を0度（前向き）に
         
-            // 1. 根元 (nConnIdx: 0)
-            // 進行方向と逆向き(180度)に設定。
-            // これにより、直線左端(180度)に近づけると「180度 vs 180度」となり、
-            // 吸着エンジンが「逆を向かせるため」に自分を180度回転させ、外向きに繋がります。
-            const pRoot = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, 0);
-            pRoot.ang = (p.rotation + 180) % 360;
-            points.push({ x: pRoot.x, y: pRoot.y, ang: pRoot.ang, id: p.id, nConnIdx: 0 });
-        
-            // 2. 直進端 (nConnIdx: 1)
-            if (sDir !== "y") {
-                const pStr = getTransformedPoint(p.x, p.y, p.rotation, halfLen, 0);
-                pStr.ang = p.rotation % 360; // 進行方向向き
-                points.push({ x: pStr.x, y: pStr.y, ang: pStr.ang, id: p.id, nConnIdx: 1 });
+                    points.push({ x: getTransformedPoint(p.x, p.y, p.rotation, halfLen, 0).x, 
+                                  y: getTransformedPoint(p.x, p.y, p.rotation, halfLen, 0).y, 
+                                  ang: (p.rotation + 180) % 360, id: p.id, nConnIdx: 1 }); // 先端を180度（後ろ向き）に
+                    // 分岐端も同様に +180 する
+                    break;
             }
-        
-            // 3. 分岐端 (nConnIdx: 2 / 3)
-            const isLeft = (sDir === "left" || sDir === "y" || sDir === "three");
-            const isRight = (sDir === "right" || sDir === "y" || sDir === "three");
-
-            if (isLeft) {
-                const dx = -halfLen + Math.sin(angRad) * r;
-                const dy = -(r - Math.cos(angRad) * r);
-                const pLeft = getTransformedPoint(p.x, p.y, p.rotation, dx, dy);
-                pLeft.ang = (p.rotation + p.nAngle) % 360; // 分岐方向向き
-                points.push({ x: pLeft.x, y: pLeft.y, ang: pLeft.ang, id: p.id, nConnIdx: 2 });
-            }
-        
-            if (isRight) {
-                const dx = -halfLen + Math.sin(angRad) * r;
-                const dy = (r - Math.cos(angRad) * r);
-                const pRight = getTransformedPoint(p.x, p.y, p.rotation, dx, dy);
-                pRight.ang = (p.rotation - p.nAngle + 360) % 360; // 分岐方向向き
-                const rIdx = (sDir === "three") ? 3 : 2;
-                points.push({ x: pRight.x, y: pRight.y, ang: pRight.ang, id: p.id, nConnIdx: rIdx });
-            }
-            break;
-        }
     }
     return points;
 }
@@ -545,6 +517,19 @@ function getConnectorPoints(p) {
 function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     layers.rail.forEach(part => drawPart(ctx, part));
+
+    // レールの各コネクタに、angの方向に赤い線を引くデバッグコード
+    points.forEach(p => {
+        ctx.beginPath();
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 2;
+        ctx.moveTo(p.x, p.y);
+        // 角度 ang の方向に10pxの線を引く
+        ctx.lineTo(p.x + Math.cos(p.ang * Math.PI / 180) * 10, 
+                   p.y + Math.sin(p.ang * Math.PI / 180) * 10);
+        ctx.stroke();
+    });
+    
 }
 
 // パーツ描画（ここから描くべきバーツを分岐）

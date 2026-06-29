@@ -4,16 +4,60 @@
     <meta charset="UTF-8">
     <title>Railroad Models Layout Designer v.0321</title>
     <style>
-        body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
-        #sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; padding: 10px; }
-        .rail-item { 
-            background: #34495e; margin-bottom: 8px; padding: 10px; border-radius: 4px; 
-            cursor: pointer; transition: background 0.2s; font-size: 14px;
+        /* =====================================================
+         * レイアウト骨格
+         * 画面全体を「サイドバー(左) + メインエリア(右)」の
+         * 横並びで構成する。
+         * ===================================================== */
+        body {
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            font-family: sans-serif;
+            overflow: hidden; /* スクロールバーはmain側だけに出す */
+        }
+
+        /* 左サイドバー：パーツリストを表示するパネル */
+        #sidebar {
+            width: 250px;
+            background: #2c3e50;
+            color: white;
+            overflow-y: auto; /* パーツが多い場合にスクロール */
+            padding: 10px;
+        }
+
+        /* サイドバー内の各パーツ行 */
+        .rail-item {
+            background: #34495e;
+            margin-bottom: 8px;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 14px;
         }
         .rail-item:hover { background: #1abc9c; }
-        #main { flex: 1; background: #ecf0f1; position: relative; overflow: auto; }
-        #canvas { background: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); display: block; margin: 50px; }
 
+        /* 右メインエリア：キャンバスを内包し、スクロール可能にする */
+        #main {
+            flex: 1;
+            background: #ecf0f1;
+            position: relative;
+            overflow: auto;
+        }
+
+        /* 描画キャンバス本体。margin: 50px で周囲に余白を作る */
+        #canvas {
+            background: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            display: block;
+            margin: 50px;
+        }
+
+        /* =====================================================
+         * 警告メッセージ
+         * ゲージ・メーカー不一致のとき右下に一時表示される。
+         * ===================================================== */
         #alert-container {
             position: fixed;
             bottom: 20px;
@@ -29,38 +73,33 @@
             font-size: 13px;
             margin-top: 5px;
             pointer-events: none;
-            animation: fadeOut 0.5s forwards 4.5s;
+            animation: fadeOut 0.5s forwards 4.5s; /* 4.5秒後にフェードアウト */
         }
         @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
 
+        /* =====================================================
+         * ズームパネル（右下固定）
+         * 普段は半透明、ホバーで不透明になる。
+         * ===================================================== */
         #zoom-window {
             position: fixed;
             bottom: 20px;
             right: 20px;
             background: rgba(44, 62, 80, 0.9);
             color: white;
-            padding: 10px;
+            padding: 5px 10px;
             border-radius: 8px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             z-index: 1100;
             user-select: none;
-            /* 追加：初期状態を30%の透明度にし、変化を滑らかにする */
+            width: 250px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
             opacity: 0.3;
             transition: opacity 0.2s ease;
         }
-
-        /* ズームパネル */
-        #zoom-window:hover {
-            opacity: 1.0;
-        }
-
-        #zoom-window {
-            /* 既存の設定に以下を追加・上書き */
-            padding: 5px 10px;        /* 上下の余白を半分に */
-            display: flex;
-            flex-direction: column;
-            justify-content: center;  /* 縦方向に中央寄せ */
-        }
+        #zoom-window:hover { opacity: 1.0; }
 
         .zoom-controls {
             display: flex;
@@ -68,10 +107,7 @@
             justify-content: space-between;
             gap: 10px;
         }
-        .zoom-slider {
-            flex: 1;
-            cursor: pointer;
-        }
+        .zoom-slider { flex: 1; cursor: pointer; }
         .zoom-btn {
             background: #1abc9c;
             border: none;
@@ -84,7 +120,7 @@
         .zoom-quick-btns {
             display: flex;
             justify-content: space-around;
-            margin-top: 4px; /* 8pxから4pxに詰め、下の余白を解消 */
+            margin-top: 4px;
         }
         .quick-btn {
             font-size: 11px;
@@ -98,14 +134,17 @@
         #zoom-display {
             text-align: center;
             font-size: 12px;
-            margin-bottom: 2px; /* 5pxから2pxに詰め */
+            margin-bottom: 2px;
         }
 
-        /* コマンドパネル */
+        /* =====================================================
+         * コマンドパネル（ズームパネルの上に配置）
+         * 「編集」「システム」の2タブ構成。
+         * 普段は半透明、ホバーで不透明になる。
+         * ===================================================== */
         #extra-panel {
-            /* --- 既存の設定を維持 --- */
             position: fixed;
-            bottom: 130px; 
+            bottom: 130px;
             right: 20px;
             background: rgba(44, 62, 80, 0.9);
             color: white;
@@ -116,25 +155,18 @@
             user-select: none;
             display: flex;
             flex-direction: column;
-            overflow: hidden; 
-
-            /* --- マウスオーバーを有効にするための設定 --- */
+            overflow: hidden;
             opacity: 0.3;
             transition: opacity 0.2s ease;
         }
+        #extra-panel:hover { opacity: 1.0; }
 
-        /* 追加：マウスがパネルに乗った時に不透明にする */
-        #extra-panel:hover {
-            opacity: 1.0;
-        }
-
-        /* タブコンテナ */
+        /* タブヘッダー行 */
         .panel-tabs {
             display: flex;
             gap: 2px;
             margin-bottom: 5px;
         }
-
         .panel-tab {
             flex: 1;
             padding: 5px 0;
@@ -145,39 +177,35 @@
             border-radius: 4px 4px 0 0;
             border-bottom: 2px solid transparent;
         }
-
         .panel-tab.active {
             background: #34495e;
             border-bottom: 2px solid #1abc9c;
             font-weight: bold;
         }
 
-        /* ボタン群のコンテナ */
+        /* タブごとのボタン群。activeクラスがある方だけ表示 */
         .button-group {
-            display: none; /* 基本は非表示 */
+            display: none;
             flex-direction: column;
             gap: 4px;
             flex: 1;
         }
+        .button-group.active { display: flex; }
 
-        .button-group.active {
-            display: flex; /* activeクラスがついた方だけ表示 */
-        }
-
-        .dummy-btn {
+        /* パネル内のボタン共通スタイル */
+        .panel-btn {
             width: 100%;
-            flex: 1; 
+            flex: 1;
             background: #34495e;
             border: 1px solid #7f8c8d;
             color: #bdc3c7;
             border-radius: 4px;
-            cursor: not-allowed;
+            cursor: pointer;
             font-size: 11px;
             display: flex;
             align-items: center;
             justify-content: center;
         }
-        
     </style>
 </head>
 <body>
@@ -189,940 +217,971 @@
         <canvas id="canvas"></canvas>
     </div>
 
+    <!-- パーツ定義データ。このファイルを読み込むことで railData 変数が使えるようになる -->
     <script src="rails.js"></script>
 
     <script>
-// --- 状態管理 ---
-const layers = { rail: [] };
-const CANVAS_CONFIG = { width: 1800 , height: 900 };
-let isDragging = false, draggedPart = null, offsetX = 0, offsetY = 0, isSnapped = false, isCtrlPressed = false, isShiftPressed = false;        
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
+    // =====================================================
+    // グローバル状態変数
+    // アプリ全体で共有される状態をここにまとめる。
+    // =====================================================
 
-// ウィンドウのサイズ設定（ハードコーディング回避）
-const ZOOM_WINDOW_CONFIG = {
-    width: 250, height: 70
-};
-let canvasScale = 1.0; // 100% = 1.0
+    // キャンバス上に配置されたパーツを保持する配列。
+    // layers という名前だが、現在は rail の1種類のみ管理している。
+    const layers = { rail: [] };
 
-// 拡張パネルのサイズ設定
-const EXTRA_PANEL_CONFIG = {
-    width: 150,
-    height: 450, // タブ分を考慮して少し高さを確保
-    bottom: 130
-};
-        
-/**
- * サイドバーの生成（2階層ツリー表示 / sNameのみ表示）
- */
-function initSidebar() {
-    const listContainer = document.getElementById('rail-list');
-    if (!listContainer) return;
-    listContainer.innerHTML = "";
+    // キャンバスの論理サイズ（ピクセル）
+    const CANVAS_CONFIG = { width: 1800, height: 900 };
 
-    if (typeof railData === 'undefined') {
-        listContainer.innerHTML = "<p style='color:red;'>rails.js not found</p>";
-        return;
-    }
+    // ドラッグ操作の状態
+    let isDragging = false;       // ドラッグ中かどうか
+    let draggedPart = null;       // 現在ドラッグ中のパーツオブジェクト
+    let offsetX = 0, offsetY = 0; // クリック位置とパーツ中心のズレ
+    let isSnapped = false;        // 接続スナップが発動しているかどうか
+    let isCtrlPressed = false;    // Ctrlキーが押されているかどうか
 
-    // パーツの役割名の日本語変換定義（ソースを見て適宜追加・変更可能）
-    const ROLE_NAMES_JP = {
-        "straight": "直線",
-        "curve": "曲線",
-        "approach": "アプローチ",
-        "point": "ポイント",
-        "structure": "ストラクチャー類",
-        "furniture": "家具類（机など）"
-    };
+    // CSSスケール倍率（1.0 = 100%）。ズームパネルから変更される。
+    let canvasScale = 1.0;
 
-    // データをツリー構造に整理 [シリーズ][役割]
-    const tree = {};
-    Object.entries(railData).forEach(([key, rail]) => {
-        const series = rail.sSeries || "Unknown";
-        const role = rail.sRole || "Other";
-        if (!tree[series]) tree[series] = {};
-        if (!tree[series][role]) tree[series][role] = [];
-        
-        // ドラッグ用IDを保持
-        const railWithKey = { ...rail, sId: key };
-        tree[series][role].push(railWithKey);
-    });
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
 
-    // 第1階層: シリーズ名
-    Object.keys(tree).sort().forEach(seriesName => {
-        const seriesDetails = document.createElement("details");
-        seriesDetails.style.marginBottom = "5px";
-        
-        const seriesSummary = document.createElement("summary");
-        seriesSummary.style.cursor = "pointer";
-        seriesSummary.style.fontWeight = "bold";
-        seriesSummary.style.padding = "3px";
-        seriesSummary.style.background = "#1a252f";
-        seriesSummary.textContent = "[+] " + seriesName;
-        
-        seriesDetails.appendChild(seriesSummary);
+    // =====================================================
+    // UIサイズ定数
+    // =====================================================
+    const ZOOM_WINDOW_CONFIG  = { width: 250, height: 70 };
+    const EXTRA_PANEL_CONFIG  = { width: 150, height: 450, bottom: 130 };
 
-        // 第2階層: 役割 (Role)
-        Object.keys(tree[seriesName]).sort().forEach(roleName => {
-            const roleDetails = document.createElement("details");
-            roleDetails.style.marginLeft = "10px";
-            roleDetails.style.marginTop = "2px";
-            
-            const roleSummary = document.createElement("summary");
-            roleSummary.style.cursor = "pointer";
-            roleSummary.style.fontSize = "13px";
-            roleSummary.style.color = "#1abc9c";
-            
-            // 日本語変換の適用：ROLE_NAMES_JPに定義があればそれを使用、なければroleNameをそのまま表示
-            const roleDisplayName = ROLE_NAMES_JP[roleName] || roleName;
-            roleSummary.textContent = "> " + roleDisplayName;
-            
-            roleDetails.appendChild(roleSummary);
 
-            // パーツ一覧
-            tree[seriesName][roleName].forEach(rail => {
-                const div = document.createElement("div");
-                div.className = "rail-item";
-                div.style.marginLeft = "10px";
-                div.style.cursor = "grab";
-                div.draggable = true;
-                // 表示を sName のみに限定
-                div.textContent = rail.sName;
-                
-                div.ondragstart = (e) => {
-                    e.dataTransfer.setData("text/plain", rail.sId);
-                    e.dataTransfer.effectAllowed = "copy";
-                };
-                roleDetails.appendChild(div);
-            });
-            seriesDetails.appendChild(roleDetails);
-        });
+    // =====================================================
+    // init()
+    // アプリ起動時に一度だけ呼ばれる初期化関数。
+    // キャンバスサイズの設定、各UIの生成、初回描画を行う。
+    // =====================================================
+    function init() {
+        canvas.width  = CANVAS_CONFIG.width;
+        canvas.height = CANVAS_CONFIG.height;
 
-        // 開閉時の記号切り替え
-        seriesDetails.addEventListener("toggle", () => {
-            seriesSummary.textContent = (seriesDetails.open ? "[-] " : "[+] ") + seriesName;
-        });
+        initCanvasEvents(); // マウス・ドロップ操作の登録
+        initSidebar();      // 左サイドバーのパーツツリーを生成
+        initZoomWindow();   // 右下のズームパネルを生成
+        initExtraPanel();   // 右側のコマンドパネルを生成
 
-        listContainer.appendChild(seriesDetails);
-    });
-}
+        // キャンバスを画面中央にスクロールさせる
+        const main = document.getElementById('main');
+        main.scrollLeft = (CANVAS_CONFIG.width  - main.clientWidth)  / 2;
+        main.scrollTop  = (CANVAS_CONFIG.height - main.clientHeight) / 2;
 
-/**
- * コマンドパネルの生成
- */
-function initExtraPanel() {
-    const container = document.createElement('div');
-    container.id = 'extra-panel';
-    container.style.width = EXTRA_PANEL_CONFIG.width + 'px';
-    container.style.height = EXTRA_PANEL_CONFIG.height + 'px';
-    container.style.bottom = EXTRA_PANEL_CONFIG.bottom + 'px';
-    container.style.cursor = 'default';
-
-    const tabContainer = document.createElement('div');
-    tabContainer.className = 'panel-tabs';
-    tabContainer.innerHTML = `
-        <div class="panel-tab active" id="tab-edit">編集</div>
-        <div class="panel-tab" id="tab-sys">システム</div>
-    `;
-    container.appendChild(tabContainer);
-
-    // 編集グループ
-    const editButtons = ["回転", "削除"];
-    const editGroup = document.createElement('div');
-    editGroup.id = 'group-edit';
-    editGroup.className = 'button-group active';
-    
-    for (let i = 0; i < 12; i++) {
-        const btn = document.createElement('div');
-        btn.className = 'dummy-btn';
-        btn.style.cursor = 'pointer';
-        
-        if (i < editButtons.length) {
-            const btnName = editButtons[i]; // スコープ維持のため定数化
-            btn.textContent = btnName;
-            btn.onclick = () => {
-                if (!draggedPart) return;
-
-                // switch文による判定に変更
-                switch (btnName) {
-                    case "回転":
-                        draggedPart.rotation = (draggedPart.rotation + 15) % 360;
-                        break;
-                    case "削除":
-                        layers.rail = layers.rail.filter(p => p !== draggedPart);
-                        draggedPart = null;
-                        isDragging = false;
-                        break;
-                    default:
-                        // 予備ボタンなどのデフォルト処理
-                        break;
-                }
-                render();
-            };
-        } else {
-            btn.textContent = `予備${i - editButtons.length + 1}`;
-        }
-        editGroup.appendChild(btn);
-    }
-
-    // システムグループ
-    const sysButtons = [
-        "レイアウトエクスポート",
-        "レイアウトインポート",
-        "画像エクスポート",
-        "パーツリストエクスポート",
-        "キャンバスサイズ変更",
-        "全体移動"
-    ];
-
-    const sysGroup = document.createElement('div');
-    sysGroup.id = 'group-sys';
-    sysGroup.className = 'button-group';
-    for (let i = 0; i < 12; i++) {
-        const btn = document.createElement('div');
-        btn.className = 'dummy-btn';
-        btn.style.cursor = 'pointer';
-
-        if (i < sysButtons.length) {
-            const btnName = sysButtons[i];
-            btn.textContent = btnName;
-            btn.onclick = () => {
-                switch (btnName) {
-                    case "レイアウトエクスポート":
-                        // ここに処理を記述
-                        break;
-                    case "レイアウトインポート":
-                        // ここに処理を記述
-                        break;
-                    // ... 他のケースも同様に追加可能
-                }
-            };
-        } else {
-            btn.textContent = `予備${i - sysButtons.length + 1}`;
-        }
-        sysGroup.appendChild(btn);
-    }
-
-    container.appendChild(editGroup);
-    container.appendChild(sysGroup);
-    document.body.appendChild(container);
-
-    const tabs = container.querySelectorAll('.panel-tab');
-    tabs.forEach(tab => {
-        tab.style.cursor = 'pointer';
-        tab.onclick = () => {
-            tabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            const isEdit = tab.id === 'tab-edit';
-            editGroup.classList.toggle('active', isEdit);
-            sysGroup.classList.toggle('active', !isEdit);
-        };
-    });
-}
-        
-/**
- * 汎用座標変換エンジン
- * 中心点(cx, cy)を基準に、オフセット(ox, oy)を角度angle分回転させた座標を返す
- */
-function getTransformedPoint(cx, cy, angleDeg, ox, oy) {
-    const rad = (angleDeg * Math.PI) / 180;
-    const cos = Math.cos(rad);
-    const sin = Math.sin(rad);
-    return {
-        x: cx + ox * cos - oy * sin,
-        y: cy + ox * sin + oy * cos,
-        ang: (angleDeg + (ox < 0 ? 180 : 0)) % 360 // 接点の向き（外向き）を簡易計算
-    };
-}
-
-function init() {
-    canvas.width = CANVAS_CONFIG.width;
-    canvas.height = CANVAS_CONFIG.height;
-    initCanvasEvents();
-    initSidebar();
-    initZoomWindow();
-    initExtraPanel();
-    
-    // キャンバスを中央にスクロール
-    const main = document.getElementById('main');
-    main.scrollLeft = (CANVAS_CONFIG.width - main.clientWidth) / 2;
-    main.scrollTop = (CANVAS_CONFIG.height - main.clientHeight) / 2;
-    
-    render();
-}
-
-function initZoomWindow() {
-    const container = document.createElement('div');
-    container.id = 'zoom-window';
-    container.style.width = ZOOM_WINDOW_CONFIG.width + 'px';
-    container.style.height = ZOOM_WINDOW_CONFIG.height + 'px';
-
-    container.innerHTML = `
-        <div id="zoom-display">ズーム: 100%</div>
-        <div class="zoom-controls">
-            <button class="zoom-btn" id="zoom-out">－</button>
-            <input type="range" class="zoom-slider" id="zoom-range" min="5" max="200" value="100">
-            <button class="zoom-btn" id="zoom-plus">＋</button>
-        </div>
-        <div class="zoom-quick-btns">
-            <button class="quick-btn" data-val="50">50%</button>
-            <button class="quick-btn" data-val="100">100%</button>
-            <button class="quick-btn" data-val="150">150%</button>
-        </div>
-    `;
-    document.body.appendChild(container);
-
-    const range = document.getElementById('zoom-range');
-    const display = document.getElementById('zoom-display');
-
-    const updateZoom = (val) => {
-        canvasScale = val / 100;
-        display.textContent = `ズーム: ${val}%`;
-        range.value = val;
-
-        // ズーム基準点の決定
-        let originX = CANVAS_CONFIG.width / 2;
-        let originY = CANVAS_CONFIG.height / 2;
-
-        if (draggedPart) {
-            originX = draggedPart.x;
-            originY = draggedPart.y;
-        }
-
-        // CSSによるズーム制御
-        canvas.style.transformOrigin = `${originX}px ${originY}px`;
-        canvas.style.transform = `scale(${canvasScale})`;
         render();
-    };
+    }
 
-    range.oninput = (e) => updateZoom(e.target.value);
-    document.getElementById('zoom-out').onclick = () => updateZoom(Math.max(5, parseInt(range.value) - 5));
-    document.getElementById('zoom-plus').onclick = () => updateZoom(Math.min(200, parseInt(range.value) + 5));
-    
-    container.querySelectorAll('.quick-btn').forEach(btn => {
-        btn.onclick = () => updateZoom(btn.getAttribute('data-val'));
-    });
-}
-       
-/**
- * 接点取得の統合
- */
-function getConnectorPoints(p) {
-    const points = [];
-    const commonProps = { parentMaker: p.sMaker, parentGauge: p.nGauge };
 
-    switch (p.sRole) {
-        case "straight": {
-            const halfLen = p.nLength / 2;
-            const offsetsY = p.bIsDouble ? [-(p.nTrackGap / 2), p.nTrackGap / 2] : [0];
-            
-            offsetsY.forEach(oy => {
-                const right = getTransformedPoint(p.x, p.y, p.rotation, halfLen, oy);
-                points.push({ ...right, ...commonProps });
+    // =====================================================
+    // initSidebar()
+    // rails.js の railData を読み込み、
+    // 「シリーズ > 役割 > パーツ名」の2階層ツリーを
+    // サイドバーに生成する。
+    // 各パーツ行はドラッグ可能で、ondragstart でパーツIDを
+    // dataTransfer に渡す。
+    // =====================================================
+    function initSidebar() {
+        const listContainer = document.getElementById('rail-list');
+        if (!listContainer) return;
+        listContainer.innerHTML = "";
 
-                const left = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, oy);
-                left.ang = (p.rotation + 180) % 360;
-                points.push({ ...left, ...commonProps });
-            });
-            break;
+        if (typeof railData === 'undefined') {
+            listContainer.innerHTML = "<p style='color:red;'>rails.js not found</p>";
+            return;
         }
 
-        case "curve":
-        case "approach": {
-            // アプローチレールも計算式は曲線と同じため統合
-            const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
-            const r = p.nRadius;
-            const offsetsR = p.bIsDouble ? [-(p.nTrackGap / 2), p.nTrackGap / 2] : [0];
+        // sRole の英語キーを日本語表示名に変換するテーブル
+        const ROLE_NAMES_JP = {
+            "straight"  : "直線",
+            "curve"     : "曲線",
+            "approach"  : "アプローチ",
+            "point"     : "ポイント",
+            "structure" : "ストラクチャー類",
+            "furniture" : "家具類（机など）"
+        };
 
-            offsetsR.forEach(or => {
-                const currentR = r + or;
-                
-                // 右端
-                const dx1 = Math.sin(halfAngRad) * currentR;
-                const dy1 = r - Math.cos(halfAngRad) * currentR;
-                const p1 = getTransformedPoint(p.x, p.y, p.rotation, dx1, dy1);
-                p1.ang = (p.rotation + (p.nAngle / 2)) % 360;
+        // railData をフラットなオブジェクトから
+        // { シリーズ名: { 役割名: [パーツ, ...] } } のツリーに変換
+        const tree = {};
+        Object.entries(railData).forEach(([key, rail]) => {
+            const series = rail.sSeries || "Unknown";
+            const role   = rail.sRole   || "Other";
+            if (!tree[series])       tree[series] = {};
+            if (!tree[series][role]) tree[series][role] = [];
+            tree[series][role].push({ ...rail, sId: key }); // sId をパーツ本体に付与
+        });
+
+        // シリーズ単位で <details> 折りたたみを生成
+        Object.keys(tree).sort().forEach(seriesName => {
+            const seriesDetails = document.createElement("details");
+            seriesDetails.style.marginBottom = "5px";
+
+            const seriesSummary = document.createElement("summary");
+            seriesSummary.style.cssText = "cursor:pointer;font-weight:bold;padding:3px;background:#1a252f;";
+            seriesSummary.textContent = "[+] " + seriesName;
+            seriesDetails.appendChild(seriesSummary);
+
+            // 役割単位でもう一段 <details> を生成
+            Object.keys(tree[seriesName]).sort().forEach(roleName => {
+                const roleDetails = document.createElement("details");
+                roleDetails.style.cssText = "margin-left:10px;margin-top:2px;";
+
+                const roleSummary = document.createElement("summary");
+                roleSummary.style.cssText = "cursor:pointer;font-size:13px;color:#1abc9c;";
+                roleSummary.textContent = "> " + (ROLE_NAMES_JP[roleName] || roleName);
+                roleDetails.appendChild(roleSummary);
+
+                // パーツ行の生成。ドラッグ開始時にパーツIDをセット
+                tree[seriesName][roleName].forEach(rail => {
+                    const div = document.createElement("div");
+                    div.className  = "rail-item";
+                    div.style.marginLeft = "10px";
+                    div.style.cursor     = "grab";
+                    div.draggable  = true;
+                    div.textContent = rail.sName;
+                    div.ondragstart = (e) => {
+                        e.dataTransfer.setData("text/plain", rail.sId);
+                        e.dataTransfer.effectAllowed = "copy";
+                    };
+                    roleDetails.appendChild(div);
+                });
+                seriesDetails.appendChild(roleDetails);
+            });
+
+            // 開閉状態に合わせて [+]/[-] を切り替える
+            seriesDetails.addEventListener("toggle", () => {
+                seriesSummary.textContent = (seriesDetails.open ? "[-] " : "[+] ") + seriesName;
+            });
+
+            listContainer.appendChild(seriesDetails);
+        });
+    }
+
+
+    // =====================================================
+    // initZoomWindow()
+    // 右下に固定表示されるズームパネルを動的に生成する。
+    // スライダー・±ボタン・クイックボタンで倍率を変更できる。
+    //
+    // ズーム方式について：
+    //   canvas要素にCSSの transform:scale() を適用している。
+    //   これによりマウス座標は canvasScale で割る補正が必要になる
+    //   （initCanvasEvents 内の各イベントハンドラで行っている）。
+    // =====================================================
+    function initZoomWindow() {
+        const container = document.createElement('div');
+        container.id = 'zoom-window';
+        container.innerHTML = `
+            <div id="zoom-display">ズーム: 100%</div>
+            <div class="zoom-controls">
+                <button class="zoom-btn" id="zoom-out">－</button>
+                <input type="range" class="zoom-slider" id="zoom-range" min="5" max="200" value="100">
+                <button class="zoom-btn" id="zoom-plus">＋</button>
+            </div>
+            <div class="zoom-quick-btns">
+                <button class="quick-btn" data-val="50">50%</button>
+                <button class="quick-btn" data-val="100">100%</button>
+                <button class="quick-btn" data-val="150">150%</button>
+            </div>
+        `;
+        document.body.appendChild(container);
+
+        const range   = document.getElementById('zoom-range');
+        const display = document.getElementById('zoom-display');
+
+        // 倍率を変更する共通処理
+        const updateZoom = (val) => {
+            canvasScale = val / 100;
+            display.textContent = `ズーム: ${val}%`;
+            range.value = val;
+
+            // ドラッグ中のパーツがあればそこを、なければキャンバス中心を基準にズーム
+            const originX = draggedPart ? draggedPart.x : CANVAS_CONFIG.width  / 2;
+            const originY = draggedPart ? draggedPart.y : CANVAS_CONFIG.height / 2;
+
+            canvas.style.transformOrigin = `${originX}px ${originY}px`;
+            canvas.style.transform = `scale(${canvasScale})`;
+            render();
+        };
+
+        range.oninput = (e) => updateZoom(e.target.value);
+        document.getElementById('zoom-out').onclick  = () => updateZoom(Math.max(5,   parseInt(range.value) - 5));
+        document.getElementById('zoom-plus').onclick = () => updateZoom(Math.min(200, parseInt(range.value) + 5));
+        container.querySelectorAll('.quick-btn').forEach(btn => {
+            btn.onclick = () => updateZoom(btn.getAttribute('data-val'));
+        });
+    }
+
+
+    // =====================================================
+    // initExtraPanel()
+    // 「編集」「システム」の2タブ構成のコマンドパネルを生成する。
+    //
+    // 編集タブ：選択中パーツへの操作（回転・削除）
+    // システムタブ：ファイル操作など（現在は未実装）
+    // =====================================================
+    function initExtraPanel() {
+        const container = document.createElement('div');
+        container.id = 'extra-panel';
+        container.style.width  = EXTRA_PANEL_CONFIG.width  + 'px';
+        container.style.height = EXTRA_PANEL_CONFIG.height + 'px';
+        container.style.bottom = EXTRA_PANEL_CONFIG.bottom + 'px';
+
+        // タブヘッダー
+        const tabContainer = document.createElement('div');
+        tabContainer.className = 'panel-tabs';
+        tabContainer.innerHTML = `
+            <div class="panel-tab active" id="tab-edit">編集</div>
+            <div class="panel-tab"        id="tab-sys" >システム</div>
+        `;
+        container.appendChild(tabContainer);
+
+        // --- 編集タブのボタン定義 ---
+        // { label: 表示名, action: クリック時の処理 } の配列で管理する。
+        // 将来ボタンを追加する場合はここに追記するだけでよい。
+        const editButtonDefs = [
+            {
+                label: "回転",
+                action: () => {
+                    if (!draggedPart) return;
+                    draggedPart.rotation = (draggedPart.rotation + 15) % 360;
+                    render();
+                }
+            },
+            {
+                label: "削除",
+                action: () => {
+                    if (!draggedPart) return;
+                    layers.rail = layers.rail.filter(p => p !== draggedPart);
+                    draggedPart = null;
+                    isDragging  = false;
+                    render();
+                }
+            }
+        ];
+
+        const editGroup = document.createElement('div');
+        editGroup.id = 'group-edit';
+        editGroup.className = 'button-group active';
+
+        // 12スロット分のボタンを生成。定義がある分は機能ボタン、残りは予備
+        for (let i = 0; i < 12; i++) {
+            const btn = document.createElement('div');
+            btn.className = 'panel-btn';
+            if (i < editButtonDefs.length) {
+                btn.textContent = editButtonDefs[i].label;
+                btn.onclick     = editButtonDefs[i].action;
+            } else {
+                btn.textContent = `予備${i - editButtonDefs.length + 1}`;
+                btn.style.cursor = 'not-allowed';
+                btn.style.opacity = '0.4';
+            }
+            editGroup.appendChild(btn);
+        }
+
+        // --- システムタブのボタン定義 ---
+        // 現在はラベルのみ。action を追加することで機能を実装できる。
+        const sysButtonDefs = [
+            { label: "レイアウトエクスポート", action: () => {} },
+            { label: "レイアウトインポート",   action: () => {} },
+            { label: "画像エクスポート",       action: () => {} },
+            { label: "パーツリストエクスポート", action: () => {} },
+            { label: "キャンバスサイズ変更",   action: () => {} },
+            { label: "全体移動",               action: () => {} },
+        ];
+
+        const sysGroup = document.createElement('div');
+        sysGroup.id = 'group-sys';
+        sysGroup.className = 'button-group';
+
+        for (let i = 0; i < 12; i++) {
+            const btn = document.createElement('div');
+            btn.className = 'panel-btn';
+            if (i < sysButtonDefs.length) {
+                btn.textContent = sysButtonDefs[i].label;
+                btn.onclick     = sysButtonDefs[i].action;
+            } else {
+                btn.textContent = `予備${i - sysButtonDefs.length + 1}`;
+                btn.style.cursor = 'not-allowed';
+                btn.style.opacity = '0.4';
+            }
+            sysGroup.appendChild(btn);
+        }
+
+        container.appendChild(editGroup);
+        container.appendChild(sysGroup);
+        document.body.appendChild(container);
+
+        // タブクリックで表示グループを切り替える
+        const tabs = container.querySelectorAll('.panel-tab');
+        tabs.forEach(tab => {
+            tab.onclick = () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                const isEdit = (tab.id === 'tab-edit');
+                editGroup.classList.toggle('active',  isEdit);
+                sysGroup.classList.toggle('active', !isEdit);
+            };
+        });
+    }
+
+
+    // =====================================================
+    // getTransformedPoint(cx, cy, angleDeg, ox, oy)
+    // 座標変換の核となる汎用関数。
+    //
+    // パーツの中心(cx, cy)と回転角(angleDeg)を基準に、
+    // ローカル座標のオフセット(ox, oy)をワールド座標に変換する。
+    // 接続点の絶対座標計算に使用する。
+    // =====================================================
+    function getTransformedPoint(cx, cy, angleDeg, ox, oy) {
+        const rad = (angleDeg * Math.PI) / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+        return {
+            x:   cx + ox * cos - oy * sin,
+            y:   cy + ox * sin + oy * cos,
+            ang: (angleDeg + (ox < 0 ? 180 : 0)) % 360 // 接点の外向き角度（簡易計算）
+        };
+    }
+
+
+    // =====================================================
+    // getConnectorPoints(p)
+    // パーツ p の全接続点を計算して配列で返す。
+    // スナップ判定（initCanvasEvents内）でのみ使用する。
+    //
+    // 返す配列のインデックスには意味がある：
+    //   直線・曲線 : [右端, 左端] (複線は×2)
+    //   ポイント   : [0]=根元, [1]=直進端, [3]=左分岐端, [5]=右分岐端
+    //               偶数インデックス=入力側、奇数=出力側 という設計
+    // =====================================================
+    function getConnectorPoints(p) {
+        const points = [];
+        const commonProps = { parentMaker: p.sMaker, parentGauge: p.nGauge };
+
+        switch (p.sRole) {
+
+            case "straight": {
+                const halfLen = p.nLength / 2;
+                // 複線なら上下2本分、単線なら中央1本分の接点を生成
+                const offsetsY = p.bIsDouble ? [-(p.nTrackGap / 2), p.nTrackGap / 2] : [0];
+                offsetsY.forEach(oy => {
+                    // 右端
+                    const right = getTransformedPoint(p.x, p.y, p.rotation, halfLen, oy);
+                    points.push({ ...right, ...commonProps });
+                    // 左端（角度を180度反転）
+                    const left = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, oy);
+                    left.ang = (p.rotation + 180) % 360;
+                    points.push({ ...left, ...commonProps });
+                });
+                break;
+            }
+
+            case "curve":
+            case "approach": {
+                // B案：弦の中点を基準点とする座標系
+                //
+                // 弦の中点から見た各端点のローカル座標：
+                //   弦の長さ chord = 2 * r * sin(θ/2)
+                //   右端: ローカル座標 (+chord/2, 0)、角度 +(θ/2)
+                //   左端: ローカル座標 (-chord/2, 0)、角度 -(θ/2) + 180°
+                //
+                // 複線の場合は代表半径 r に ±gap を加えた2本分を生成する。
+                // ただし接続点は弦の中点（複線全体の中心）1組のみ持つ。
+                // （複線レール同士は中心で接続し、個別のレール端では接続しない）
+                const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
+                const r          = p.nRadius;
+                const chord      = 2 * r * Math.sin(halfAngRad); // 弦の長さ
+
+                // 右端：基準点から +chord/2 進んだ位置、接続角は +θ/2
+                const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, 0);
+                p1.ang = (p.rotation + p.nAngle / 2) % 360;
                 points.push({ ...p1, ...commonProps });
 
-                // 左端
-                const dx2 = Math.sin(-halfAngRad) * currentR;
-                const dy2 = r - Math.cos(-halfAngRad) * currentR;
-                const p2 = getTransformedPoint(p.x, p.y, p.rotation, dx2, dy2);
-                p2.ang = (p.rotation - (p.nAngle / 2) + 180) % 360;
+                // 左端：基準点から -chord/2 進んだ位置、接続角は -(θ/2)+180°
+                const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, 0);
+                p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
                 points.push({ ...p2, ...commonProps });
-            });
-            break;
+                break;
+            }
+
+            case "point": {
+                // ポイントの基準点 = 直線部分の中心（弦の中点と同じ概念）
+                //
+                // [0] 根元端：基準点から -halfLen
+                // [1] 直進端：基準点から +halfLen
+                // [3] 左分岐端：根元から角度 -θ 方向に弦の長さ分進んだ位置
+                // [5] 右分岐端：根元から角度 +θ 方向に弦の長さ分進んだ位置
+                const halfLen    = p.nLength / 2;
+                const r          = p.nRadius;
+                const angRad     = p.nAngle * Math.PI / 180;
+                const halfAngRad = angRad / 2;
+                const sDir       = p.sDirection;
+
+                // 分岐曲線の弦の長さ（直線長さと同じ r を使用）
+                const chord = 2 * r * Math.sin(halfAngRad);
+
+                // [0] 根元（直線の左端）
+                const pRoot = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, 0);
+                pRoot.ang = (p.rotation + 180) % 360;
+                points[0] = { ...pRoot, ...commonProps };
+
+                // [1] 直進端（直線の右端）
+                if (sDir !== "y") {
+                    const pStr = getTransformedPoint(p.x, p.y, p.rotation, halfLen, 0);
+                    pStr.ang = p.rotation % 360;
+                    points[1] = { ...pStr, ...commonProps };
+                }
+
+                // 分岐端の計算：
+                // 根元から分岐方向（±θ）に chord 分進んだ先が分岐端
+                // x成分 = chord * cos(±θ)、y成分 = chord * sin(±θ)
+                // ただしローカル座標系では x が前進方向なので：
+                //   前進成分 = chord * cos(θ)
+                //   横成分   = ±chord * sin(θ)  （左は-、右は+）
+
+                // [3] 左分岐端
+                if (sDir === "left" || sDir === "y" || sDir === "three") {
+                    const fwd = chord * Math.cos(angRad);  // 前進方向成分
+                    const lat = chord * Math.sin(angRad);  // 横方向成分（左なのでマイナス）
+                    const pL = getTransformedPoint(p.x, p.y, p.rotation, -halfLen + fwd, -lat);
+                    pL.ang = (p.rotation - p.nAngle + 360) % 360;
+                    points[3] = { ...pL, ...commonProps };
+                }
+
+                // [5] 右分岐端
+                if (sDir === "right" || sDir === "y" || sDir === "three") {
+                    const fwd = chord * Math.cos(angRad);
+                    const lat = chord * Math.sin(angRad);
+                    const pR = getTransformedPoint(p.x, p.y, p.rotation, -halfLen + fwd, lat);
+                    pR.ang = (p.rotation + p.nAngle) % 360;
+                    points[5] = { ...pR, ...commonProps };
+                }
+                break;
+            }
         }
-
-        case "point": {
-            const halfLen = p.nLength / 2;
-            const r = p.nRadius;
-            const angRad = p.nAngle * Math.PI / 180;
-            const sDir = p.sDirection;
-            // 判定ロジックが期待するプロパティ名を維持
-            const commonProps = { parentMaker: p.sMaker, parentGauge: p.nGauge };
-
-            // 0: 根元 (偶数Idx -> 0度オフセット)
-            const pRoot = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, 0);
-            pRoot.ang = (p.rotation + 180) % 360;
-            points[0] = { ...pRoot, ...commonProps };
-
-            // 1: 直進端 (奇数Idx -> 180度オフセット)
-            if (sDir !== "y") {
-                const pStr = getTransformedPoint(p.x, p.y, p.rotation, halfLen, 0);
-                pStr.ang = p.rotation % 360;
-                points[1] = { ...pStr, ...commonProps };
-            }
-
-            // 幾何学計算
-            const dx = Math.sin(angRad) * r;
-            const dy = (r - Math.cos(angRad) * r);
-            
-            // 3番・5番（奇数Idx）に配置することで、分岐端を正しく「出力側」として判定させる
-            if (sDir === "left" || sDir === "y" || sDir === "three") {
-                const pL = getTransformedPoint(p.x, p.y, p.rotation, -halfLen + dx, -dy);
-                pL.ang = (p.rotation - p.nAngle + 360) % 360;
-                points[3] = { ...pL, ...commonProps }; // 3: 奇数
-            }
-            if (sDir === "right" || sDir === "y" || sDir === "three") {
-                const pR = getTransformedPoint(p.x, p.y, p.rotation, -halfLen + dx, dy);
-                pR.ang = (p.rotation + p.nAngle) % 360;
-                points[5] = { ...pR, ...commonProps }; // 5: 奇数
-            }
-            break;
-        }
-    }
-    return points;
-}
-
-function render() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    layers.rail.forEach(part => drawPart(ctx, part));
-}
-
-// パーツ描画（ここから描くべきバーツを分岐）
-function drawPart(ctx, p) {
-    ctx.save();
-    ctx.translate(p.x, p.y);
-    ctx.rotate((p.rotation * Math.PI) / 180);
-
-    switch (p.sRole) {
-        case "straight":
-            if (p.bIsDouble) {
-                drawDoubleStraightPart(ctx, p);
-            } else {
-                drawSingleStraightPart(ctx, p);
-            }
-            break;
-        case "curve":
-            if (p.bIsDouble) {
-                drawDoubleCurvePart(ctx, p);
-            } else {
-                drawSingleCurvePart(ctx, p);
-            }
-            break;
-        case "approach":
-            if (!p.w || p.w === 0) p.w = p.L || 40; 
-            if (!p.h || p.h === 0) p.h = (p.trackPitch || 46);
-            if (p.bIsDouble) {
-                drawDoubleCurvePart(ctx, p);
-            } else {
-                drawSingleCurvePart(ctx, p);
-            }
-            drawApproachIndicator(ctx, p);
-            break;
-        case "point":
-            drawSinglePointPart(ctx, p);
-            break;
+        return points;
     }
 
-    // レール描画処理内、Ctrlマーカー描画付近に追加
-    if (draggedPart === p && !isSnapped) {
+
+    // =====================================================
+    // render()
+    // キャンバス全体を再描画する。
+    // 状態が変わるたびに（ドラッグ・回転・削除など）呼び出す。
+    // =====================================================
+    function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        layers.rail.forEach(part => drawPart(ctx, part));
+    }
+
+
+    // =====================================================
+    // drawPart(ctx, p)
+    // パーツ p を描画する。
+    // sRole に応じて適切な描画関数を呼び分ける。
+    // また、ドラッグ中は名前ポップアップ、
+    // Ctrl押下時は基準点マーカーを追加描画する。
+    // =====================================================
+    function drawPart(ctx, p) {
         ctx.save();
-        const padding = 6;
-        const text = p.sName || "Unknown Rail";
-        ctx.font = "12px sans-serif";
-        const textWidth = ctx.measureText(text).width;
-        
-        // パーツの基準点 (0, 0) から相対的な位置にポップアップを表示
-        const popupX = -(textWidth / 2) - padding;
-        const popupY = -25; // 基準点の25px上
-        
-        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-        ctx.fillRect(popupX, popupY, textWidth + (padding * 2), 20);
-        
-        ctx.fillStyle = "#ffffff";
-        ctx.textAlign = "left";
-        ctx.fillText(text, popupX + padding, popupY + 14);
+        ctx.translate(p.x, p.y);
+        ctx.rotate((p.rotation * Math.PI) / 180);
+
+        switch (p.sRole) {
+            case "straight":
+                p.bIsDouble ? drawDoubleStraightPart(ctx, p) : drawSingleStraightPart(ctx, p);
+                break;
+            case "curve":
+                p.bIsDouble ? drawDoubleCurvePart(ctx, p) : drawSingleCurvePart(ctx, p);
+                break;
+            case "approach":
+                p.bIsDouble ? drawDoubleCurvePart(ctx, p) : drawSingleCurvePart(ctx, p);
+                drawApproachIndicator(ctx, p); // アプローチは曲線に方向矢印を追加
+                break;
+            case "point":
+                drawSinglePointPart(ctx, p);
+                break;
+        }
+
+        // ドラッグ中かつ未スナップ時：パーツ名をポップアップ表示
+        if (draggedPart === p && !isSnapped) {
+            ctx.save();
+            const padding = 6;
+            const text = p.sName || "Unknown Rail";
+            ctx.font = "12px sans-serif";
+            const textWidth = ctx.measureText(text).width;
+            const popupX = -(textWidth / 2) - padding;
+            const popupY = -25;
+            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+            ctx.fillRect(popupX, popupY, textWidth + padding * 2, 20);
+            ctx.fillStyle = "#ffffff";
+            ctx.textAlign = "left";
+            ctx.fillText(text, popupX + padding, popupY + 14);
+            ctx.restore();
+        }
+
+        // Ctrl押下時：パーツの基準点（回転・座標の原点）を青丸で表示
+        if (isCtrlPressed) {
+            ctx.beginPath();
+            ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
+            ctx.strokeStyle = (draggedPart === p) ? "#0056b3" : "blue";
+            ctx.fill();
+        }
+
         ctx.restore();
     }
-    // Ctrl押下時に基準点を描画
-    if (isCtrlPressed) {
-        ctx.beginPath();
-        ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
-        ctx.strokeStyle = (draggedPart === p) ? "#0056b3" : "blue";
-        ctx.fill();
-    }
-    ctx.restore();
-}
-// 単線直線描画
-function drawSingleStraightPart(ctx, p) {
-    const halfLen = p.nLength / 2;
-    const halfView = p.nViewWidth / 2;
-    const isDragged = (draggedPart === p);
-    const mainColor = p.sColor || '#333';
 
-    // 道床と外枠の描画
-    drawBallastBed(ctx, p.nLength, p.nViewWidth, isDragged, mainColor);
 
-    // 走行線の描画（オフセットなし）
-    drawStraightRail(ctx, p);
-}
+    // =====================================================
+    // 以下、drawPart から呼ばれる各パーツ描画関数。
+    // ctx.translate/rotate はすでに drawPart で適用済みなので
+    // 各関数はローカル座標（パーツ中心が原点）で描画すればよい。
+    // =====================================================
 
-// 複線直線描画
-function drawDoubleStraightPart(ctx, p) {
-    const halfLen = p.nLength / 2;
-    const halfView = p.nViewWidth / 2;
-    const isDragged = (draggedPart === p);
-    const mainColor = p.sColor || '#333';
-    const gap = p.nTrackGap / 2;
-
-    // 複線用の広い道床を一括で描画
-    drawBallastBed(ctx, p.nLength, p.nViewWidth, isDragged, mainColor);
-
-    // 既存の走行線描画を2回呼び出す
-    ctx.save();
-    ctx.translate(0, -gap);
-    drawStraightRail(ctx, p);
-    ctx.restore();
-
-    ctx.save();
-    ctx.translate(0, gap);
-    drawStraightRail(ctx, p);
-    ctx.restore();
-}
-
-// 複線曲線描画
-function drawDoubleCurvePart(ctx, p) {
-    const isDragged = (draggedPart === p);
-    const mainColor = p.sColor || '#333';
-    const r = p.nRadius;
-    const gap = p.nTrackGap / 2;
-
-    ctx.save();
-    ctx.translate(0, r); // ここで30cmのズレを解消
-    drawCurveBallast(ctx, r, p.nAngle, p.nViewWidth, isDragged, mainColor);
-    // 2本の走行線を gap 分ずらして配置
-    drawCurveRail(ctx, r - gap, p.nAngle, p.nGauge, mainColor);
-    drawCurveRail(ctx, r + gap, p.nAngle, p.nGauge, mainColor);
-    ctx.restore();
-}
-
-// 単線曲線
-function drawSingleCurvePart(ctx, p) {
-    const isDragged = (draggedPart === p);
-    const mainColor = p.sColor || '#333';
-    const r = p.nRadius;
-
-    ctx.save();
-    ctx.translate(0, r); // ここで30cmのズレを解消
-    drawCurveBallast(ctx, r, p.nAngle, p.nViewWidth, isDragged, mainColor);
-    drawCurveRail(ctx, r, p.nAngle, p.nGauge, mainColor);
-    ctx.restore();
-}
-            
-// 複線曲線
-function drawCurveRail(ctx, r, angle, gauge, color) {
-    const startRad = ((-angle / 2) - 90) * Math.PI / 180;
-    const endRad = ((angle / 2) - 90) * Math.PI / 180;
-    const rIn = r - (gauge / 2);
-    const rOut = r + (gauge / 2);
-
-    ctx.save();
-    ctx.strokeStyle = color || '#333';
-    ctx.lineWidth = 1;
-
-    // 内側のレール
-    ctx.beginPath();
-    ctx.arc(0, 0, rIn, startRad, endRad, false);
-    ctx.stroke();
-
-    // 外側のレール
-    ctx.beginPath();
-    ctx.arc(0, 0, rOut, startRad, endRad, false);
-    ctx.stroke();
-    ctx.restore();
-}
-
-// ポイント描画
-function drawSinglePointPart(ctx, p) {
-    const halfLen = p.nLength / 2;
-    const r = p.nRadius;
-    const angRad = (p.nAngle * Math.PI) / 180;
-    const sDir = p.sDirection;
-
-    if (sDir !== "y") {
-        drawSingleStraightPart(ctx, p);
+    // 単線直線：道床 + 走行線2本
+    function drawSingleStraightPart(ctx, p) {
+        drawBallastBed(ctx, p.nLength, p.nViewWidth, draggedPart === p, p.sColor || '#333');
+        drawStraightRail(ctx, p);
     }
 
-    const drawSide = (direction, isLeftFlag) => {
+    // 複線直線：共通の広い道床 + 走行線を上下2本ずつ
+    function drawDoubleStraightPart(ctx, p) {
+        const gap = p.nTrackGap / 2;
+        drawBallastBed(ctx, p.nLength, p.nViewWidth, draggedPart === p, p.sColor || '#333');
+        ctx.save(); ctx.translate(0, -gap); drawStraightRail(ctx, p); ctx.restore();
+        ctx.save(); ctx.translate(0,  gap); drawStraightRail(ctx, p); ctx.restore();
+    }
+
+    // 単線曲線：道床 + 走行線2本
+    // 基準点 = 弦の中点。円弧中心はそこから (0, +r*cos(θ/2)) の位置にある。
+    function drawSingleCurvePart(ctx, p) {
+        const r          = p.nRadius;
+        const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
+        // 弦の中点から円弧中心までの距離
+        const arcCenterY = r * Math.cos(halfAngRad);
+
         ctx.save();
-        // 1. 直線の左端へ移動
-        ctx.translate(-halfLen, 0);
-
-        // 共通の補正値
-        const offsetX = r * Math.sin(angRad / 2);
-        const offsetY = -(r - r * Math.cos(angRad / 2));
-
-        if (isLeftFlag) {
-            // 【左】成功ロジックを維持
-            const rotateAngle = (sDir === "y") ? 0 : (angRad / 2);
-            ctx.rotate(direction * rotateAngle);
-            ctx.scale(1, -1);
-            ctx.translate(offsetX, offsetY);
-        } else {
-            // 【右】回転する「前」に移動を完了させる
-            // 軸が水平なうちに offsetY を足すことで、
-            // 回転後の「浮き」を物理的に封じ込めます。
-            ctx.translate(offsetX, -offsetY); 
-
-            // 移動しきった「点」を基準に回転させる
-            const rotateAngle = (sDir === "y") ? 0 : (angRad / 2);
-            ctx.rotate(direction * rotateAngle);
-        }
-
-        drawSingleCurvePart(ctx, p);
+        ctx.translate(0, arcCenterY); // 弦の中点 → 円弧中心へ移動
+        drawCurveBallast(ctx, r, p.nAngle, p.nViewWidth, draggedPart === p, p.sColor || '#333');
+        drawCurveRail(ctx, r, p.nAngle, p.nGauge, p.sColor || '#333');
         ctx.restore();
-    };
-
-    if (sDir === "left" || sDir === "y" || sDir === "three") drawSide(-1, true);
-    if (sDir === "right" || sDir === "y" || sDir === "three") drawSide(1, false);
-}
-        
-// 道床（バラスト）とハイライトを描画する共通関数
-function drawBallastBed(ctx, len, viewWidth, isDragged, color) {
-    const halfL = len / 2;
-    const halfV = viewWidth / 2;
-
-    ctx.save();
-    ctx.globalAlpha = 0.3;
-    ctx.fillStyle = color || '#999';
-    ctx.beginPath();
-    ctx.rect(-halfL, -halfV, len, viewWidth);
-    ctx.fill();
-    
-    ctx.globalAlpha = 1.0;
-    ctx.strokeStyle = isDragged ? (isSnapped ? '#007bff' : '#ff4757') : color;
-    ctx.lineWidth = isDragged ? 3 : 1;
-    ctx.stroke();
-    ctx.restore();
-}
-
-// 直線走行線（2本の鉄路）のみを描画する最小単位
-function drawStraightRail(ctx, p) {
-    const halfLen = p.nLength / 2;
-    const halfGauge = p.nGauge / 2;
-    const mainColor = p.sColor || '#333';
-
-    ctx.beginPath();
-    ctx.strokeStyle = mainColor;
-    ctx.lineWidth = 1;
-    ctx.moveTo(-halfLen, -halfGauge); ctx.lineTo(halfLen, -halfGauge);
-    ctx.moveTo(-halfLen,  halfGauge); ctx.lineTo(halfLen,  halfGauge);
-    ctx.stroke();
-}
-
-// 曲線走行線（2本の鉄路）のみを描画する最小単位
-function drawCurveBallast(ctx, r, angle, viewWidth, isDragged, color) {
-    const startRad = ((-angle / 2) - 90) * Math.PI / 180;
-    const endRad = ((angle / 2) - 90) * Math.PI / 180;
-    const innerR = r - (viewWidth / 2);
-    const outerR = r + (viewWidth / 2);
-
-    ctx.save();
-    ctx.globalAlpha = 0.3;
-    ctx.fillStyle = color || '#999';
-    ctx.beginPath();
-    // 外側の弧
-    ctx.arc(0, 0, outerR, startRad, endRad, false);
-    // 内側の弧（逆回転で閉じる）
-    ctx.arc(0, 0, innerR, endRad, startRad, true);
-    ctx.closePath();
-    ctx.fill();
-
-    // 選択・ドラッグ時のハイライト枠
-    ctx.globalAlpha = 1.0;
-    ctx.strokeStyle = isDragged ? (isSnapped ? '#007bff' : '#ff4757') : color;
-    ctx.lineWidth = isDragged ? 3 : 1;
-    ctx.stroke();
-    ctx.restore();
-}
-
-// アプローチレール用インジケーター（修正版）
-function drawApproachIndicator(ctx, p) {
-    const size = 12;
-    const offset = 2;
-
-    ctx.save();
-    ctx.fillStyle = p.sColor || "#7f8c8d";
-    ctx.beginPath();
-
-    const angleRad = (p.nAngle || 0) * Math.PI / 180;
-
-    if (p.sDirection === 'left') {
-        // 基準点(0,0)に配置。向きはデフォルトのまま
-        ctx.translate(0, 0);
-        ctx.moveTo(-offset, 0);
-        ctx.lineTo(-offset + size, -size / 2);
-        ctx.lineTo(-offset + size, size / 2);
-    } else {
-        // 基準点(0,0)に配置。角度分だけ回転
-        ctx.translate(0, 0);
-        ctx.rotate(angleRad - (12.5 * Math.PI / 180));
-        ctx.moveTo(offset, 0);
-        ctx.lineTo(offset - size, -size / 2);
-        ctx.lineTo(offset - size, size / 2);
-    }
-    
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-    ctx.fill();
-    ctx.restore();
-}
-        
-function isPointInPart(mouseX, mouseY, p) {
-    const dx = mouseX - p.x;
-    const dy = mouseY - p.y;
-    const rad = -(p.rotation * Math.PI / 180);
-    const lx = dx * Math.cos(rad) - dy * Math.sin(rad);
-    const ly = dx * Math.sin(rad) + dy * Math.cos(rad);
-
-    if (p.sRole === 'straight') {
-        return (Math.abs(lx) <= p.nLength / 2 && Math.abs(ly) <= p.nViewWidth / 2);
     }
 
-    // curve または approach の判定を追加
-    if (p.sRole === 'curve' || p.sRole === 'approach') {
-        const r = p.nRadius;
-        const viewWidth = p.nViewWidth;
-        const angleLimitRad = (p.nAngle / 2) * Math.PI / 180;
-        const dist = Math.hypot(lx, ly - r);
-        const isInRadius = Math.abs(dist - r) <= viewWidth / 2;
-        if (!isInRadius) return false;
-        const mouseAngleRad = Math.atan2(lx, r - ly);
-        return Math.abs(mouseAngleRad) <= angleLimitRad;
+    // 複線曲線：道床 + 走行線を内外2本ずつ
+    // 基準点 = 弦の中点（代表半径 r の弦の中点）
+    function drawDoubleCurvePart(ctx, p) {
+        const r          = p.nRadius;
+        const gap        = p.nTrackGap / 2;
+        const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
+        const arcCenterY = r * Math.cos(halfAngRad);
+
+        ctx.save();
+        ctx.translate(0, arcCenterY); // 弦の中点 → 円弧中心へ移動
+        drawCurveBallast(ctx, r, p.nAngle, p.nViewWidth, draggedPart === p, p.sColor || '#333');
+        drawCurveRail(ctx, r - gap, p.nAngle, p.nGauge, p.sColor || '#333'); // 内側
+        drawCurveRail(ctx, r + gap, p.nAngle, p.nGauge, p.sColor || '#333'); // 外側
+        ctx.restore();
     }
 
-    if (p.sRole === 'point') {
-        const sDir = p.sDirection;
-        const r = p.nRadius;
-        const angLimitRad = p.nAngle * Math.PI / 180;
+    // ポイント：直線部分 + 分岐曲線部分を合成して描画
+    // 基準点 = 直線部分の中心（= 弦の中点）
+    //
+    // 分岐曲線の描画：
+    //   根元端 (-halfLen, 0) を起点に、分岐角度 ±θ 方向へ曲線を描く。
+    //   drawSingleCurvePart は「弦の中点が原点」として描くため、
+    //   根元端から弦の中点へ移動してから呼び出す。
+    function drawSinglePointPart(ctx, p) {
+        const halfLen    = p.nLength / 2;
+        const r          = p.nRadius;
+        const angRad     = (p.nAngle * Math.PI) / 180;
+        const halfAngRad = angRad / 2;
+        const sDir       = p.sDirection;
+        const chord      = 2 * r * Math.sin(halfAngRad); // 分岐曲線の弦の長さ
+
+        // Y字ポイント以外は直線部分を先に描く
         if (sDir !== "y") {
-            if (Math.abs(lx) <= p.nLength / 2 && Math.abs(ly) <= p.nViewWidth / 2) return true;
+            drawSingleStraightPart(ctx, p);
         }
-        const checkCurve = (dir) => {
+
+        // 分岐曲線を描画する内部関数
+        // side: "left" または "right"
+        const drawSide = (side) => {
+            const sign = (side === "left") ? -1 : 1; // 左は-Y方向、右は+Y方向
+
+            ctx.save();
+
+            // 1. 根元端へ移動
+            ctx.translate(-halfLen, 0);
+
+            // 2. 分岐方向へ回転（根元端を軸に θ 分）
+            ctx.rotate(sign * angRad);
+
+            // 3. 弦の中点へ移動（drawSingleCurvePart の原点合わせ）
+            //    回転後の座標系で「前方 chord/2」が弦の中点
+            ctx.translate(chord / 2, 0);
+
+            // 4. 曲線を描画（この時点で原点 = 弦の中点）
+            //    曲線の向きを合わせるため -angRad 分戻す
+            ctx.rotate(-sign * halfAngRad);
+
+            drawSingleCurvePart(ctx, p);
+            ctx.restore();
+        };
+
+        if (sDir === "left"  || sDir === "y" || sDir === "three") drawSide("left");
+        if (sDir === "right" || sDir === "y" || sDir === "three") drawSide("right");
+    }
+
+
+    // =====================================================
+    // 描画プリミティブ（最小単位）
+    // 上位の描画関数から呼ばれる部品。
+    // =====================================================
+
+    // 直線用道床（グレーの帯）とドラッグ時の枠線を描画
+    function drawBallastBed(ctx, len, viewWidth, isDragged, color) {
+        ctx.save();
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = color;
+        ctx.fillRect(-len / 2, -viewWidth / 2, len, viewWidth);
+        ctx.globalAlpha = 1.0;
+        ctx.strokeStyle = isDragged ? (isSnapped ? '#007bff' : '#ff4757') : color;
+        ctx.lineWidth   = isDragged ? 3 : 1;
+        ctx.strokeRect(-len / 2, -viewWidth / 2, len, viewWidth);
+        ctx.restore();
+    }
+
+    // 直線走行線2本（ゲージ幅分だけ上下にずらした平行線）
+    function drawStraightRail(ctx, p) {
+        const halfLen   = p.nLength / 2;
+        const halfGauge = p.nGauge / 2;
+        ctx.beginPath();
+        ctx.strokeStyle = p.sColor || '#333';
+        ctx.lineWidth   = 1;
+        ctx.moveTo(-halfLen, -halfGauge); ctx.lineTo(halfLen, -halfGauge);
+        ctx.moveTo(-halfLen,  halfGauge); ctx.lineTo(halfLen,  halfGauge);
+        ctx.stroke();
+    }
+
+    // 曲線用道床（扇形）とドラッグ時の枠線を描画
+    function drawCurveBallast(ctx, r, angle, viewWidth, isDragged, color) {
+        const startRad = ((-angle / 2) - 90) * Math.PI / 180;
+        const endRad   = (( angle / 2) - 90) * Math.PI / 180;
+        const innerR   = r - viewWidth / 2;
+        const outerR   = r + viewWidth / 2;
+        ctx.save();
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(0, 0, outerR, startRad, endRad, false);
+        ctx.arc(0, 0, innerR, endRad, startRad, true); // 内側を逆向きで閉じる
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+        ctx.strokeStyle = isDragged ? (isSnapped ? '#007bff' : '#ff4757') : color;
+        ctx.lineWidth   = isDragged ? 3 : 1;
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // 曲線走行線2本（内側レール・外側レール）
+    function drawCurveRail(ctx, r, angle, gauge, color) {
+        const startRad = ((-angle / 2) - 90) * Math.PI / 180;
+        const endRad   = (( angle / 2) - 90) * Math.PI / 180;
+        ctx.save();
+        ctx.strokeStyle = color || '#333';
+        ctx.lineWidth   = 1;
+        ctx.beginPath();
+        ctx.arc(0, 0, r - gauge / 2, startRad, endRad, false); // 内側
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 0, r + gauge / 2, startRad, endRad, false); // 外側
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // アプローチレールの方向矢印インジケーター
+    function drawApproachIndicator(ctx, p) {
+        const size    = 12;
+        const offset  = 2;
+        const angleRad = (p.nAngle || 0) * Math.PI / 180;
+
+        ctx.save();
+        ctx.fillStyle = p.sColor || "#7f8c8d";
+        ctx.beginPath();
+
+        if (p.sDirection === 'left') {
+            ctx.moveTo(-offset, 0);
+            ctx.lineTo(-offset + size, -size / 2);
+            ctx.lineTo(-offset + size,  size / 2);
+        } else {
+            ctx.rotate(angleRad - (12.5 * Math.PI / 180));
+            ctx.moveTo( offset, 0);
+            ctx.lineTo( offset - size, -size / 2);
+            ctx.lineTo( offset - size,  size / 2);
+        }
+
+        ctx.closePath();
+        ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+        ctx.fill();
+        ctx.restore();
+    }
+
+
+    // =====================================================
+    // isPointInPart(mouseX, mouseY, p)
+    // マウス座標 (mouseX, mouseY) がパーツ p の形状内に
+    // あるかどうかを判定する。クリック選択に使用する。
+    //
+    // パーツは回転している可能性があるため、
+    // マウス座標をパーツのローカル座標系に逆変換してから判定する。
+    // =====================================================
+    function isPointInPart(mouseX, mouseY, p) {
+        // マウス座標をパーツのローカル座標に変換
+        const dx  = mouseX - p.x;
+        const dy  = mouseY - p.y;
+        const rad = -(p.rotation * Math.PI / 180);
+        const lx  = dx * Math.cos(rad) - dy * Math.sin(rad);
+        const ly  = dx * Math.sin(rad) + dy * Math.cos(rad);
+
+        if (p.sRole === 'straight') {
+            // 直線：長方形の範囲内かどうか
+            return Math.abs(lx) <= p.nLength / 2 && Math.abs(ly) <= p.nViewWidth / 2;
+        }
+
+        if (p.sRole === 'curve' || p.sRole === 'approach') {
+            // 基準点（弦の中点）から円弧中心への距離を補正してから判定
+            const r          = p.nRadius;
+            const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
+            const arcCenterY = r * Math.cos(halfAngRad); // 弦の中点→円弧中心のオフセット
+            // ローカル座標系で円弧中心を原点にした距離を計算
+            const dist = Math.hypot(lx, ly - arcCenterY);
+            if (Math.abs(dist - r) > p.nViewWidth / 2) return false;
+            const mouseAngleRad = Math.atan2(lx, arcCenterY - ly);
+            return Math.abs(mouseAngleRad) <= halfAngRad;
+        }
+
+        if (p.sRole === 'point') {
+            // ポイント：直線部分または曲線部分のどちらかに含まれればtrue
+            const sDir   = p.sDirection;
+            const r      = p.nRadius;
             const angRad = p.nAngle * Math.PI / 180;
-            // ポイントの曲線部判定：直線端(-halfLen, 0)を起点とした扇形範囲
-            const clx = lx + (p.nLength / 2);
-            const cly = ly - (r * dir);
-            const dist = Math.hypot(clx, cly);
-            if (Math.abs(dist - r) <= p.nViewWidth / 2) {
+
+            if (sDir !== "y" && Math.abs(lx) <= p.nLength / 2 && Math.abs(ly) <= p.nViewWidth / 2) return true;
+
+            const checkCurve = (dir) => {
+                const clx  = lx + (p.nLength / 2);
+                const cly  = ly - (r * dir);
+                const dist = Math.hypot(clx, cly);
+                if (Math.abs(dist - r) > p.nViewWidth / 2) return false;
                 const mouseAngleRad = Math.atan2(clx, (r - ly * dir) * dir);
                 return mouseAngleRad >= 0 && mouseAngleRad <= angRad;
-            }
-            return false;
-        };
-        if ((sDir === "left" || sDir === "y" || sDir === "three") && checkCurve(-1)) return true;
-        if ((sDir === "right" || sDir === "y" || sDir === "three") && checkCurve(1)) return true;
-    }                
-    return false;
-}
+            };
 
-function showWarning(message) {
+            if ((sDir === "left"  || sDir === "y" || sDir === "three") && checkCurve(-1)) return true;
+            if ((sDir === "right" || sDir === "y" || sDir === "three") && checkCurve( 1)) return true;
+        }
+
+        return false;
+    }
+
+
+    // =====================================================
+    // showWarning(message)
+    // 画面右下に赤い警告メッセージを一時表示する。
+    // ゲージ・メーカー不一致のスナップ拒否時に呼ばれる。
+    // =====================================================
+    function showWarning(message) {
         let container = document.getElementById('alert-container');
         if (!container) {
             container = document.createElement('div');
             container.id = 'alert-container';
             document.body.appendChild(container);
         }
-        
-        // 改善案：新しい警告を出す前に中身を空にする（任意）
-        container.innerHTML = ''; 
-
+        container.innerHTML = ''; // 既存の警告をクリア
         const alertBox = document.createElement('div');
-        alertBox.className = 'alert-box';
+        alertBox.className   = 'alert-box';
         alertBox.textContent = message;
         container.appendChild(alertBox);
         setTimeout(() => alertBox.remove(), 5000);
     }
-        
-/**
- * キャンバスイベントの初期化（最適化・修正版）
- */
-function initCanvasEvents() {
-    let staticConnectors = []; // 静止パーツの接点キャッシュ
 
-    canvas.ondragover = (e) => e.preventDefault();
-    canvas.ondrop = (e) => {
-        e.preventDefault();
-        const rect = canvas.getBoundingClientRect();
-        const sId = e.dataTransfer.getData("text/plain");
-        if (railData[sId]) {
-            layers.rail.push({ 
-                ...railData[sId], id: Date.now(), 
-                x: (e.clientX - rect.left) / canvasScale, 
-                y: (e.clientY - rect.top) / canvasScale, 
-                rotation: 0 
-            });
+
+    // =====================================================
+    // initCanvasEvents()
+    // キャンバスへのマウス操作・ドロップを登録する。
+    //
+    // ドロップ  : サイドバーからのパーツ追加
+    // mousedown : パーツ選択＆ドラッグ開始
+    // mousemove : ドラッグ移動 + スナップ判定
+    // mouseup   : ドラッグ終了
+    //
+    // スナップ判定の仕組み：
+    //   ドラッグ開始時に、移動するパーツ以外の全接続点を
+    //   staticConnectors にキャッシュしておく。
+    //   mousemove のたびに移動パーツの接続点と比較し、
+    //   一定距離以内に近づいたら位置・角度を吸着させる。
+    // =====================================================
+    function initCanvasEvents() {
+        let staticConnectors = []; // ドラッグ開始時にキャッシュする静止パーツの接続点
+
+        // ドロップ：サイドバーからパーツを配置する
+        canvas.ondragover = (e) => e.preventDefault();
+        canvas.ondrop = (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const sId  = e.dataTransfer.getData("text/plain");
+            if (railData[sId]) {
+                layers.rail.push({
+                    ...railData[sId],
+                    id:       Date.now(),
+                    x:        (e.clientX - rect.left)  / canvasScale,
+                    y:        (e.clientY - rect.top)   / canvasScale,
+                    rotation: 0
+                });
+                render();
+            }
+        };
+
+        // mousedown：クリックしたパーツを選択してドラッグ開始
+        canvas.onmousedown = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mx   = (e.clientX - rect.left) / canvasScale;
+            const my   = (e.clientY - rect.top)  / canvasScale;
+
+            // 重なりがある場合は最前面（配列末尾）のパーツを優先
+            const target = [...layers.rail].reverse().find(p => isPointInPart(mx, my, p));
+
+            if (target) {
+                isDragging  = true;
+                draggedPart = target;
+                offsetX     = mx - target.x;
+                offsetY     = my - target.y;
+
+                // ドラッグ開始時に静止パーツの全接続点を事前計算してキャッシュ
+                staticConnectors = [];
+                layers.rail.forEach(t => {
+                    if (t === target) return;
+                    getConnectorPoints(t).forEach(pt => { if (pt) staticConnectors.push(pt); });
+                });
+            } else {
+                draggedPart = null;
+                isDragging  = false;
+            }
             render();
-        }
-    };
+        };
 
-    canvas.onmousedown = (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const mx = (e.clientX - rect.left) / canvasScale;
-        const my = (e.clientY - rect.top) / canvasScale;
-    
-        const target = [...layers.rail].reverse().find(p => isPointInPart(mx, my, p));
-    
-        if (target) {
-            isDragging = true;
-            draggedPart = target;
-            offsetX = mx - target.x;
-            offsetY = my - target.y;
+        // mousemove：ドラッグ中の移動 + スナップ処理
+        canvas.onmousemove = (e) => {
+            if (!isDragging || !draggedPart) return;
+            const rect = canvas.getBoundingClientRect();
+            const mx   = (e.clientX - rect.left) / canvasScale;
+            const my   = (e.clientY - rect.top)  / canvasScale;
 
-            // --- パフォーマンス対策：ドラッグ開始時に全接点を計算・保存 ---
-            staticConnectors = [];
-            layers.rail.forEach(t => {
-                if (t === target) return;
-                const pts = getConnectorPoints(t);
-                pts.forEach(pt => {
-                    if (pt) staticConnectors.push(pt);
+            draggedPart.x = mx - offsetX;
+            draggedPart.y = my - offsetY;
+
+            // Shiftキー押下中はスナップをスキップ（自由配置モード）
+            if (e.shiftKey) {
+                isSnapped = false;
+                render();
+                return;
+            }
+
+            // 最も近い接続点ペアを探索
+            let minD = 20, targetP = null, myIdx = -1;
+            const myPoints = getConnectorPoints(draggedPart);
+            myPoints.forEach((p1, i) => {
+                if (!p1) return;
+                staticConnectors.forEach(p2 => {
+                    const d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+                    if (d < minD) { minD = d; myIdx = i; targetP = p2; }
                 });
             });
-        } else {
-            draggedPart = null;
-            isDragging = false;
+
+            if (targetP) {
+                // ゲージ・メーカーの互換性チェック
+                const isGaugeMatch  = draggedPart.nGauge  === targetP.parentGauge  || draggedPart.nGauge  === "universal" || targetP.parentGauge  === "universal";
+                const isMakerMatch  = draggedPart.sMaker  === targetP.parentMaker  || draggedPart.sMaker  === "universal" || targetP.parentMaker  === "universal";
+
+                if (!isGaugeMatch) {
+                    if (!isSnapped) showWarning(`ゲージが異なるため接続できません (${draggedPart.nGauge} / ${targetP.parentGauge})`);
+                    isSnapped = true;
+                    render();
+                    return;
+                }
+                if (!isMakerMatch) {
+                    if (!isSnapped) showWarning(`メーカーが異なるため接続できません (${draggedPart.sMaker} / ${targetP.parentMaker})`);
+                    isSnapped = true;
+                    render();
+                    return;
+                }
+
+                // 角度を合わせて回転させる
+                const targetWorldAng = (targetP.ang + 180) % 360;
+                const myLocalAng     = (myPoints[myIdx].ang - draggedPart.rotation + 360) % 360;
+                draggedPart.rotation = (targetWorldAng - myLocalAng + 720) % 360;
+
+                // 接続点が重なるように座標を微調整
+                const currentPoints = getConnectorPoints(draggedPart);
+                draggedPart.x += targetP.x - currentPoints[myIdx].x;
+                draggedPart.y += targetP.y - currentPoints[myIdx].y;
+
+                if (!isSnapped) {
+                    offsetX   = mx - draggedPart.x;
+                    offsetY   = my - draggedPart.y;
+                    isSnapped = true;
+                }
+            } else {
+                isSnapped = false;
+            }
+            render();
+        };
+
+        // mouseup：ドラッグ終了
+        window.onmouseup = () => { isDragging = false; render(); };
+    }
+
+
+    // =====================================================
+    // キーボードショートカット
+    //   R          : 選択中パーツを22.5°回転
+    //   Ctrl       : 基準点マーカーを表示（押している間）
+    //   Delete/BS  : 選択中パーツを削除
+    // =====================================================
+    window.onkeydown = (e) => {
+        switch (e.key) {
+            case 'r':
+            case 'R': {
+                const t = draggedPart || layers.rail[layers.rail.length - 1];
+                if (t) { t.rotation = (t.rotation + 22.5) % 360; render(); }
+                break;
+            }
+            case 'Control':
+                isCtrlPressed = true;
+                render();
+                break;
+            case 'Delete':
+            case 'Backspace':
+                if (draggedPart) {
+                    layers.rail = layers.rail.filter(p => p !== draggedPart);
+                    draggedPart = null;
+                    render();
+                }
+                break;
         }
-        render();
+    };
+    window.onkeyup = (e) => {
+        if (e.key === 'Control') { isCtrlPressed = false; render(); }
     };
 
-    canvas.onmousemove = (e) => {
-    if (!isDragging || !draggedPart) return;
-    const rect = canvas.getBoundingClientRect();
-    const mx = (e.clientX - rect.left) / canvasScale;
-    const my = (e.clientY - rect.top) / canvasScale;
-
-    draggedPart.x = mx - offsetX;
-    draggedPart.y = my - offsetY;
-
-    // Shiftキーが押されている間は吸着計算をスキップ
-    if (e.shiftKey) {
-        isSnapped = false;
-        render();
-        return; 
-    }
-
-    let minD = 20, targetP = null, myIdx = -1;
-    const myPoints = getConnectorPoints(draggedPart);
-
-    // キャッシュされた接点のみをループ
-    myPoints.forEach((p1, i) => {
-        if (!p1) return;
-        staticConnectors.forEach(p2 => {
-            const d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
-            if (d < minD) { minD = d; myIdx = i; targetP = p2; }
-        });
-    });
-
-    if (targetP) {
-        const sMaker1 = draggedPart.sMaker;
-        const sMaker2 = targetP.parentMaker;
-        const nGauge1 = draggedPart.nGauge;
-        const nGauge2 = targetP.parentGauge;
-
-        const isMakerMatch = (sMaker1 === sMaker2 || sMaker1 === "universal" || sMaker2 === "universal");
-        const isGaugeMatch = (nGauge1 === nGauge2 || nGauge1 === "universal" || nGauge2 === "universal");
-
-        // ゲージ不一致の判定（以前の処理を完全再現）
-        if (!isGaugeMatch) {
-            if (!isSnapped) {
-                showWarning(`ゲージが異なるため接続できません (${nGauge1} / ${nGauge2})`);
-                isSnapped = true;
-            }
-            render();
-            return;
-        }
-
-        // メーカー不一致の判定（以前の処理を完全再現）
-        if (!isMakerMatch) {
-            if (!isSnapped) {
-                showWarning(`メーカーが異なるため接続できません (${sMaker1} / ${sMaker2})`);
-                isSnapped = true;
-            }
-            render();
-            return;
-        }
-
-        // --- 絶対角度を用いた統一計算 ---
-        const targetWorldAng = (targetP.ang + 180) % 360;
-        const myLocalAng = (myPoints[myIdx].ang - draggedPart.rotation + 360) % 360;
-        draggedPart.rotation = (targetWorldAng - myLocalAng + 720) % 360;
-
-        // 座標の微調整（スナップ）
-        const currentPoints = getConnectorPoints(draggedPart);
-        draggedPart.x += (targetP.x - currentPoints[myIdx].x);
-        draggedPart.y += (targetP.y - currentPoints[myIdx].y);
-
-        if (!isSnapped) {
-            offsetX = mx - draggedPart.x;
-            offsetY = my - draggedPart.y;
-            isSnapped = true; 
-        }
-    } else {
-        isSnapped = false;
-    }
-    render();
-};
-
-    window.onmouseup = () => { isDragging = false; render(); };
-}
-
-window.onkeydown = (e) => {
-    switch (e.key) {
-        case 'r':
-        case 'R':
-            const t = draggedPart || layers.rail[layers.rail.length - 1];
-            if (t) {
-                t.rotation = (t.rotation + 22.5) % 360;
-                render();
-            }
-            break;
-
-        case 'Control':
-            isCtrlPressed = true;
-            render();
-            break;
-
-        case 'Delete':
-        case 'Backspace':
-            if (draggedPart) {
-                layers.rail = layers.rail.filter(p => p !== draggedPart);
-                draggedPart = null;
-                render();
-            }
-            break;
-    }
-};
-window.onkeyup = (e) => {
-    if (e.key === 'Control') { 
-        isCtrlPressed = false;
-        render();
-    } 
-};
-
-init();
+    // アプリ起動
+    init();
     </script>
 </body>
 </html>

@@ -200,7 +200,7 @@ const data_others = {
         nAngle: 22.5,
         bIsDouble: true,
         nTrackGap: 33,
-        nJjnctionCount: 4,
+        nJunctionCount: 4,
         sDirection: "left",  // 左方向にカーブが始まるアプローチ
         nViewWidth: 57.5,
         nHeight: 0,

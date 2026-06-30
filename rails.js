@@ -112,7 +112,7 @@ const data_others = {
         nAngle: 15,
         bIsDouble: false,
         nTrackGap: 33,
-        mJunctionCount: 2,
+        nJunctionCount: 2,
         sDirection: "none",
         nViewWidth: 25,
         nHeight: 0,

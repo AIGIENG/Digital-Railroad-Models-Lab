@@ -49,7 +49,7 @@ const data_others = {
         nAngle: 45,
         bIsDouble: false,
         nTrackGap: 33,
-        junctionCount: 2,
+        nJunctionCount: 2,
         sDirection: "none",
         nViewWidth: 25,
         nHeight: 0,
@@ -70,7 +70,7 @@ const data_others = {
         nAngle: 45,
         bIsDouble: false,
         nTrackGap: 33,
-        junctionCount: 2,
+        nJunctionCount: 2,
         sDirection: "none",
         nViewWidth: 25,
         nHeight: 0,
@@ -91,7 +91,7 @@ const data_others = {
         nAngle: 15,
         bIsDouble: false,
         nTrackGap: 33,
-        junctionCount: 2,
+        nJunctionCount: 2,
         sDirection: "none",
         nViewWidth: 25,
         nHeight: 0,
@@ -112,7 +112,7 @@ const data_others = {
         nAngle: 15,
         bIsDouble: false,
         nTrackGap: 33,
-        junctionCount: 2,
+        mJunctionCount: 2,
         sDirection: "none",
         nViewWidth: 25,
         nHeight: 0,
@@ -134,7 +134,7 @@ const data_others = {
         nAngle: 0,
         bIsDouble: true,      // 複線フラグをON
         nTrackGap: 33,       // 内側レールは (414 - 33) で自動計算される
-        junctionCount: 4,
+        nJunctionCount: 4,
         sDirection: "none",
         nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
@@ -156,7 +156,7 @@ const data_others = {
         nAngle: 45,
         bIsDouble: true,      // 複線フラグをON
         nTrackGap: 33,       // 内側レールは (414 - 33) で自動計算される
-        junctionCount: 4,
+        nJunctionCount: 4,
         sDirection: "none",
         nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
@@ -178,7 +178,7 @@ const data_others = {
         nAngle: 45,
         bIsDouble: true,      // 複線フラグをON
         nTrackGap: 33,       // 内側レールは (414 - 33) で自動計算される
-        junctionCount: 4,
+        nJunctionCount: 4,
         sDirection: "none",
         nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
@@ -200,7 +200,7 @@ const data_others = {
         nAngle: 22.5,
         bIsDouble: true,
         nTrackGap: 33,
-        junctionCount: 4,
+        nJjnctionCount: 4,
         sDirection: "left",  // 左方向にカーブが始まるアプローチ
         nViewWidth: 57.5,
         nHeight: 0,
@@ -222,7 +222,7 @@ const data_others = {
         nAngle: 22.5,
         bIsDouble: true,
         nTrackGap: 33,
-        junctionCount: 4,
+        nJunctionCount: 4,
         sDirection: "right",
         nViewWidth: 57.5,
         nHeight: 0,
@@ -244,7 +244,7 @@ const data_others = {
         nAngle: 45,
         bIsDouble: true,      // 複線フラグをON
         nTrackGap: 33,       // 内側レールは (414 - 33) で自動計算される
-        junctionCount: 4,
+        nJunctionCount: 4,
         sDirection: "none",
         nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,

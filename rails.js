@@ -48,7 +48,7 @@ const straightData_tomix = {
 //};
 
 // --- 統合 ---
-const railsData = {
+const railData = {
 //    ...testData,
     ...straightData_kato,
     ...straightData_tomix

@@ -1,6 +1,7 @@
 // rails.js
 
-// --- 各メーカー・種類ごとのデフォルト設定 ---
+// --- 直線データ定義 ---
+
 const DEFAULTS_STRAIGHTDATA_KATO = {
     sMaker: "KATO", sSeries: "UNITRACK", sRole: "straight",
     nRadius: 0, nAngle: 0, bIsDouble: false, nTrackGap: 33,
@@ -8,16 +9,6 @@ const DEFAULTS_STRAIGHTDATA_KATO = {
     nViewWidth: 25, nHeight: 0, nGauge: 9, sColor: "Green",
     sComment: null, sExtra: ""
 };
-
-const DEFAULTS_STRAIGHTDATA_TOMIX = {
-    sMaker: "TOMIX", sSeries: "FINETRACK", sRole: "straight",
-    nRadius: 0, nAngle: 0, bIsDouble: false, nTrackGap: 37,
-    nJunctionCount: 2, sDirection: "none", sKant: "none",
-    nViewWidth: 18, nHeight: 0, nGauge: 9, sColor: "Green",
-    sComment: null, sExtra: ""
-};
-
-// --- 直線データ定義 ---
 const straightData_kato = {
     "KATO_S248":     { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "直線線路 S248",        sProductCode: "20-000",        nLength: 248,   sComment: "標準的な直線レール。PC枕木版と共通で使用可能。" },
     "KATO_S186":     { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "直線線路 S186",        sProductCode: "20-010",        nLength: 186,   sComment: "標準的な直線レール。PC枕木版と共通で使用可能。" },
@@ -28,7 +19,13 @@ const straightData_kato = {
     "KATO_S62":      { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "直線線路 S62",         sProductCode: "20-040",        nLength: 62,    sComment: "標準的な直線レール。" },
     "KATO_S60":      { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "4番ポイント用補助線路", sProductCode: "20-220/221(付属)", nLength: 60,    sComment: "4番ポイント用。" }
 };
-
+const DEFAULTS_STRAIGHTDATA_TOMIX = {
+    sMaker: "TOMIX", sSeries: "FINETRACK", sRole: "straight",
+    nRadius: 0, nAngle: 0, bIsDouble: false, nTrackGap: 37,
+    nJunctionCount: 2, sDirection: "none", sKant: "none",
+    nViewWidth: 18, nHeight: 0, nGauge: 9, sColor: "Green",
+    sComment: null, sExtra: ""
+};
 const straightData_tomix = {
     "TOMIX_S280":    { ...DEFAULTS_STRAIGHTDATA_TOMIX, sName: "直線線路 S280",        sProductCode: "1802",  nLength: 280,   sComment: "標準的な直線レール。" },
     "TOMIX_S158.5":  { ...DEFAULTS_STRAIGHTDATA_TOMIX, sName: "直線線路 S158.5",      sProductCode: "1806",  nLength: 158.5, sComment: "標準的な直線レール。" },

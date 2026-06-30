@@ -51,6 +51,7 @@ const data_others = {
         nTrackGap: 33,
         nJunctionCount: 2,
         sDirection: "none",
+        sKant: "none",
         nViewWidth: 25,
         nHeight: 0,
         nGauge: 9,
@@ -71,6 +72,7 @@ const data_others = {
         bIsDouble: false,
         nTrackGap: 33,
         nJunctionCount: 2,
+        sKant: "none",
         sDirection: "none",
         nViewWidth: 25,
         nHeight: 0,
@@ -93,6 +95,7 @@ const data_others = {
         nTrackGap: 33,
         nJunctionCount: 2,
         sDirection: "none",
+        sKant: "none",
         nViewWidth: 25,
         nHeight: 0,
         nGauge: 9,
@@ -114,6 +117,7 @@ const data_others = {
         nTrackGap: 33,
         nJunctionCount: 2,
         sDirection: "none",
+        sKant: "none",
         nViewWidth: 25,
         nHeight: 0,
         nGauge: 9,
@@ -136,6 +140,7 @@ const data_others = {
         nTrackGap: 33,       // 内側レールは (414 - 33) で自動計算される
         nJunctionCount: 4,
         sDirection: "none",
+        sKant: "none",
         nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
         nGauge: 9,
@@ -158,6 +163,7 @@ const data_others = {
         nTrackGap: 33,       // 内側レールは (414 - 33) で自動計算される
         nJunctionCount: 4,
         sDirection: "none",
+        sKant: "both",
         nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
         nGauge: 9,
@@ -180,6 +186,7 @@ const data_others = {
         nTrackGap: 33,       // 内側レールは (414 - 33) で自動計算される
         nJunctionCount: 4,
         sDirection: "none",
+        sKant: "both",
         nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
         nGauge: 9,
@@ -202,6 +209,7 @@ const data_others = {
         nTrackGap: 33,
         nJunctionCount: 4,
         sDirection: "left",  // 左方向にカーブが始まるアプローチ
+        sKant: "left",
         nViewWidth: 57.5,
         nHeight: 0,
         nGauge: 9,
@@ -224,6 +232,7 @@ const data_others = {
         nTrackGap: 33,
         nJunctionCount: 4,
         sDirection: "right",
+        sKant: "right",
         nViewWidth: 57.5,
         nHeight: 0,
         nGauge: 9,
@@ -246,6 +255,7 @@ const data_others = {
         nTrackGap: 33,       // 内側レールは (414 - 33) で自動計算される
         nJunctionCount: 4,
         sDirection: "none",
+        sKant: "both",
         nViewWidth: 57.5,       // 道床2本分の幅
         nHeight: 0,
         nGauge: 9,

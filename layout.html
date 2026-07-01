@@ -1028,6 +1028,7 @@
             if (railData[sId]) {
                 layers.rail.push({
                     ...railData[sId],
+                    code: sId,
                     id:        Date.now(),
                     x:         (e.clientX - rect.left)  / canvasScale,
                     y:         (e.clientY - rect.top)   / canvasScale,

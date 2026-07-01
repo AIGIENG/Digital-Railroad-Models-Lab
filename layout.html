@@ -602,11 +602,11 @@
     
                 const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, 0);
                 p1.ang = (p.rotation + p.nAngle / 2) % 360;
-                points.push({ ...p1, ...commonProps, ...getKantProps("right") });
+                points.push({ ...p1, ...commonProps, ...getKantProps("left") });
     
                 const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, 0);
                 p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
-                points.push({ ...p2, ...commonProps, ...getKantProps("left") });
+                points.push({ ...p2, ...commonProps, ...getKantProps("right") });
                 break;
             }
     

@@ -710,7 +710,7 @@
         if (isCtrlPressed) {
             ctx.beginPath();
             ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
-            ctx.strokeStyle = (draggedPart === p) ? "#0056b3" : "blue";
+            ctx.fillStyle = (draggedPart === p) ? "#0056b3" : "blue";
             ctx.fill();
         }
         ctx.restore();

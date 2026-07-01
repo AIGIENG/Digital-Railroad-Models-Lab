@@ -1,7 +1,5 @@
 // rails.js
 
-// --- 直線データ定義 ---
-
 const DEFAULTS_STRAIGHTDATA_KATO = {
     sMaker: "KATO", sSeries: "UNITRACK", sRole: "straight",
     nRadius: 0, nAngle: 0, bIsDouble: false, nTrackGap: 33,

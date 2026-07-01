@@ -684,9 +684,8 @@
                 p.bIsDouble ? drawDoubleCurvePart(ctx, p) : drawSingleCurvePart(ctx, p);
                 break;
             case "approach":
-                p.bIsDouble ? drawDoubleCurvePart(ctx, p) : drawSingleCurvePart(ctx, p);
-                drawApproachIndicator(ctx, p);
-                break;
+            p.bIsDouble ? drawDoubleCurvePart(ctx, p) : drawSingleCurvePart(ctx, p);
+            break;
             case "point":
                 drawSinglePointPart(ctx, p);
                 break;
@@ -922,45 +921,6 @@
         ctx.stroke();
         ctx.restore();
     }
-
-    // アプローチレールの方向矢印インジケーター
-    // アプローチレールの方向矢印インジケーター
-    //
-    // 曲線の出口端（弧の終わり側）に▲を表示する。
-    // 左右とも同じロジックで描き、sDirection で向きだけ変える。
-    //
-    // drawPart 内で ctx.translate(p.x, p.y) + ctx.rotate(p.rotation) が
-    // 適用済みなので、ここではローカル座標系（弦の中点が原点）で描く。
-    //
-    // 出口端のローカル座標：
-    //   right → 弦の中点から +chord/2、接線方向 +θ/2
-    //   left  → 弦の中点から -chord/2、接線方向 -θ/2
-    function drawApproachIndicator(ctx, p) {
-        const size       = 12;
-        const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
-        const chord      = 2 * p.nRadius * Math.sin(halfAngRad);
-        const sign       = (p.sDirection === 'left') ? -1 : 1;
-
-        ctx.save();
-
-        // 出口端へ移動
-        ctx.translate(sign * chord / 2, 0);
-
-        // 出口での接線方向へ回転（right: +θ/2、left: -θ/2）
-        ctx.rotate(sign * halfAngRad);
-
-        // ▲を描画（先端が進行方向を向く）
-        ctx.beginPath();
-        ctx.moveTo( size,       0);
-        ctx.lineTo(-size / 2, -size / 2);
-        ctx.lineTo(-size / 2,  size / 2);
-        ctx.closePath();
-        ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-        ctx.fill();
-
-        ctx.restore();
-    }
-
 
     // =====================================================
     // isPointInPart(mouseX, mouseY, p)

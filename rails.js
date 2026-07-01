@@ -10,15 +10,15 @@ const DEFAULTS_STRAIGHTDATA_KATO = {
     sComment: null, sExtra: ""
 };
 const straightData_kato = {
-    "KATO_S248":     { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "直線線路 S248",           sProductCode: "20-000",      nLength: 248,   sComment: "標準的な直線レール。PC枕木版と共通で使用可能。" },
-    "KATO_S186":     { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "直線線路 S186",           sProductCode: "20-010",      nLength: 186,   sComment: "標準的な直線レール。PC枕木版と共通で使用可能。" },
-    "KATO_S124":     { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "直線線路 S124",           sProductCode: "20-020",      nLength: 124,   sComment: "標準的な直線レール。" },
+    "KATO_S248":     { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "直線線路 S248",            sProductCode: "20-000",      nLength: 248,   sComment: "標準的な直線レール。PC枕木版と共通で使用可能。" },
+    "KATO_S186":     { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "直線線路 S186",            sProductCode: "20-010",      nLength: 186,   sComment: "標準的な直線レール。PC枕木版と共通で使用可能。" },
+    "KATO_S124":     { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "直線線路 S124",            sProductCode: "20-020",      nLength: 124,   sComment: "標準的な直線レール。" },
     "KATO_S124C":    { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "リレーラー線路 S124C",     sProductCode: "20-026",      nLength: 124,   sComment: "踏板別途。" },
-    "KATO_S124C #2": { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "踏切線路#2 S124C",        sProductCode: "20-027",      nLength: 124,   sComment: "踏切パーツ別途。" },
-    "KATO_S64":      { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "直線線路 S64",            sProductCode: "20-030",      nLength: 64,    sComment: "標準的な直線レール。4番ポイントに2本付属。" },
-    "KATO_S62":      { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "直線線路 S62",            sProductCode: "20-040",      nLength: 62,    sComment: "標準的な直線レール。" },
-    "KATO_S60R":     { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "分岐部専用直線線路(右欠)", sProductCode: "20-220(付属)", nLength: 60,    sComment: "4番ポイント左用の右側カット直線線路。" },
-    "KATO_S60L":     { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "分岐部専用直線線路(左欠)", sProductCode: "20-221(付属)", nLength: 60,    sComment: "4番ポイント右用の左側カット直線線路。" }
+    "KATO_S124C #2": { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "踏切線路#2 S124C",         sProductCode: "20-027",      nLength: 124,   sComment: "踏切パーツ別途。" },
+    "KATO_S64":      { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "直線線路 S64",             sProductCode: "20-030",      nLength: 64,    sComment: "標準的な直線レール。4番ポイントに2本付属。" },
+    "KATO_S62":      { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "直線線路 S62",             sProductCode: "20-040",      nLength: 62,    sComment: "標準的な直線レール。" },
+    "KATO_S60R":     { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "分岐部専用直線線路(右欠)",  sProductCode: "20-220(付属)", nLength: 60,    sComment: "4番ポイント左用の右側カット直線線路。" },
+    "KATO_S60L":     { ...DEFAULTS_STRAIGHTDATA_KATO, sName: "分岐部専用直線線路(左欠)",  sProductCode: "20-221(付属)", nLength: 60,    sComment: "4番ポイント右用の左側カット直線線路。" }
 };
 
 const DEFAULTS_DOUBLESTRAIGHT_KATO = {
@@ -43,7 +43,7 @@ const curveData_kato = {
     "KATO_R315-45": { ...DEFAULTS_CURVEDATA_KATO,  sName: "曲線線路 R315-45", sProductCode: "2x-xxx", nRadius: 315, nAngle: 45,  sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。"  },
     "KATO_R282-45": { ...DEFAULTS_CURVEDATA_KATO,  sName: "曲線線路 R282-45", sProductCode: "2x-xxx", nRadius: 282, nAngle: 45,  sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。"  },
     "KATO_R481-15": { ...DEFAULTS_CURVEDATA_KATO,  sName: "曲線線路 R481-15", sProductCode: "20-160", nRadius: 481, nAngle: 15,  sComment: "4番ポイントと同一半径。"  },
-    "KATO_R718-15": { ...DEFAULTS_CURVEDATA_KATO,  sName: "曲線線路 R718-15", sProductCode: "20-150", nRadius: 718, nAngle: 15,  sComment : "6番ポイントと同一半径。"  }
+    "KATO_R718-15": { ...DEFAULTS_CURVEDATA_KATO,  sName: "曲線線路 R718-15", sProductCode: "20-150", nRadius: 718, nAngle: 15,  sComment: "6番ポイントと同一半径。"  }
 };
 
 const DEFAULTS_DOUBLECURVEDATA_KATO = {

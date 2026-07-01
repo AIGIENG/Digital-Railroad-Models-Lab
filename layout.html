@@ -559,13 +559,21 @@
     //   直線・曲線 : [右端, 左端] (複線は×2)
     //   ポイント   : [0]=根元, [1]=直進端, [3]=左分岐端, [5]=右分岐端
     //               偶数インデックス=入力側、奇数=出力側 という設計
+    // パーツ p の接続点座標とカント情報を算出する
     // =====================================================
     function getConnectorPoints(p) {
         const points = [];
-        const commonProps = { parentMaker: p.sMaker, parentGauge: p.nGauge };
-
+        // メーカー・ゲージ・複線フラグを各端点に伝搬させる
+        const commonProps = { parentMaker: p.sMaker, parentGauge: p.nGauge, parentIsDouble: p.bIsDouble };
+    
+        // カント属性を判定する内部関数
+        const getKantProps = (side) => {
+            const isKant = (p.sKant !== "none");
+            const isTargetSide = (p.sKant === "both" || p.sKant === side);
+            return { isKant: isKant && isTargetSide, kantDir: (isKant && isTargetSide) ? side : "none" };
+        };
+    
         switch (p.sRole) {
-
             case "straight": {
                 const halfLen = p.nLength / 2;
                 // 複線なら上下2本分、単線なら中央1本分の接点を生成
@@ -573,101 +581,77 @@
                 offsetsY.forEach(oy => {
                     // 右端
                     const right = getTransformedPoint(p.x, p.y, p.rotation, halfLen, oy);
-                    points.push({ ...right, ...commonProps });
+                    points.push({ ...right, ...commonProps, ...getKantProps("right") });
                     // 左端（角度を180度反転）
                     const left = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, oy);
                     left.ang = (p.rotation + 180) % 360;
-                    points.push({ ...left, ...commonProps });
+                    points.push({ ...left, ...commonProps, ...getKantProps("left") });
                 });
                 break;
             }
-
+    
             case "curve":
             case "approach": {
                 // B案：弦の中点を基準点とする座標系
-                //
-                // 弦の中点から見た各端点のローカル座標：
-                //   弦の長さ chord = 2 * r * sin(θ/2)
-                //   右端: ローカル座標 (+chord/2, 0)、角度 +(θ/2)
-                //   左端: ローカル座標 (-chord/2, 0)、角度 -(θ/2) + 180°
-                //
-                // 複線の場合は代表半径 r に ±gap を加えた2本分を生成する。
-                // ただし接続点は弦の中点（複線全体の中心）1組のみ持つ。
-                // （複線レール同士は中心で接続し、個別のレール端では接続しない）
+                // 弦の長さ chord = 2 * r * sin(θ/2)
+                // 右端: ローカル座標 (+chord/2, 0)、角度 +(θ/2)
+                // 左端: ローカル座標 (-chord/2, 0)、角度 -(θ/2) + 180°
                 const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
                 const r          = p.nRadius;
-                const chord      = 2 * r * Math.sin(halfAngRad); // 弦の長さ
-
-                // 右端：基準点から +chord/2 進んだ位置、接続角は +θ/2
+                const chord      = 2 * r * Math.sin(halfAngRad);
+    
                 const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, 0);
                 p1.ang = (p.rotation + p.nAngle / 2) % 360;
-                points.push({ ...p1, ...commonProps });
-
-                // 左端：基準点から -chord/2 進んだ位置、接続角は -(θ/2)+180°
+                points.push({ ...p1, ...commonProps, ...getKantProps("right") });
+    
                 const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, 0);
                 p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
-                points.push({ ...p2, ...commonProps });
+                points.push({ ...p2, ...commonProps, ...getKantProps("left") });
                 break;
             }
-
+    
             case "point": {
-                // ポイントの基準点 = 直線部分の中心（弦の中点と同じ概念）
-                //
-                // [0] 根元端：基準点から -halfLen
-                // [1] 直進端：基準点から +halfLen
-                // [3] 左分岐端：根元から角度 -θ 方向に弦の長さ分進んだ位置
-                // [5] 右分岐端：根元から角度 +θ 方向に弦の長さ分進んだ位置
+                // ポイントの基準点 = 直線部分の中心
                 const halfLen    = p.nLength / 2;
                 const r          = p.nRadius;
                 const angRad     = p.nAngle * Math.PI / 180;
-                const halfAngRad = angRad / 2;
+                const chord      = 2 * r * Math.sin(angRad / 2);
                 const sDir       = p.sDirection;
-
-                // 分岐曲線の弦の長さ（直線長さと同じ r を使用）
-                const chord = 2 * r * Math.sin(halfAngRad);
-
+    
                 // [0] 根元（直線の左端）
                 const pRoot = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, 0);
                 pRoot.ang = (p.rotation + 180) % 360;
-                points[0] = { ...pRoot, ...commonProps };
-
+                points[0] = { ...pRoot, ...commonProps, isKant: false, kantDir: "none" };
+    
                 // [1] 直進端（直線の右端）
                 if (sDir !== "y") {
                     const pStr = getTransformedPoint(p.x, p.y, p.rotation, halfLen, 0);
                     pStr.ang = p.rotation % 360;
-                    points[1] = { ...pStr, ...commonProps };
+                    points[1] = { ...pStr, ...commonProps, isKant: false, kantDir: "none" };
                 }
-
-                // 分岐端の計算：
-                // 根元から分岐方向（±θ）に chord 分進んだ先が分岐端
-                // x成分 = chord * cos(±θ)、y成分 = chord * sin(±θ)
-                // ただしローカル座標系では x が前進方向なので：
-                //   前進成分 = chord * cos(θ)
-                //   横成分   = ±chord * sin(θ)  （左は-、右は+）
-
+    
                 // [3] 左分岐端
                 if (sDir === "left" || sDir === "y" || sDir === "three") {
-                    const fwd = chord * Math.cos(angRad);  // 前進方向成分
-                    const lat = chord * Math.sin(angRad);  // 横方向成分（左なのでマイナス）
+                    const fwd = chord * Math.cos(angRad);
+                    const lat = chord * Math.sin(angRad);
                     const pL = getTransformedPoint(p.x, p.y, p.rotation, -halfLen + fwd, -lat);
                     pL.ang = (p.rotation - p.nAngle + 360) % 360;
-                    points[3] = { ...pL, ...commonProps };
+                    points[3] = { ...pL, ...commonProps, isKant: false, kantDir: "none" };
                 }
-
+    
                 // [5] 右分岐端
                 if (sDir === "right" || sDir === "y" || sDir === "three") {
                     const fwd = chord * Math.cos(angRad);
                     const lat = chord * Math.sin(angRad);
                     const pR = getTransformedPoint(p.x, p.y, p.rotation, -halfLen + fwd, lat);
                     pR.ang = (p.rotation + p.nAngle) % 360;
-                    points[5] = { ...pR, ...commonProps };
+                    points[5] = { ...pR, ...commonProps, isKant: false, kantDir: "none" };
                 }
                 break;
             }
         }
         return points;
     }
-
 
     // =====================================================
     // render()
@@ -691,7 +675,7 @@
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate((p.rotation * Math.PI) / 180);
-
+    
         switch (p.sRole) {
             case "straight":
                 p.bIsDouble ? drawDoubleStraightPart(ctx, p) : drawSingleStraightPart(ctx, p);
@@ -701,14 +685,13 @@
                 break;
             case "approach":
                 p.bIsDouble ? drawDoubleCurvePart(ctx, p) : drawSingleCurvePart(ctx, p);
-                drawApproachIndicator(ctx, p); // アプローチは曲線に方向矢印を追加
+                drawApproachIndicator(ctx, p);
                 break;
             case "point":
                 drawSinglePointPart(ctx, p);
                 break;
         }
-
-        // ドラッグ中かつ未スナップ時：パーツ名をポップアップ表示
+    
         if (draggedPart === p && !isSnapped) {
             ctx.save();
             const padding = 6;
@@ -724,18 +707,53 @@
             ctx.fillText(text, popupX + padding, popupY + 14);
             ctx.restore();
         }
-
-        // Ctrl押下時：パーツの基準点（回転・座標の原点）を青丸で表示
+    
         if (isCtrlPressed) {
             ctx.beginPath();
             ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
             ctx.strokeStyle = (draggedPart === p) ? "#0056b3" : "blue";
             ctx.fill();
         }
-
         ctx.restore();
+    
+        // カントマーカーの描画
+        getConnectorPoints(p).forEach((pt, idx) => {
+            if (pt.isKant) {
+                drawKantMarker(ctx, pt.x, pt.y, getKantMarkerStyle(p, idx));
+            }
+        });
     }
-
+    
+    // カントマーカーの描画処理
+    function drawKantMarker(ctx, x, y, color) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(x, y - 5); ctx.lineTo(x + 5, y);
+        ctx.lineTo(x, y + 5); ctx.lineTo(x - 5, y);
+        ctx.closePath();
+        ctx.fill();
+    }
+    
+    // 接続状態に応じた色判定
+    function getKantMarkerStyle(p, idx) {
+        const target = getConnectorPoints(p)[idx];
+        let isConnected = false, isKantMatch = false, isOppositeDouble = false;
+        layers.rail.forEach(other => {
+            if (other === p) return;
+            getConnectorPoints(other).forEach(op => {
+                const dist = Math.hypot(target.x - op.x, target.y - op.y);
+                if (dist < 5) {
+                    isConnected = true;
+                    if (op.isKant && target.kantDir !== op.kantDir) isKantMatch = true;
+                    if (other.bIsDouble) isOppositeDouble = true;
+                }
+            });
+        });
+        if (!isConnected) return "black";
+        if (isKantMatch) return "#87CEFA";
+        if (!p.bIsDouble && !isOppositeDouble) return "#F08080";
+        return "black";
+    }
 
     // =====================================================
     // 以下、drawPart から呼ばれる各パーツ描画関数。
@@ -1040,7 +1058,7 @@
     // =====================================================
     function initCanvasEvents() {
         let staticConnectors = []; // ドラッグ開始時にキャッシュする静止パーツの接続点
-
+    
         // ドロップ：サイドバーからパーツを配置する
         canvas.ondragover = (e) => e.preventDefault();
         canvas.ondrop = (e) => {
@@ -1050,30 +1068,30 @@
             if (railData[sId]) {
                 layers.rail.push({
                     ...railData[sId],
-                    id:       Date.now(),
-                    x:        (e.clientX - rect.left)  / canvasScale,
-                    y:        (e.clientY - rect.top)   / canvasScale,
+                    id:        Date.now(),
+                    x:         (e.clientX - rect.left)  / canvasScale,
+                    y:         (e.clientY - rect.top)   / canvasScale,
                     rotation: 0
                 });
                 render();
             }
         };
-
+    
         // mousedown：クリックしたパーツを選択してドラッグ開始
         canvas.onmousedown = (e) => {
             const rect = canvas.getBoundingClientRect();
             const mx   = (e.clientX - rect.left) / canvasScale;
             const my   = (e.clientY - rect.top)  / canvasScale;
-
+    
             // 重なりがある場合は最前面（配列末尾）のパーツを優先
             const target = [...layers.rail].reverse().find(p => isPointInPart(mx, my, p));
-
+    
             if (target) {
                 isDragging  = true;
                 draggedPart = target;
                 offsetX     = mx - target.x;
                 offsetY     = my - target.y;
-
+    
                 // ドラッグ開始時に静止パーツの全接続点を事前計算してキャッシュ
                 staticConnectors = [];
                 layers.rail.forEach(t => {
@@ -1086,24 +1104,24 @@
             }
             render();
         };
-
+    
         // mousemove：ドラッグ中の移動 + スナップ処理
         canvas.onmousemove = (e) => {
             if (!isDragging || !draggedPart) return;
             const rect = canvas.getBoundingClientRect();
             const mx   = (e.clientX - rect.left) / canvasScale;
             const my   = (e.clientY - rect.top)  / canvasScale;
-
+    
             draggedPart.x = mx - offsetX;
             draggedPart.y = my - offsetY;
-
+    
             // Shiftキー押下中はスナップをスキップ（自由配置モード）
             if (e.shiftKey) {
                 isSnapped = false;
                 render();
                 return;
             }
-
+    
             // 最も近い接続点ペアを探索
             let minD = 20, targetP = null, myIdx = -1;
             const myPoints = getConnectorPoints(draggedPart);
@@ -1114,12 +1132,12 @@
                     if (d < minD) { minD = d; myIdx = i; targetP = p2; }
                 });
             });
-
+    
             if (targetP) {
                 // ゲージ・メーカーの互換性チェック
-                const isGaugeMatch  = draggedPart.nGauge  === targetP.parentGauge  || draggedPart.nGauge  === "universal" || targetP.parentGauge  === "universal";
-                const isMakerMatch  = draggedPart.sMaker  === targetP.parentMaker  || draggedPart.sMaker  === "universal" || targetP.parentMaker  === "universal";
-
+                const isGaugeMatch  = draggedPart.nGauge === targetP.parentGauge || draggedPart.nGauge === "universal" || targetP.parentGauge === "universal";
+                const isMakerMatch  = draggedPart.sMaker === targetP.parentMaker || draggedPart.sMaker === "universal" || targetP.parentMaker === "universal";
+    
                 if (!isGaugeMatch) {
                     if (!isSnapped) showWarning(`ゲージが異なるため接続できません (${draggedPart.nGauge} / ${targetP.parentGauge})`);
                     isSnapped = true;
@@ -1132,17 +1150,32 @@
                     render();
                     return;
                 }
-
+    
+                // --- カント接続ルールの強制適用 ---
+                if (targetP.isKant && myPoints[myIdx].isKant) {
+                    // カント方向が一致（衝突）している場合は接続不可
+                    if (myPoints[myIdx].kantDir === targetP.kantDir) {
+                        if (!isSnapped) showWarning("カントの方向が一致しません");
+                        isSnapped = true; render(); return;
+                    }
+                } else if (myPoints[myIdx].isKant !== targetP.isKant) {
+                    // 複線レールはカントなしと接続不可
+                    if (draggedPart.bIsDouble || (targetP.parentIsDouble || false)) {
+                        if (!isSnapped) showWarning("複線レールはカントなしと接続できません");
+                        isSnapped = true; render(); return;
+                    }
+                }
+    
                 // 角度を合わせて回転させる
                 const targetWorldAng = (targetP.ang + 180) % 360;
                 const myLocalAng     = (myPoints[myIdx].ang - draggedPart.rotation + 360) % 360;
                 draggedPart.rotation = (targetWorldAng - myLocalAng + 720) % 360;
-
+    
                 // 接続点が重なるように座標を微調整
                 const currentPoints = getConnectorPoints(draggedPart);
                 draggedPart.x += targetP.x - currentPoints[myIdx].x;
                 draggedPart.y += targetP.y - currentPoints[myIdx].y;
-
+    
                 if (!isSnapped) {
                     offsetX   = mx - draggedPart.x;
                     offsetY   = my - draggedPart.y;
@@ -1153,11 +1186,10 @@
             }
             render();
         };
-
+    
         // mouseup：ドラッグ終了
         window.onmouseup = () => { isDragging = false; render(); };
     }
-
 
     // =====================================================
     // キーボードショートカット

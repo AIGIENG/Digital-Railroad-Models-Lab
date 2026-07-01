@@ -36,96 +36,37 @@ const straightData_tomix = {
     "TOMIX_S70":     { ...DEFAULTS_STRAIGHTDATA_TOMIX, sName: "直線線路 S70",         sProductCode: "1804",  nLength: 70,    sComment: "標準的な直線レール。" }
 };
 
-const data_others = {
- // --- 曲線レール ---
-    "KATO_R315-45": {
-        sName: "曲線線路 R315-45",
-        sProductCode: "2x-xxx",
-        sMaker: "KATO",
-        sSeries: "UNITRACK",
-        sRole: "curve",
-        nLength: 0,
-        nRadius: 315,
-        nAngle: 45,
-        bIsDouble: false,
-        nTrackGap: 33,
-        nJunctionCount: 2,
-        sDirection: "none",
-        sKant: "none",
-        nViewWidth: 25,
-        nHeight: 0,
-        nGauge: 9,
-        sColor: "Green",
-        sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。",
-        sExtra: ""
+const DEFAULTS_CURVEDATA_KATO = {
+    sMaker: "KATO", sSeries: "UNITRACK", 
+    sRole: "curve",nLength: 0,
+    nRadius: 0, nAngle: 0, 
+    bIsDouble: false, nTrackGap: 33,
+    nJunctionCount: 2, sDirection: "none", 
+    sKant: "none",nViewWidth: 25, 
+    nHeight: 0, nGauge: 9, 
+    sColor: "Green",sComment: "",sExtra: ""
+};
+
+const curveData_kato = {
+    "KATO_R315-45": { ...DEFAULTS_CURVEDATA_KATO, 
+        sName: "曲線線路 R315-45", sProductCode: "2x-xxx", nRadius: 315, nAngle: 45, 
+        sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。" 
     },
-
-    "KATO_R282-45": {
-        sName: "曲線線路 R282-45",
-        sProductCode: "2x-xxx",
-        sMaker: "KATO",
-        sSeries: "UNITRACK",
-        sRole: "curve",
-        nLength: 0,
-        nRadius: 282,
-        nAngle: 45,
-        bIsDouble: false,
-        nTrackGap: 33,
-        nJunctionCount: 2,
-        sKant: "none",
-        sDirection: "none",
-        nViewWidth: 25,
-        nHeight: 0,
-        nGauge: 9,
-        sColor: "Green",
-        sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。",
-        sExtra: ""
+    "KATO_R282-45": { ...DEFAULTS_CURVEDATA_KATO, 
+        sName: "曲線線路 R282-45", sProductCode: "2x-xxx", nRadius: 282, nAngle: 45, 
+        sComment: "標準的な曲線レール。PC枕木版と共通で使用可能。" 
     },
+    "KATO_R481-15": { ...DEFAULTS_CURVEDATA_KATO, 
+        sName: "曲線線路 R481-15", sProductCode: "20-160", nRadius: 481, nAngle: 15, 
+        sComment: "4番ポイントと同一半径。" 
+    },
+    "KATO_R718-15": { ...DEFAULTS_CURVEDATA_KATO, 
+        sName: "曲線線路 R718-15", sProductCode: "20-150", nRadius: 718, nAngle: 15, 
+        sComment : "6番ポイントと同一半径。" 
+    }
+};
 
-    "KATO_R481-15": {
-        sName: "曲線線路 R481-15",
-        sProductCode: "20-160",
-        sMaker: "KATO",
-        sSeries: "UNITRACK",
-        sRole: "curve",
-        nLength: 0,
-        nRadius: 481,
-        nAngle: 15,
-        bIsDouble: false,
-        nTrackGap: 33,
-        nJunctionCount: 2,
-        sDirection: "none",
-        sKant: "none",
-        nViewWidth: 25,
-        nHeight: 0,
-        nGauge: 9,
-        sColor: "Green",
-        sComment: "4番ポイントと同一半径。",
-        sExtra: ""
-    },    
-
-    "KATO_R718-15": {
-        sName: "曲線線路 R718-15",
-        sProductCode: "20-150",
-        sMaker: "KATO",
-        sSeries: "UNITRACK",
-        sRole: "curve",
-        nLength: 0,
-        nRadius: 718,
-        nAngle: 15,
-        bIsDouble: false,
-        nTrackGap: 33,
-        nJunctionCount: 2,
-        sDirection: "none",
-        sKant: "none",
-        nViewWidth: 25,
-        nHeight: 0,
-        nGauge: 9,
-        sColor: "Green",
-        sComment: "6番ポイントと同一半径。",
-        sExtra: ""
-    }, 
- 
+const data_others = { 
  // --- 複線直線レール (248mm) ---
     "KATO_WS248": {
         sName: "複線直線線路 WS248",
@@ -278,5 +219,6 @@ const railData = {
 //    ...testData,
     ...straightData_kato,
     ...straightData_tomix,
+    ...curveData_kato,
     ...data_others
 };

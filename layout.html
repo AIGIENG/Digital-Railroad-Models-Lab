@@ -281,20 +281,31 @@
     // ゲージ・メーカー不一致のスナップ拒否時などに呼ばれる。
     // =====================================================
     function showWarning(message) {
-        let container = document.getElementById('alert-container');
-        if (!container) {
-            container = document.createElement('div');
-            container.id = 'alert-container';
-            document.body.appendChild(container);
+        // 1. 既存のコンテナがあれば完全に削除してリセットする
+        const existingContainer = document.getElementById('alert-container');
+        if (existingContainer) {
+            existingContainer.remove();
         }
-        container.innerHTML = ''; // 既存の警告をクリア
+        
+        // 2. コンテナを新規作成
+        const container = document.createElement('div');
+        container.id = 'alert-container';
+        document.body.appendChild(container);
+        
+        // 3. 警告ボックスを作成して配置
         const alertBox = document.createElement('div');
-        alertBox.className   = 'alert-box';
+        alertBox.className = 'alert-box';
         alertBox.textContent = message;
         container.appendChild(alertBox);
-        setTimeout(() => alertBox.remove(), 5000);
+        
+        // 4. 5秒後にコンテナごと削除
+        setTimeout(() => {
+            if (container.parentNode) {
+                container.remove();
+            }
+        }, 5000);
     }
-
+        
     // =====================================================
     // initSidebar()
     // rails.js の railData を読み込み、
@@ -592,7 +603,8 @@
                 layers.rail = loadedData;
                 render();
             } catch (err) {
-                showWarning(`ファイルの読み込みに失敗しました。JSONファイルを確認してください`);
+                // alert("ファイルの読み込みに失敗しました。JSONファイルを確認してください");
+                showWarning(`ファイルの読み込みに失敗しました（JSONファイルを確認してください）`);
             }
         };
         reader.readAsText(file);

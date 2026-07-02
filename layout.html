@@ -275,6 +275,25 @@
         render();
     }
 
+    // =====================================================
+    // showWarning(message)
+    // 画面右下に赤い警告メッセージを一時表示する。
+    // ゲージ・メーカー不一致のスナップ拒否時などに呼ばれる。
+    // =====================================================
+    function showWarning(message) {
+        let container = document.getElementById('alert-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'alert-container';
+            document.body.appendChild(container);
+        }
+        container.innerHTML = ''; // 既存の警告をクリア
+        const alertBox = document.createElement('div');
+        alertBox.className   = 'alert-box';
+        alertBox.textContent = message;
+        container.appendChild(alertBox);
+        setTimeout(() => alertBox.remove(), 5000);
+    }
 
     // =====================================================
     // initSidebar()
@@ -1029,28 +1048,6 @@
 
         return false;
     }
-
-
-    // =====================================================
-    // showWarning(message)
-    // 画面右下に赤い警告メッセージを一時表示する。
-    // ゲージ・メーカー不一致のスナップ拒否時に呼ばれる。
-    // =====================================================
-    function showWarning(message) {
-        let container = document.getElementById('alert-container');
-        if (!container) {
-            container = document.createElement('div');
-            container.id = 'alert-container';
-            document.body.appendChild(container);
-        }
-        container.innerHTML = ''; // 既存の警告をクリア
-        const alertBox = document.createElement('div');
-        alertBox.className   = 'alert-box';
-        alertBox.textContent = message;
-        container.appendChild(alertBox);
-        setTimeout(() => alertBox.remove(), 5000);
-    }
-
 
     // =====================================================
     // initCanvasEvents()

@@ -486,12 +486,12 @@
         // --- システムタブのボタン定義 ---
         // 現在はラベルのみ。action を追加することで機能を実装できる。
         const sysButtonDefs = [
-            { label: "レイアウトエクスポート", action: () => {} },
-            { label: "レイアウトインポート",   action: () => {} },
-            { label: "画像エクスポート",       action: () => {} },
+            { label: "レイアウト保存",           action: saveLayout },
+            { label: "レイアウト読込",           action: () => document.getElementById('file-input').click() },
+            { label: "画像形式保存",             action: () => {} },
             { label: "パーツリストエクスポート", action: () => {} },
-            { label: "キャンバスサイズ変更",   action: () => {} },
-            { label: "全体移動",               action: () => {} },
+            { label: "キャンバスサイズ変更",     action: () => {} },
+            { label: "全体移動",                 action: () => {} },
         ];
 
         const sysGroup = document.createElement('div');
@@ -527,9 +527,59 @@
                 sysGroup.classList.toggle('active', !isEdit);
             };
         });
+        // インポート用非表示ファイル入力要素の追加
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.id = 'file-input';
+        fileInput.style.display = 'none';
+        fileInput.onchange = loadLayout;
+        document.body.appendChild(fileInput);
     }
 
+    // =====================================================
+    // saveLayout()
+    // 現在のレイアウト状態をJSONファイルとして書き出す。
+    //
+    // layers.rail を文字列化し、Blobを通じてブラウザから
+    // ローカルへダウンロードさせる。
+    // =====================================================
+    function saveLayout() {
+        const data = JSON.stringify(layers.rail);
+        const blob = new Blob([data], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "layout.json";
+        a.click();
+        URL.revokeObjectURL(url);
+    }
 
+    // =====================================================
+    // loadLayout(event)
+    // JSONファイルからレイアウト状態を読み込み、復元する。
+    //
+    // ファイル入力イベントからデータを取得・解析し、
+    // layers.rail を更新後、キャンバスを再描画する。
+    // =====================================================        
+    function loadLayout(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+    
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const loadedData = JSON.parse(e.target.result);
+                layers.rail = loadedData;
+                render();
+            } catch (err) {
+                alert("ファイルの読み込みに失敗しました。JSONファイルを確認してください。");
+            }
+        };
+        reader.readAsText(file);
+    }
+
+        
     // =====================================================
     // getTransformedPoint(cx, cy, angleDeg, ox, oy)
     // 座標変換の核となる汎用関数。

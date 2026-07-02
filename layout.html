@@ -659,6 +659,7 @@
     // 状態が変わるたびに（ドラッグ・回転・削除など）呼び出す。
     // =====================================================
     function render() {
+        console.log("[Debug] Current layers.rail:", JSON.parse(JSON.stringify(layers.rail))); //////// 現在のレイアウト状態」そのもの（＝レイアウトのマスターデータ）をコンソールに表示する
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         layers.rail.forEach(part => drawPart(ctx, part));
     }

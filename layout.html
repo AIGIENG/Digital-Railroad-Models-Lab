@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0352</title>
+    <title>Railroad Models Layout Designer v.0353</title>
     <style>
         /* =====================================================
          * レイアウト骨格
@@ -673,22 +673,20 @@
             // approach を curve から独立させる
             case "approach": {
                 const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
-                
-                // 複線フラグに応じてオフセットを決定
+                // 複線フラグで配列の中身が [-(gap/2), +(gap/2)] になるため2点計算される
                 const offsetsY = p.bIsDouble ? [-(p.nTrackGap / 2), p.nTrackGap / 2] : [0];
-            
+
                 offsetsY.forEach(oy => {
-                    // oyが正なら外側（半径増）、負なら内側（半径減）とみなす
-                    // ここで計算に使う半径 r をトラックごとに補正する
-                    const currentR = p.nRadius + oy; 
+                    // 各トラック（内側・外側）の半径を考慮して弦長を算出
+                    const currentR = p.nRadius + oy;
                     const chord = 2 * currentR * Math.sin(halfAngRad);
-            
-                    // 基準点からchordを用いて各端点を算出
-                    const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, 0); // ローカル座標の基準は常に中央
+
+                    // 左右の接続点をそれぞれ生成
+                    const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, oy);
                     p1.ang = (p.rotation + p.nAngle / 2) % 360;
                     points.push({ ...p1, ...commonProps, ...getKantProps(oy > 0 ? "right" : "left") });
-            
-                    const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, 0);
+
+                    const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, oy);
                     p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
                     points.push({ ...p2, ...commonProps, ...getKantProps(oy > 0 ? "left" : "right") });
                 });

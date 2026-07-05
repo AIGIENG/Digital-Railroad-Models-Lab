@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0356a</title>
+    <title>Railroad Models Layout Designer v.0357</title>
     <style>
         /* =====================================================
          * レイアウト骨格
@@ -673,20 +673,21 @@
             // アプローチレールの処理
             case "approach": {
                 const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
+                // 複線時は左右オフセット位置を個別に算出
                 const offsetsY = p.bIsDouble ? [-(p.nTrackGap / 2), p.nTrackGap / 2] : [0];
-                const chord = 2 * p.nRadius * Math.sin(halfAngRad);
+                const r = p.nRadius || 0;
+                const chord = 2 * r * Math.sin(halfAngRad);
 
                 offsetsY.forEach(oy => {
-                    // oy > 0 が外側、oy < 0 が内側
                     const isOuter = oy > 0;
 
-                    // 非アプローチ側 (直線側)
-                    const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, oy);
+                    // 非アプローチ側の接続点
+                    const p1 = getTransformedPoint(p.x || 0, p.y || 0, p.rotation || 0, chord / 2, oy);
                     p1.ang = (p.rotation + p.nAngle / 2) % 360;
                     points.push({ ...p1, ...commonProps, ...getKantProps(isOuter ? "right" : "left") });
 
-                    // アプローチ側 (曲線側)
-                    const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, oy);
+                    // アプローチ側の接続点
+                    const p2 = getTransformedPoint(p.x || 0, p.y || 0, p.rotation || 0, -chord / 2, oy);
                     p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
                     points.push({ ...p2, ...commonProps, ...getKantProps(isOuter ? "left" : "right") });
                 });

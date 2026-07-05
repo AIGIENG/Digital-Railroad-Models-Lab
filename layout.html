@@ -474,44 +474,9 @@
         // { label: 表示名, action: クリック時の処理 } の配列で管理する。
         // 将来ボタンを追加する場合はここに追記するだけでよい。
         const editButtonDefs = [
-            {
-                label: "回転",
-                action: () => {
-                    if (!draggedPart) return;
-                    draggedPart.rotation = (draggedPart.rotation + 15) % 360;
-                    render();
-                }
-            },
-            {
-                label: "削除",
-                action: () => {
-                    if (!draggedPart) return;
-                    layers.rail = layers.rail.filter(p => p !== draggedPart);
-                    draggedPart = null;
-                    isDragging  = false;
-                    render();
-                }
-            }
+            { label: "回転", action: rotatePart },
+            { label: "削除", action: deletePart }
         ];
-
-        const editGroup = document.createElement('div');
-        editGroup.id = 'group-edit';
-        editGroup.className = 'button-group active';
-
-        // 12スロット分のボタンを生成。定義がある分は機能ボタン、残りは予備
-        for (let i = 0; i < 12; i++) {
-            const btn = document.createElement('div');
-            btn.className = 'panel-btn';
-            if (i < editButtonDefs.length) {
-                btn.textContent = editButtonDefs[i].label;
-                btn.onclick     = editButtonDefs[i].action;
-            } else {
-                btn.textContent = `予備${i - editButtonDefs.length + 1}`;
-                btn.style.cursor = 'not-allowed';
-                btn.style.opacity = '0.4';
-            }
-            editGroup.appendChild(btn);
-        }
 
         // --- システムタブのボタン定義 ---
         // 現在はラベルのみ。action を追加することで機能を実装できる。
@@ -524,27 +489,14 @@
             { label: "全体移動",                 action: () => {} },
         ];
 
-        const sysGroup = document.createElement('div');
-        sysGroup.id = 'group-sys';
-        sysGroup.className = 'button-group';
+    // 共通関数を使用してグループを生成
+    // 変数に代入することで、後のタブ切り替え処理から参照可能にする
+    const editGroup = createButtonGroup(editButtonDefs, 'group-edit', true);
+    const sysGroup  = createButtonGroup(sysButtonDefs,  'group-sys',  false);
 
-        for (let i = 0; i < 12; i++) {
-            const btn = document.createElement('div');
-            btn.className = 'panel-btn';
-            if (i < sysButtonDefs.length) {
-                btn.textContent = sysButtonDefs[i].label;
-                btn.onclick     = sysButtonDefs[i].action;
-            } else {
-                btn.textContent = `予備${i - sysButtonDefs.length + 1}`;
-                btn.style.cursor = 'not-allowed';
-                btn.style.opacity = '0.4';
-            }
-            sysGroup.appendChild(btn);
-        }
-
-        container.appendChild(editGroup);
-        container.appendChild(sysGroup);
-        document.body.appendChild(container);
+    container.appendChild(editGroup);
+    container.appendChild(sysGroup);
+    document.body.appendChild(container);
 
         // タブクリックで表示グループを切り替える
         const tabs = container.querySelectorAll('.panel-tab');
@@ -566,6 +518,28 @@
         document.body.appendChild(fileInput);
     }
 
+    // 共通グループ生成関数
+    function createButtonGroup(buttonDefs, groupId, isActive) {
+        const group = document.createElement('div');
+        group.id = groupId;
+        group.className = `button-group ${isActive ? 'active' : ''}`;
+
+        for (let i = 0; i < 12; i++) {
+            const btn = document.createElement('div');
+            btn.className = 'panel-btn';
+            if (i < buttonDefs.length) {
+                btn.textContent = buttonDefs[i].label; // labelを設定
+                btn.onclick     = buttonDefs[i].action;
+            } else {
+                btn.textContent = `予備${i - buttonDefs.length + 1}`;
+                btn.style.cursor = 'not-allowed';
+                btn.style.opacity = '0.4';
+            }
+            group.appendChild(btn);
+        }
+        return group;
+    }
+        
     // =====================================================
     // saveLayout()
     // 現在のレイアウト状態をJSONファイルとして書き出す。
@@ -609,6 +583,25 @@
         reader.readAsText(file);
     }
 
+    // =====================================================
+    // 編集ボタンのアクション定義
+    // =====================================================
+
+    // 回転
+    function rotatePart() {
+        if (!draggedPart) return;
+        draggedPart.rotation = (draggedPart.rotation + 15) % 360;
+        render();
+    }
+    
+    // 削除
+    function deletePart() {
+        if (!draggedPart) return;
+        layers.rail = layers.rail.filter(p => p !== draggedPart);
+        draggedPart = null;
+        isDragging = false;
+        render();
+    }        
         
     // =====================================================
     // getTransformedPoint(cx, cy, angleDeg, ox, oy)

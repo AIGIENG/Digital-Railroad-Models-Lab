@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0351</title>
+    <title>Railroad Models Layout Designer v.0350r</title>
     <style>
         /* =====================================================
          * レイアウト骨格
@@ -665,13 +665,15 @@
                 break;
             }
     
-            case "curve": {
+            case "curve":
+            case "approach": {
+                // B案：弦の中点を基準点とする座標系
                 // 弦の長さ chord = 2 * r * sin(θ/2)
                 // 右端: ローカル座標 (+chord/2, 0)、角度 +(θ/2)
                 // 左端: ローカル座標 (-chord/2, 0)、角度 -(θ/2) + 180°
                 const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
-                const r           = p.nRadius;
-                const chord       = 2 * r * Math.sin(halfAngRad);
+                const r          = p.nRadius;
+                const chord      = 2 * r * Math.sin(halfAngRad);
     
                 const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, 0);
                 p1.ang = (p.rotation + p.nAngle / 2) % 360;
@@ -680,24 +682,6 @@
                 const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, 0);
                 p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
                 points.push({ ...p2, ...commonProps, ...getKantProps("right") });
-                break;
-            }
-
-            case "approach": {
-                const halfLen = p.nLength / 2;
-                const offsetsY = p.bIsDouble ? [-(p.nTrackGap / 2), p.nTrackGap / 2] : [0];
-                const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
-                const chord = 2 * p.nRadius * Math.sin(halfAngRad);
-
-                offsetsY.forEach(oy => {
-                    const p1 = getTransformedPoint(p.x, p.y, p.rotation, -halfLen, oy);
-                    p1.ang = (p.rotation + 180) % 360;
-                    points.push({ ...p1, ...commonProps, isKant: false, kantDir: "none" });
-                });
-
-                const p2 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, 0);
-                p2.ang = (p.rotation + p.nAngle / 2) % 360;
-                points.push({ ...p2, ...commonProps, ...getKantProps(p.sKant) });
                 break;
             }
     

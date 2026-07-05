@@ -474,6 +474,8 @@
         // { label: 表示名, action: クリック時の処理 } の配列で管理する。
         // 将来ボタンを追加する場合はここに追記するだけでよい。
         const editButtonDefs = [
+            { label: "前に戻る",             action: () => {} },
+            { label: "次に進む", action: () => {} },
             { label: "回転", action: rotatePart },
             { label: "削除", action: deletePart }
         ];
@@ -1211,11 +1213,10 @@
     //   Delete/BS  : 選択中パーツを削除
     // =====================================================
     window.onkeydown = (e) => {
-        switch (e.key) {
+        switch (e.key) {   
             case 'r':
             case 'R': {
-                const t = draggedPart || layers.rail[layers.rail.length - 1];
-                if (t) { t.rotation = (t.rotation + 22.5) % 360; render(); }
+                rotatePart;
                 break;
             }
             case 'Control':
@@ -1225,8 +1226,7 @@
             case 'Delete':
             case 'Backspace':
                 if (draggedPart) {
-                    layers.rail = layers.rail.filter(p => p !== draggedPart);
-                    draggedPart = null;
+                    deletePart;
                     render();
                 }
                 break;

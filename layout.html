@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0358</title>
+    <title>Railroad Models Layout Designer v.0359</title>
     <style>
         /* =====================================================
          * レイアウト骨格
@@ -673,25 +673,28 @@
             // アプローチレールの処理
             case "approach": {
                 const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
-                const offsetsY = p.bIsDouble ? [-(p.nTrackGap / 2), p.nTrackGap / 2] : [0];
                 const r = p.nRadius || 0;
+                
+                // 【重要】描画関数で使われている基準オフセット(arcCenterY)を算出
+                const arcCenterY = r * Math.cos(halfAngRad);
+                
+                const offsetsY = p.bIsDouble ? [-(p.nTrackGap / 2), p.nTrackGap / 2] : [0];
                 const chord = 2 * r * Math.sin(halfAngRad);
-
+            
                 offsetsY.forEach(oy => {
                     const isOuter = oy > 0;
+            
+                    // 【修正】getTransformedPoint の y 引数に arcCenterY を加算する
+                    // これにより、描画時の「中心移動」と接続点の計算基準が完全に一致します
                     
-                    // 複線の内側（oy < 0）の場合、アプローチ側の判定と位置計算を反転させる
-                    // 基準点に対して、外側は +chord/2、内側は -chord/2 で直線側を定義
-                    const sign = isOuter ? 1 : -1;
-
-                    // 非アプローチ側 (直線接続側)
-                    const p1 = getTransformedPoint(p.x || 0, p.y || 0, p.rotation || 0, (sign * chord) / 2, oy);
-                    p1.ang = (p.rotation + (isOuter ? p.nAngle / 2 : -p.nAngle / 2)) % 360;
+                    // 非アプローチ側の接続点
+                    const p1 = getTransformedPoint(p.x || 0, p.y || 0, p.rotation || 0, chord / 2, oy + arcCenterY);
+                    p1.ang = (p.rotation + p.nAngle / 2) % 360;
                     points.push({ ...p1, ...commonProps, ...getKantProps(isOuter ? "right" : "left") });
-
-                    // アプローチ側 (曲線接続側)
-                    const p2 = getTransformedPoint(p.x || 0, p.y || 0, p.rotation || 0, -(sign * chord) / 2, oy);
-                    p2.ang = (p.rotation - (isOuter ? p.nAngle / 2 : -p.nAngle / 2) + 180 + 360) % 360;
+            
+                    // アプローチ側の接続点
+                    const p2 = getTransformedPoint(p.x || 0, p.y || 0, p.rotation || 0, -chord / 2, oy + arcCenterY);
+                    p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
                     points.push({ ...p2, ...commonProps, ...getKantProps(isOuter ? "left" : "right") });
                 });
                 break;

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Railroad Models Layout Designer v.0359</title>
+    <title>Railroad Models Layout Designer v.0351</title>
     <style>
         /* =====================================================
          * レイアウト骨格
@@ -667,38 +667,35 @@
                 break;
             }
     
-            // カーブレールの処理
             case "curve": {
-                // (approach に流れて同じ計算をする)
-            }
-
-            // アプローチレールの処理
-            case "approach": {
                 const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
-                const r = p.nRadius || 0;
-                
-                // 【重要】描画関数で使われている基準オフセット(arcCenterY)を算出
-                const arcCenterY = r * Math.cos(halfAngRad);
-                
-                const offsetsY = p.bIsDouble ? [-(p.nTrackGap / 2), p.nTrackGap / 2] : [0];
-                const chord = 2 * r * Math.sin(halfAngRad);
-            
-                offsetsY.forEach(oy => {
-                    const isOuter = oy > 0;
-            
-                    // 【修正】getTransformedPoint の y 引数に arcCenterY を加算する
-                    // これにより、描画時の「中心移動」と接続点の計算基準が完全に一致します
-                    
-                    // 非アプローチ側の接続点
-                    const p1 = getTransformedPoint(p.x || 0, p.y || 0, p.rotation || 0, chord / 2, oy + arcCenterY);
-                    p1.ang = (p.rotation + p.nAngle / 2) % 360;
-                    points.push({ ...p1, ...commonProps, ...getKantProps(isOuter ? "right" : "left") });
-            
-                    // アプローチ側の接続点
-                    const p2 = getTransformedPoint(p.x || 0, p.y || 0, p.rotation || 0, -chord / 2, oy + arcCenterY);
-                    p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
-                    points.push({ ...p2, ...commonProps, ...getKantProps(isOuter ? "left" : "right") });
-                });
+                const rOuter = p.nRadius;
+                const chordOuter = 2 * rOuter * Math.sin(halfAngRad);
+                const arcCenterYOuter = rOuter * Math.cos(halfAngRad);
+
+                // 外側の計算（常に実行）
+                const p1Out = getTransformedPoint(p.x, p.y, p.rotation, chordOuter / 2, arcCenterYOuter);
+                p1Out.ang = (p.rotation + p.nAngle / 2) % 360;
+                points.push({ ...p1Out, ...commonProps, ...getKantProps("right") });
+
+                const p2Out = getTransformedPoint(p.x, p.y, p.rotation, -chordOuter / 2, arcCenterYOuter);
+                p2Out.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
+                points.push({ ...p2Out, ...commonProps, ...getKantProps("left") });
+
+                // 複線の場合、内側の計算を追加
+                if (p.bIsDouble) {
+                    const rInner = p.nRadius - p.nTrackGap;
+                    const chordInner = 2 * rInner * Math.sin(halfAngRad);
+                    const arcCenterYInner = rInner * Math.cos(halfAngRad);
+
+                    const p1In = getTransformedPoint(p.x, p.y, p.rotation, chordInner / 2, arcCenterYInner);
+                    p1In.ang = (p.rotation + p.nAngle / 2) % 360;
+                    points.push({ ...p1In, ...commonProps, ...getKantProps("left") });
+
+                    const p2In = getTransformedPoint(p.x, p.y, p.rotation, -chordInner / 2, arcCenterYInner);
+                    p2In.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
+                    points.push({ ...p2In, ...commonProps, ...getKantProps("right") });
+                }
                 break;
             }
     

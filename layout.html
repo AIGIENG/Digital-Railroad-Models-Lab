@@ -682,30 +682,28 @@
                 const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, 0);
                 p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
                 points.push({ ...p2, ...commonProps, ...getKantProps("left") });
-            } else {
-                // 【複線の場合】外側レールを基準に内側の接続点をオフセットして計算
-                const rOuter = p.nRadius;
-                const rInner = p.nRadius - p.nTrackGap;
-                const radii = [rOuter, rInner];
+                } else {
+                    // 【複線の場合】
+                    // 外側は半径 r、内側は中心間隔を考慮して r - nTrackGap/2 を使用
+                    const rOuter = p.nRadius;
+                    const rInner = p.nRadius - p.nTrackGap;
+                    const radii = [rOuter, rInner];
 
-                radii.forEach((r, index) => {
-                    const chord = 2 * r * Math.sin(halfAngRad);
-                    
-                    // 外側(index 0)なら oy=0, 内側(index 1)なら oy=nTrackGap (※)
-                    // どちらにオフセットするかは計算して合わせる必要があります
-                    const localOy = (index === 0) ? 0 : p.nTrackGap; 
+                    radii.forEach((r, index) => {
+                        const chord = 2 * r * Math.sin(halfAngRad);
 
-                    // 右端
-                    const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, localOy);
-                    p1.ang = (p.rotation + p.nAngle / 2) % 360;
-                    points.push({ ...p1, ...commonProps, ...getKantProps(index === 0 ? "right" : "left") });
+                        // 接続点の計算（オフセットなしで、半径の差分のみで表現）
+                        // 右端
+                        const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, 0);
+                        p1.ang = (p.rotation + p.nAngle / 2) % 360;
+                        points.push({ ...p1, ...commonProps, ...getKantProps(index === 0 ? "right" : "left") });
 
-                    // 左端
-                    const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, localOy);
-                    p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
-                    points.push({ ...p2, ...commonProps, ...getKantProps(index === 0 ? "left" : "right") });
-                });
-            }
+                        // 左端
+                        const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, 0);
+                        p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
+                        points.push({ ...p2, ...commonProps, ...getKantProps(index === 0 ? "left" : "right") });
+                    });
+                }
             break;
         }
     

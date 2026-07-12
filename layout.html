@@ -667,39 +667,43 @@
                 break;
             }
     
-            case "curve":
-            case "approach": {
-                const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
+        case "curve":
+        case "approach": {
+            const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
 
-                if (!p.bIsDouble) {
-                    // 【単線の場合】従来通り（弦の中点が中心なのでYオフセットは0でOK）
-                    const chord = 2 * p.nRadius * Math.sin(halfAngRad);
-                    
+            if (!p.bIsDouble) {
+                // 【単線の場合】既存の計算ロジックを維持
+                const chord = 2 * p.nRadius * Math.sin(halfAngRad);
+                
+                const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, 0);
+                p1.ang = (p.rotation + p.nAngle / 2) % 360;
+                points.push({ ...p1, ...commonProps, ...getKantProps("right") });
+                
+                const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, 0);
+                p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
+                points.push({ ...p2, ...commonProps, ...getKantProps("left") });
+            } else {
+                // 【複線の場合】外側レールを基準に内側の接続点をオフセットして計算
+                const rOuter = p.nRadius;
+                const rInner = p.nRadius - p.nTrackGap;
+                const radii = [rOuter, rInner];
+
+                radii.forEach((r, index) => {
+                    const chord = 2 * r * Math.sin(halfAngRad);
+
+                    // 右端
                     const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, 0);
                     p1.ang = (p.rotation + p.nAngle / 2) % 360;
-                    points.push({ ...p1, ...commonProps, ...getKantProps("right") });
-                    
+                    points.push({ ...p1, ...commonProps, ...getKantProps(index === 0 ? "right" : "left") });
+
+                    // 左端
                     const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, 0);
                     p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
-                    points.push({ ...p2, ...commonProps, ...getKantProps("left") });
-                } else {
-                    // 手順(1) 外側レールの半径設定
-                    const rOuter = p.nRadius;
-                    // 手順(2) 外側レールの接続点計算（回転角考慮）
-                    const pointsOuter = calculatePointsForRadius(p.x, p.y, p.rotation, rOuter, p.nAngle);
-                    points.push(...pointsOuter);
-
-                    // 手順(3) 内側レールの半径設定
-                    const rInner = p.nRadius - p.nTrackGap;
-                    // 手順(4) 内側レールの接続点計算（中心点をGap分シフトさせ、回転角考慮）
-                    // 中心点を p.rotation に基づいて nTrackGap 分ずらして算出
-                    const shiftX = p.nTrackGap * Math.cos(p.rotation * Math.PI / 180);
-                    const shiftY = p.nTrackGap * Math.sin(p.rotation * Math.PI / 180);
-                    const pointsInner = calculatePointsForRadius(p.x + shiftX, p.y + shiftY, p.rotation, rInner, p.nAngle);
-                    points.push(...pointsInner);
-                }
-                break;
+                    points.push({ ...p2, ...commonProps, ...getKantProps(index === 0 ? "left" : "right") });
+                });
             }
+            break;
+        }
     
             case "point": {
                 // ポイントの基準点 = 直線部分の中心

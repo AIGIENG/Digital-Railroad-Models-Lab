@@ -1178,6 +1178,7 @@
                 }
     
                 // --- カント接続ルールの強制適用 ---
+                /*
                 if (targetP.isKant && myPoints[myIdx].isKant) {
                     // カント方向が一致（衝突）している場合は接続不可
                     if (myPoints[myIdx].kantDir === targetP.kantDir) {
@@ -1191,7 +1192,8 @@
                         isSnapped = true; render(); return;
                     }
                 }
-    
+                */
+
                 // 角度を合わせて回転させる
                 const targetWorldAng = (targetP.ang + 180) % 360;
                 const myLocalAng     = (myPoints[myIdx].ang - draggedPart.rotation + 360) % 360;

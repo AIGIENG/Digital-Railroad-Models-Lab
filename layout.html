@@ -696,13 +696,19 @@
                         const yOff = r * (1 - Math.cos(halfAngRad));
 
                         // 右端：Yオフセットとして -yOff を渡す（パーツ中心より上に配置されるため）
+                        console.log(`[関数入力] 基準(x,y): (${p.x}, ${p.y}), 回転: ${p.rotation}, dx: ${(chord/2).toFixed(1)}, dy: ${(-yOff).toFixed(1)}`);
                         const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, -yOff);
+                        console.log(`[関数戻り値] 計算結果(x,y): (${p1.x.toFixed(1)}, ${p1.y.toFixed(1)})`);
                         p1.ang = (p.rotation + p.nAngle / 2) % 360;
+                        console.log("[確認] commonPropsの中身:", JSON.stringify(commonProps));
                         points.push({ ...p1, ...commonProps, ...getKantProps(index === 0 ? "right" : "left") });
 
                         // 左端：Yオフセットとして -yOff を渡す
+                        console.log(`[関数入力] 基準(x,y): (${p.x}, ${p.y}), 回転: ${p.rotation}, dx: ${(chord/2).toFixed(1)}, dy: ${(-yOff).toFixed(1)}`);
                         const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, -yOff);
+                        console.log(`[関数戻り値] 計算結果(x,y): (${p2.x.toFixed(1)}, ${p2.y.toFixed(1)})`);
                         p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
+                        console.log("[確認] commonPropsの中身:", JSON.stringify(commonProps));
                         points.push({ ...p2, ...commonProps, ...getKantProps(index === 0 ? "left" : "right") });
                     });
                     

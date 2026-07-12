@@ -683,29 +683,33 @@
                     p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
                     points.push({ ...p2, ...commonProps, ...getKantProps("left") });
                 } else {
-                    // 【複線の場合】各レールの円弧中心オフセットを計算して適用
-                    console.log("計算中パーツ:", p.code, "isDouble:", p.bIsDouble);
+                    console.log(`[デバッグ] パーツ: ${p.code} (x:${p.x.toFixed(1)}, y:${p.y.toFixed(1)}, rot:${p.rotation})`);
+                    
                     const rOuter = p.nRadius;
                     const rInner = p.nRadius - p.nTrackGap;
                     const radii = [rOuter, rInner];
 
                     radii.forEach((r, index) => {
                         const chord = 2 * r * Math.sin(halfAngRad);
-                        // ここが肝：描画関数と同じ基準（円弧中心までの距離）をYオフセットとして渡す
                         const arcCenterY = r * Math.cos(halfAngRad);
 
-                        // 右端：Yオフセットに arcCenterY を渡す
+                        // --- 基準位置のログ ---
+                        console.log(`  レール${index} (半径:${r}): arcCenterY=${arcCenterY.toFixed(1)}`);
+
+                        // 右端
                         const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, arcCenterY);
                         p1.ang = (p.rotation + p.nAngle / 2) % 360;
                         points.push({ ...p1, ...commonProps, ...getKantProps(index === 0 ? "right" : "left") });
 
-                        // 左端：Yオフセットに arcCenterY を渡す
+                        // 左端
                         const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, arcCenterY);
                         p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
                         points.push({ ...p2, ...commonProps, ...getKantProps(index === 0 ? "left" : "right") });
                     });
-                    console.log("生成された接続点数:", points.length);
-                    points.forEach((pt, i) => console.log(`点${i}: x=${pt.x.toFixed(1)}, y=${pt.y.toFixed(1)}, ang=${pt.ang}`));
+
+                    points.forEach((pt, i) => {
+                        console.log(`  点${i}: x=${pt.x.toFixed(1)}, y=${pt.y.toFixed(1)} (中心との差: dx=${(pt.x-p.x).toFixed(1)}, dy=${(pt.y-p.y).toFixed(1)})`);
+                    });
                 }
                 break;
             }

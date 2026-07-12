@@ -689,13 +689,14 @@
 
                 radii.forEach((r, index) => {
                     const chord = 2 * r * Math.sin(halfAngRad);
-                    const localOy = (index === 0) ? 0 : p.nTrackGap / 2;
+                    // オフセットを0に固定。半径 r の値そのものが「内側への寄り」を決定する
+                    const localOy = 0; 
 
-                    // 右端の計算
+                    // 右端
                     const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, localOy);
                     p1.ang = (p.rotation + p.nAngle / 2) % 360;
-                    
-                    // 左端の計算
+
+                    // 左端
                     const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, localOy);
                     p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
 

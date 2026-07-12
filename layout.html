@@ -689,15 +689,19 @@
                 const radii = [rOuter, rInner];
 
                 radii.forEach((r, index) => {
+                    // index === 0 は外側、index === 1 は内側
+                    const cx = (index === 0) ? p.x : p.x + p.nTrackGap * Math.cos(p.rotation * Math.PI / 180);
+                    const cy = (index === 0) ? p.y : p.y + p.nTrackGap * Math.sin(p.rotation * Math.PI / 180);
+
                     const chord = 2 * r * Math.sin(halfAngRad);
 
-                    // 右端
-                    const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, 0);
+                    // 右端（cx, cy を使用）
+                    const p1 = getTransformedPoint(cx, cy, p.rotation, chord / 2, 0);
                     p1.ang = (p.rotation + p.nAngle / 2) % 360;
                     points.push({ ...p1, ...commonProps, ...getKantProps(index === 0 ? "right" : "left") });
 
-                    // 左端
-                    const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, 0);
+                    // 左端（cx, cy を使用）
+                    const p2 = getTransformedPoint(cx, cy, p.rotation, -chord / 2, 0);
                     p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
                     points.push({ ...p2, ...commonProps, ...getKantProps(index === 0 ? "left" : "right") });
                 });

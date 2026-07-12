@@ -682,29 +682,34 @@
                 const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, 0);
                 p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
                 points.push({ ...p2, ...commonProps, ...getKantProps("left") });
-                } else {
-                    // 【複線の場合】
-                    // 外側は半径 r、内側は中心間隔を考慮して r - nTrackGap/2 を使用
-                    const rOuter = p.nRadius;
-                    const rInner = p.nRadius - p.nTrackGap;
-                    const radii = [rOuter, rInner];
+            } else {
+                // 【複線の場合】
+                // 外側は基準のまま、内側のみトラック間隔分をオフセットして接続点を計算する
+                const rOuter = p.nRadius;
+                const rInner = p.nRadius - p.nTrackGap;
+                const radii = [rOuter, rInner];
 
-                    radii.forEach((r, index) => {
-                        const chord = 2 * r * Math.sin(halfAngRad);
+                radii.forEach((r, index) => {
+                    const chord = 2 * r * Math.sin(halfAngRad);
+                    
+                    // 内側の時のみオフセットを適用する（0:外側, 1:内側）
+                    // 以前「下にずれた」のは、回転行列の性質上、oyを正の数で足すと
+                    // 座標系によっては下方（あるいは法線方向）へ過剰にオフセットされるためです。
+                    // 意図した方向へ修正するために、符号を確認してください。
+                    const offset = (index === 0) ? 0 : p.nTrackGap;
 
-                        // 接続点の計算（オフセットなしで、半径の差分のみで表現）
-                        // 右端
-                        const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, 0);
-                        p1.ang = (p.rotation + p.nAngle / 2) % 360;
-                        points.push({ ...p1, ...commonProps, ...getKantProps(index === 0 ? "right" : "left") });
+                    // 右端
+                    // oy引数にオフセットを渡すことで、中心からの距離を制御
+                    const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, offset);
+                    p1.ang = (p.rotation + p.nAngle / 2) % 360;
+                    points.push({ ...p1, ...commonProps, ...getKantProps(index === 0 ? "right" : "left") });
 
-                        // 左端
-                        const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, 0);
-                        p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
-                        points.push({ ...p2, ...commonProps, ...getKantProps(index === 0 ? "left" : "right") });
-                    });
-                }
-            break;
+                    // 左端
+                    const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, offset);
+                    p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
+                    points.push({ ...p2, ...commonProps, ...getKantProps(index === 0 ? "left" : "right") });
+                });
+            }
         }
     
             case "point": {

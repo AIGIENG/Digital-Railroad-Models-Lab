@@ -707,33 +707,34 @@
                 const rInner = p.nRadius - p.nTrackGap;
                 const radii = [rOuter, rInner];
 
-                radii.forEach((r, index) => {
-                    const chord = 2 * r * Math.sin(halfAngRad);
-                    
-                    // 【重要】getDoubleTrackPoint内の計算式をここで再現し、
-                    // 変数ごとの値をすべて出力して「どこで変動が消えているか」を確定させます
-                    const rad = (p.rotation * Math.PI) / 180;
-                    const calcY = p.y + (r * Math.sin(rad)); // 関数内で計算しているYの正体
-                    
-                    console.log(`--- Debug Index:${index} ---`);
-                    console.log(`Input: rotation=${p.rotation}, r=${r}, p.y=${p.y}`);
-                    console.log(`Calculation: p.y(${p.y}) + r(${r}) * sin(rad:${rad.toFixed(4)})`);
-                    console.log(`Intermediate Value (r * sin(rad)): ${(r * Math.sin(rad)).toFixed(4)}`);
-                    console.log(`CalcY result: ${calcY}`);
+            radii.forEach((r, index) => {
+                // 1. 基本変数の定義
+                const chord = 2 * r * Math.sin(halfAngRad);
+                const offset = (index === 0) ? 0 : p.nTrackGap;
+                
+                // 2. 法線ベクトルの準備
+                const rad = (p.rotation * Math.PI) / 180;
+                const dirX = Math.cos(rad);
+                const dirY = Math.sin(rad);
 
-                    // 右端の計算
-                    const p1 = getDoubleTrackPoint(p.x, p.y, p.rotation, r, chord / 2);
-                    // 左端の計算
-                    const p2 = getDoubleTrackPoint(p.x, p.y, p.rotation, r, -chord / 2);
+                // 3. 右端の座標計算 (インライン計算)
+                const chordOffsetR = chord / 2;
+                const p1 = {
+                    x: p.x + (chordOffsetR * dirX) - (offset * dirY),
+                    y: p.y + (chordOffsetR * dirY) + (offset * dirX)
+                };
+                p1.ang = (p.rotation + p.nAngle / 2) % 360;
+                points.push({ ...p1, ...commonProps, ...getKantProps(index === 0 ? "right" : "left") });
 
-                    console.log(`Final p1.y: ${p1.y}, p2.y: ${p2.y}`);
-
-                    p1.ang = (p.rotation + p.nAngle / 2) % 360;
-                    points.push({ ...p1, ...commonProps, ...getKantProps(index === 0 ? "right" : "left") });
-
-                    p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
-                    points.push({ ...p2, ...commonProps, ...getKantProps(index === 0 ? "left" : "right") });
-                });
+                // 4. 左端の座標計算 (インライン計算)
+                const chordOffsetL = -chord / 2;
+                const p2 = {
+                    x: p.x + (chordOffsetL * dirX) - (offset * dirY),
+                    y: p.y + (chordOffsetL * dirY) + (offset * dirX)
+                };
+                p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
+                points.push({ ...p2, ...commonProps, ...getKantProps(index === 0 ? "left" : "right") });
+            });
             }
             break;
         }

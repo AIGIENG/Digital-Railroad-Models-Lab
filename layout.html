@@ -878,19 +878,28 @@
 
     // 複線曲線：道床 + 走行線を内外2本ずつ
     // 基準点 = 弦の中点（代表半径 r の弦の中点）
-    function drawDoubleCurvePart(ctx, p) {
-        const r          = p.nRadius;
-        const gap        = p.nTrackGap / 2;
-        const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
-        const arcCenterY = r * Math.cos(halfAngRad);
+function drawDoubleCurvePart(ctx, p) {
+    const r = p.nRadius; // 外側の半径
+    const gap = p.nTrackGap; // 外側と内側の距離
+    const centerR = r - (gap / 2); // 道床の真ん中の半径
+    const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
+    
+    // 描画の中心（円弧中心）は「道床の真ん中」の半径で計算する
+    const arcCenterY = centerR * Math.cos(halfAngRad);
 
-        ctx.save();
-        ctx.translate(0, arcCenterY); // 弦の中点 → 円弧中心へ移動
-        drawCurveBallast(ctx, r, p.nAngle, p.nViewWidth, draggedPart === p, p.sColor || '#333');
-        drawCurveRail(ctx, r - gap, p.nAngle, p.nGauge, p.sColor || '#333'); // 内側
-        drawCurveRail(ctx, r + gap, p.nAngle, p.nGauge, p.sColor || '#333'); // 外側
-        ctx.restore();
-    }
+    ctx.save();
+    ctx.translate(0, arcCenterY);
+    
+    // 道床は「道床の中心半径(centerR)」を基準に描画
+    drawCurveBallast(ctx, centerR, p.nAngle, p.nViewWidth, draggedPart === p, p.sColor || '#333');
+    
+    // 外側レール(r)
+    drawCurveRail(ctx, r, p.nAngle, p.nGauge, p.sColor || '#333');
+    // 内側レール(r - gap)
+    drawCurveRail(ctx, r - gap, p.nAngle, p.nGauge, p.sColor || '#333');
+    
+    ctx.restore();
+}
 
     // ポイント：直線部分 + 分岐曲線部分を合成して描画
     // 基準点 = 直線部分の中心（= 弦の中点）

@@ -667,37 +667,33 @@
                 break;
             }
     
-            case "curve":
-            case "approach": {
-                const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
-                const rOuter = p.nRadius;
-                const chordOuter = 2 * rOuter * Math.sin(halfAngRad);
-    
-                // 外側の接続点（常に計算）
-                const p1Out = getTransformedPoint(p.x, p.y, p.rotation, chordOuter / 2, 0);
-                p1Out.ang = (p.rotation + p.nAngle / 2) % 360;
-                points.push({ ...p1Out, ...commonProps, ...getKantProps("left") });
-    
-                const p2Out = getTransformedPoint(p.x, p.y, p.rotation, -chordOuter / 2, 0);
-                p2Out.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
-                points.push({ ...p2Out, ...commonProps, ...getKantProps("right") });
-    
-                // 複線の場合、内側の接続点を追加
-                if (p.bIsDouble) {
-                    const rInner = p.nRadius - p.nTrackGap;
-                    const chordInner = 2 * rInner * Math.sin(halfAngRad);
-    
-                    // 内側の接続点（外側と同様の角度を維持）
-                    const p1In = getTransformedPoint(p.x, p.y, p.rotation, chordInner / 2, 0);
-                    p1In.ang = (p.rotation + p.nAngle / 2) % 360;
-                    points.push({ ...p1In, ...commonProps, ...getKantProps("right") }); // 内側はカント方向を反転させる場合は調整してください
-    
-                    const p2In = getTransformedPoint(p.x, p.y, p.rotation, -chordInner / 2, 0);
-                    p2In.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
-                    points.push({ ...p2In, ...commonProps, ...getKantProps("left") }); // 同上
-                }
-                break;
-            }
+        case "curve":
+        case "approach": {
+            const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
+            
+            // 複線の場合、中央からずらした2つの半径を定義
+            const radii = p.bIsDouble 
+                ? [p.nRadius + (p.nTrackGap / 2), p.nRadius - (p.nTrackGap / 2)] 
+                : [p.nRadius];
+
+            radii.forEach((r, index) => {
+                const chord = 2 * r * Math.sin(halfAngRad);
+                
+                // 【重要】ここで各レールの曲率に応じた正しい端点座標を算出する
+                // 弦の長さだけではなく、そのレールの中心から見た座標として計算する
+                
+                // 1. 右端 (Right End)
+                const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, 0);
+                p1.ang = (p.rotation + p.nAngle / 2) % 360;
+                points.push({ ...p1, ...commonProps, ...getKantProps(index === 0 ? "right" : "left") });
+                
+                // 2. 左端 (Left End)
+                const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, 0);
+                p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
+                points.push({ ...p2, ...commonProps, ...getKantProps(index === 0 ? "left" : "right") });
+            });
+            break;
+        }
     
             case "point": {
                 // ポイントの基準点 = 直線部分の中心

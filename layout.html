@@ -667,35 +667,23 @@
                 break;
             }
     
-            case "curve": {
+            case "curve":
+            case "approach": {
+                // B案：弦の中点を基準点とする座標系
+                // 弦の長さ chord = 2 * r * sin(θ/2)
+                // 右端: ローカル座標 (+chord/2, 0)、角度 +(θ/2)
+                // 左端: ローカル座標 (-chord/2, 0)、角度 -(θ/2) + 180°
                 const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
-                const rOuter = p.nRadius;
-                const chordOuter = 2 * rOuter * Math.sin(halfAngRad);
-                const arcCenterYOuter = rOuter * Math.cos(halfAngRad);
-
-                // 外側の計算（常に実行）
-                const p1Out = getTransformedPoint(p.x, p.y, p.rotation, chordOuter / 2, arcCenterYOuter);
-                p1Out.ang = (p.rotation + p.nAngle / 2) % 360;
-                points.push({ ...p1Out, ...commonProps, ...getKantProps("right") });
-
-                const p2Out = getTransformedPoint(p.x, p.y, p.rotation, -chordOuter / 2, arcCenterYOuter);
-                p2Out.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
-                points.push({ ...p2Out, ...commonProps, ...getKantProps("left") });
-
-                // 複線の場合、内側の計算を追加
-                if (p.bIsDouble) {
-                    const rInner = p.nRadius - p.nTrackGap;
-                    const chordInner = 2 * rInner * Math.sin(halfAngRad);
-                    const arcCenterYInner = rInner * Math.cos(halfAngRad);
-
-                    const p1In = getTransformedPoint(p.x, p.y, p.rotation, chordInner / 2, arcCenterYInner);
-                    p1In.ang = (p.rotation + p.nAngle / 2) % 360;
-                    points.push({ ...p1In, ...commonProps, ...getKantProps("left") });
-
-                    const p2In = getTransformedPoint(p.x, p.y, p.rotation, -chordInner / 2, arcCenterYInner);
-                    p2In.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
-                    points.push({ ...p2In, ...commonProps, ...getKantProps("right") });
-                }
+                const r          = p.nRadius;
+                const chord      = 2 * r * Math.sin(halfAngRad);
+    
+                const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, 0);
+                p1.ang = (p.rotation + p.nAngle / 2) % 360;
+                points.push({ ...p1, ...commonProps, ...getKantProps("left") });
+    
+                const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, 0);
+                p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
+                points.push({ ...p2, ...commonProps, ...getKantProps("right") });
                 break;
             }
     
@@ -742,6 +730,7 @@
         return points;
     }
 
+
     // =====================================================
     // render()
     // キャンバス全体を再描画する。
@@ -753,7 +742,7 @@
         layers.rail.forEach(part => drawPart(ctx, part));
     }
 
-
+    
     // =====================================================
     // drawPart(ctx, p)
     // パーツ p を描画する。

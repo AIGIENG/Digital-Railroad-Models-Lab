@@ -667,46 +667,45 @@
                 break;
             }
     
-        case "curve":
-        case "approach": {
-            const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
+            case "curve":
+            case "approach": {
+                const halfAngRad = (p.nAngle / 2) * Math.PI / 180;
 
-            if (!p.bIsDouble) {
-                // 【単線の場合】既存の計算ロジックを維持
-                const chord = 2 * p.nRadius * Math.sin(halfAngRad);
-                
-                const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, 0);
-                p1.ang = (p.rotation + p.nAngle / 2) % 360;
-                points.push({ ...p1, ...commonProps, ...getKantProps("right") });
-                
-                const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, 0);
-                p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
-                points.push({ ...p2, ...commonProps, ...getKantProps("left") });
-            } else {
-                // 【複線の場合】外側レールを基準に内側の接続点をオフセットして計算
-                console.log("計算中パーツ:", p.code, "isDouble:", p.bIsDouble);
-                const rOuter = p.nRadius;
-                const rInner = p.nRadius - p.nTrackGap;
-                const radii = [rOuter, rInner];
-
-                radii.forEach((r, index) => {
-                    const chord = 2 * r * Math.sin(halfAngRad);
-
-                    // 右端
+                if (!p.bIsDouble) {
+                    // 【単線の場合】従来通り（弦の中点が中心なのでYオフセットは0でOK）
+                    const chord = 2 * p.nRadius * Math.sin(halfAngRad);
+                    
                     const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, 0);
                     p1.ang = (p.rotation + p.nAngle / 2) % 360;
-                    points.push({ ...p1, ...commonProps, ...getKantProps(index === 0 ? "right" : "left") });
-
-                    // 左端
+                    points.push({ ...p1, ...commonProps, ...getKantProps("right") });
+                    
                     const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, 0);
                     p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
-                    points.push({ ...p2, ...commonProps, ...getKantProps(index === 0 ? "left" : "right") });
-                });
-                console.log("生成された接続点数:", points.length);
-                points.forEach((pt, i) => console.log(`点${i}: x=${pt.x.toFixed(1)}, y=${pt.y.toFixed(1)}, ang=${pt.ang}`));
+                    points.push({ ...p2, ...commonProps, ...getKantProps("left") });
+                } else {
+                    // 【複線の場合】各レールの円弧中心オフセットを計算して適用
+                    const rOuter = p.nRadius;
+                    const rInner = p.nRadius - p.nTrackGap;
+                    const radii = [rOuter, rInner];
+
+                    radii.forEach((r, index) => {
+                        const chord = 2 * r * Math.sin(halfAngRad);
+                        // ここが肝：描画関数と同じ基準（円弧中心までの距離）をYオフセットとして渡す
+                        const arcCenterY = r * Math.cos(halfAngRad);
+
+                        // 右端：Yオフセットに arcCenterY を渡す
+                        const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, arcCenterY);
+                        p1.ang = (p.rotation + p.nAngle / 2) % 360;
+                        points.push({ ...p1, ...commonProps, ...getKantProps(index === 0 ? "right" : "left") });
+
+                        // 左端：Yオフセットに arcCenterY を渡す
+                        const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, arcCenterY);
+                        p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
+                        points.push({ ...p2, ...commonProps, ...getKantProps(index === 0 ? "left" : "right") });
+                    });
+                }
+                break;
             }
-            break;
-        }
     
             case "point": {
                 // ポイントの基準点 = 直線部分の中心

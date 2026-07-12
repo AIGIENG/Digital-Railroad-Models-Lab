@@ -683,19 +683,20 @@
                     p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
                     points.push({ ...p2, ...commonProps, ...getKantProps("left") });
                 } else {
-                    const radii = [p.nRadius, p.nRadius - p.nTrackGap];
-                    radii.forEach((r, index) => {
-                        const chord = 2 * r * Math.sin((p.nAngle / 2) * Math.PI / 180);
-                        const yShift = (r === p.nRadius) ? 0 : p.nTrackGap;
+                    // 手順(1) 外側レールの半径設定
+                    const rOuter = p.nRadius;
+                    // 手順(2) 外側レールの接続点計算（回転角考慮）
+                    const pointsOuter = calculatePointsForRadius(p.x, p.y, p.rotation, rOuter, p.nAngle);
+                    points.push(...pointsOuter);
 
-                        const p1 = getTransformedPoint(p.x, p.y - yShift, p.rotation, chord / 2, 0);
-                        p1.ang = (p.rotation + p.nAngle / 2) % 360;
-                        points.push({ ...p1, ...commonProps, ...getKantProps(index === 0 ? "right" : "left") });
-
-                        const p2 = getTransformedPoint(p.x, p.y - yShift, p.rotation, -chord / 2, 0);
-                        p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
-                        points.push({ ...p2, ...commonProps, ...getKantProps(index === 0 ? "left" : "right") });
-                    });
+                    // 手順(3) 内側レールの半径設定
+                    const rInner = p.nRadius - p.nTrackGap;
+                    // 手順(4) 内側レールの接続点計算（中心点をGap分シフトさせ、回転角考慮）
+                    // 中心点を p.rotation に基づいて nTrackGap 分ずらして算出
+                    const shiftX = p.nTrackGap * Math.cos(p.rotation * Math.PI / 180);
+                    const shiftY = p.nTrackGap * Math.sin(p.rotation * Math.PI / 180);
+                    const pointsInner = calculatePointsForRadius(p.x + shiftX, p.y + shiftY, p.rotation, rInner, p.nAngle);
+                    points.push(...pointsInner);
                 }
                 break;
             }

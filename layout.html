@@ -683,38 +683,18 @@
                     p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
                     points.push({ ...p2, ...commonProps, ...getKantProps("left") });
                 } else {
-                    // 【複線の場合】外側レールを基準に内側の接続点をオフセットして計算
-                    console.log("[デバッグ] パーツ:", p.code, "isDouble:", p.bIsDouble);
-                    const rOuter = p.nRadius;
-                    const rInner = p.nRadius - p.nTrackGap;
-                    const radii = [rOuter, rInner];
-
-                    console.log(`[開始] パーツ: ${p.code}, 中心: (${p.x}, ${p.y}), 回転: ${p.rotation}, 共通プロパティ: ${JSON.stringify(commonProps)}`);
+                    const radii = [p.nRadius, p.nRadius - p.nTrackGap];
                     radii.forEach((r, index) => {
-                        const chord = 2 * r * Math.sin(halfAngRad);
-                        // 弦の中点(基準点)から端点までのY方向の距離を計算
-                        // 中心を原点としたとき、端点のY座標は円弧の高さ分だけ中心側に寄る
-                        const yOff = r * (1 - Math.cos(halfAngRad));
+                        const chord = 2 * r * Math.sin((p.nAngle / 2) * Math.PI / 180);
+                        const yShift = (r === p.nRadius) ? 0 : p.nTrackGap;
 
-                        // 右端：Yオフセットとして -yOff を渡す（パーツ中心より上に配置されるため）
-                        console.log(`[関数入力] 基準(x,y): (${p.x}, ${p.y}), 回転: ${p.rotation}, dx: ${(chord/2).toFixed(1)}, dy: ${(-yOff).toFixed(1)}`);
-                        const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, -yOff);
-                        console.log(`[関数戻り値] 計算結果(x,y): (${p1.x.toFixed(1)}, ${p1.y.toFixed(1)})`);
+                        const p1 = getTransformedPoint(p.x, p.y - yShift, p.rotation, chord / 2, 0);
                         p1.ang = (p.rotation + p.nAngle / 2) % 360;
-                        console.log("[確認] commonPropsの中身:", JSON.stringify(commonProps));
                         points.push({ ...p1, ...commonProps, ...getKantProps(index === 0 ? "right" : "left") });
 
-                        // 左端：Yオフセットとして -yOff を渡す
-                        console.log(`[関数入力] 基準(x,y): (${p.x}, ${p.y}), 回転: ${p.rotation}, dx: ${(chord/2).toFixed(1)}, dy: ${(-yOff).toFixed(1)}`);
-                        const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, -yOff);
-                        console.log(`[関数戻り値] 計算結果(x,y): (${p2.x.toFixed(1)}, ${p2.y.toFixed(1)})`);
+                        const p2 = getTransformedPoint(p.x, p.y - yShift, p.rotation, -chord / 2, 0);
                         p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
-                        console.log("[確認] commonPropsの中身:", JSON.stringify(commonProps));
                         points.push({ ...p2, ...commonProps, ...getKantProps(index === 0 ? "left" : "right") });
-                    });
-                    console.log(`[終了] 生成点数: ${points.length}, 最終ポイントリスト:`, JSON.stringify(points));
-                    points.forEach((pt, i) => {
-                        console.log(`  点${i}: x=${pt.x.toFixed(1)}, y=${pt.y.toFixed(1)} (中心との差: dx=${(pt.x-p.x).toFixed(1)}, dy=${(pt.y-p.y).toFixed(1)})`);
                     });
                 }
                 break;

@@ -1230,7 +1230,7 @@
         switch (e.key) {   
             case 'r':
             case 'R': {
-                rotatePart;
+                rotatePart();
                 break;
             }
             case 'Control':
@@ -1240,7 +1240,7 @@
             case 'Delete':
             case 'Backspace':
                 if (draggedPart) {
-                    deletePart;
+                    deletePart();
                     render();
                 }
                 break;

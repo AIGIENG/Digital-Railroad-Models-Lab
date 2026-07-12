@@ -689,17 +689,25 @@
 
                 radii.forEach((r, index) => {
                     const chord = 2 * r * Math.sin(halfAngRad);
-                    // 内側レールのみトラック間隔の半分をオフセット
                     const localOy = (index === 0) ? 0 : p.nTrackGap / 2;
 
-                    // 右端
+                    // 右端の計算
                     const p1 = getTransformedPoint(p.x, p.y, p.rotation, chord / 2, localOy);
                     p1.ang = (p.rotation + p.nAngle / 2) % 360;
-                    points.push({ ...p1, ...commonProps, ...getKantProps(index === 0 ? "right" : "left") });
-
-                    // 左端
+                    
+                    // 左端の計算
                     const p2 = getTransformedPoint(p.x, p.y, p.rotation, -chord / 2, localOy);
                     p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
+
+                    // --- ログ出力位置（ここに追加してください） ---
+                    console.log(`--- Debug Index:${index} ---`);
+                    console.log(`Radius:${r.toFixed(2)}, Chord:${chord.toFixed(2)}, Oy:${localOy}`);
+                    console.log(`Origin:(${p.x.toFixed(2)}, ${p.y.toFixed(2)}), Rot:${p.rotation}`);
+                    console.log(`P1(Right):(${p1.x.toFixed(2)}, ${p1.y.toFixed(2)})`);
+                    console.log(`P2(Left):(${p2.x.toFixed(2)}, ${p2.y.toFixed(2)})`);
+                    // ------------------------------------------
+
+                    points.push({ ...p1, ...commonProps, ...getKantProps(index === 0 ? "right" : "left") });
                     points.push({ ...p2, ...commonProps, ...getKantProps(index === 0 ? "left" : "right") });
                 });
             }

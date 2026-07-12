@@ -709,15 +709,28 @@
 
                 radii.forEach((r, index) => {
                     const chord = 2 * r * Math.sin(halfAngRad);
-                    const offset = (index === 0) ? 0 : p.nTrackGap;
+                    
+                    // 【重要】getDoubleTrackPoint内の計算式をここで再現し、
+                    // 変数ごとの値をすべて出力して「どこで変動が消えているか」を確定させます
+                    const rad = (p.rotation * Math.PI) / 180;
+                    const calcY = p.y + (r * Math.sin(rad)); // 関数内で計算しているYの正体
+                    
+                    console.log(`--- Debug Index:${index} ---`);
+                    console.log(`Input: rotation=${p.rotation}, r=${r}, p.y=${p.y}`);
+                    console.log(`Calculation: p.y(${p.y}) + r(${r}) * sin(rad:${rad.toFixed(4)})`);
+                    console.log(`Intermediate Value (r * sin(rad)): ${(r * Math.sin(rad)).toFixed(4)}`);
+                    console.log(`CalcY result: ${calcY}`);
 
                     // 右端の計算
-                    const p1 = getDoubleTrackPoint(p.x, p.y, p.rotation, r, chord / 2, offset);
+                    const p1 = getDoubleTrackPoint(p.x, p.y, p.rotation, r, chord / 2);
+                    // 左端の計算
+                    const p2 = getDoubleTrackPoint(p.x, p.y, p.rotation, r, -chord / 2);
+
+                    console.log(`Final p1.y: ${p1.y}, p2.y: ${p2.y}`);
+
                     p1.ang = (p.rotation + p.nAngle / 2) % 360;
                     points.push({ ...p1, ...commonProps, ...getKantProps(index === 0 ? "right" : "left") });
 
-                    // 左端の計算
-                    const p2 = getDoubleTrackPoint(p.x, p.y, p.rotation, r, -chord / 2, offset);
                     p2.ang = (p.rotation - p.nAngle / 2 + 180 + 360) % 360;
                     points.push({ ...p2, ...commonProps, ...getKantProps(index === 0 ? "left" : "right") });
                 });
